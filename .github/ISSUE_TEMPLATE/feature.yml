@@ -1,0 +1,44 @@
+name: 功能或改进
+description: 提出可分工、可验收的功能任务
+title: "[Feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 场景与问题
+      description: 谁在什么场景下遇到什么问题？
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: 主要模块
+      options:
+        - frontend
+        - backend
+        - ai
+        - docs
+        - deploy
+        - repo / 跨模块
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 实现范围
+      description: 明确本任务包含和不包含的内容。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收条件
+      description: 用能够检查的结果描述完成标准。
+      placeholder: "例如：播放器支持 0.75、1、1.25 倍速，切换倍速不会重置播放位置。"
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 依赖与分工
+      description: 关联接口、前置任务、负责人或参考材料；无则填无。
