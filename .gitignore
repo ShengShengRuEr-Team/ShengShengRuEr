@@ -1,0 +1,85 @@
+# Local environment files; share examples only.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Credentials and private keys.
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+service-account*.json
+secrets/
+
+# Editors and operating systems.
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*~
+.codex/
+.codex_tmp/
+
+# Frontend dependencies and generated output.
+node_modules/
+dist/
+build/
+coverage/
+.next/
+.nuxt/
+.output/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python environments and generated output.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
+
+# Runtime files and local databases.
+*.log
+logs/
+tmp/
+temp/
+.cache/
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+
+# Raw data and model artifacts. Keep manifests and documentation in Git.
+/data/
+/uploads/
+/backups/
+/artifacts/
+/models/
+*.mp3
+*.wav
+*.m4a
+*.flac
+*.mp4
+*.safetensors
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.gguf
+
+# Dependency lockfiles and database migrations must stay tracked.
