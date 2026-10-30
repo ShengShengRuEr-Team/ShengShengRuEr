@@ -1,0 +1,37 @@
+name: 问题反馈
+description: 记录可以复现的问题与预期行为
+title: "[Bug] "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: 环境与版本
+      description: 本地 / 开发联调 / 发布验收 / 正式，以及版本标签或提交。
+      placeholder: "staging / release/0.1.0 / 浏览器与版本"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤
+      description: 描述如何稳定复现；不要填写密码、令牌或用户私人数据。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期结果
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果与影响
+      description: 可附脱敏截图或日志，注明是否影响真实用户。
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 其他线索
+      description: 相关任务、最近变更、临时处理方式等。
