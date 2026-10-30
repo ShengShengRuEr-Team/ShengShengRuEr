@@ -19,7 +19,7 @@
 
 ## 首次初始化
 
-本次本地初始化从远端 `main` 创建本地 `develop`，再创建 `chore/repository-initialization`。目录和规范的变化位于该任务分支。
+首次建库时，从远端 `main` 创建本地 `develop`，再创建 `chore/repository-initialization`。目录和规范的变化位于该任务分支，通过 PR 进入 `develop`。
 
 若远端尚无 `develop`，首次发布分支按以下顺序进行：
 
@@ -33,7 +33,7 @@ git push -u origin develop
 git push -u origin chore/repository-initialization
 ```
 
-这些命令只是后续发布说明，不代表本地初始化已经推送。不要把初始化直接推送进受保护的 `main` 或 `develop`。
+上述命令仅用于首次发布分支，不是日常开发步骤。推送任务分支不代表初始化改动已合并，PR 审核通过并由管理员合并后，团队才会在 `develop` 看到完整目录。不要把初始化改动直接推送进受保护的 `main` 或 `develop`。
 
 ## 日常开发
 

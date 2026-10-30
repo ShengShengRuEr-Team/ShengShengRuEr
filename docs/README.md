@@ -2,6 +2,7 @@
 
 | 内容 | 位置 | 维护要求 |
 | --- | --- | --- |
+| 新成员上手与日常操作 | [团队开发流程](development-guide.md) | 按步骤执行，实际命令与仓库状态一致 |
 | 目录、文件、代码与数据命名 | [命名规范](naming-conventions.md) | 命名变更先讨论，再统一修改 |
 | 分支、发布、线上修复与权限 | [Git 工作流](git-workflow.md) | 与 GitHub 中实际规则一致 |
 | 产品需求与验收 | [requirements](requirements/README.md) | 可追溯到任务和 PR |

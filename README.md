@@ -44,6 +44,8 @@ ShengShengRuEr/
 
 ## 开始参与
 
+**新成员先阅读 [团队开发流程](docs/development-guide.md)**：包含第一次下载项目、创建分支、提交 PR、处理审核和日常同步的完整步骤。
+
 ```bash
 git clone https://github.com/ShengShengRuEr-Team/ShengShengRuEr.git
 cd ShengShengRuEr
@@ -58,6 +60,7 @@ git switch -c feature/23-listening-player
 
 ## 团队文档
 
+- [团队开发流程](docs/development-guide.md)：可直接分享给队友的操作指南。
 - [参与开发](CONTRIBUTING.md)：任务、审查和提交要求。
 - [命名规范](docs/naming-conventions.md)：目录、文件、代码、接口与环境变量的统一命名。
 - [Git 工作流](docs/git-workflow.md)：分支来源、合并方向、发布和线上修复。
