@@ -25,7 +25,7 @@
 
 1. 管理员把本地 `develop` 推送到远端。当前两条规则未限制分支创建；若以后增加创建限制，按当时权限执行。
 2. 推送 `chore/repository-initialization`，创建目标为 `develop` 的 PR。
-3. 非 PR 作者审核批准，管理员执行 Merge。
+3. 普通成员发起的 PR 由非作者审核批准，管理员执行 Merge；管理员本人发起的初始化 PR 可以使用仅限 PR 的审核例外完成合并。
 4. 团队随后克隆仓库，或拉取远端分支，从最新 `develop` 开发。
 
 ```bash
@@ -77,7 +77,7 @@ GitHub 中设置两条 **Active** 的分支规则，均匹配 `main`、`develop`
 
 ### pr-required
 
-- Bypass list 留空。
+- Bypass list 添加 Organization admin，方式为 Allow for pull requests only。组织管理员可在 PR 中绕过等待批准；普通成员不获得例外权限。
 - 勾选 Require a pull request before merging，Required approvals 为 `1`。
 - 勾选 Dismiss stale pull request approvals when new commits are pushed。
 - 勾选 Require conversation resolution before merging。
@@ -91,7 +91,9 @@ GitHub 中设置两条 **Active** 的分支规则，均匹配 `main`、`develop`
 - Bypass list 添加 Organization admin，方式为 Allow for pull requests only。
 - 普通成员给予仓库 Write 权限；组织所有者属于允许合并的管理员范围。若要求仅一人合并，就不能再把其他成员提升为组织所有者。
 
-两条规则共同生效：管理员只能经 PR 更新目标分支，且仍需满足第一条没有绕过名单的审核规则。管理员本人发起的 PR 需要另一位成员批准后，再由管理员合并。
+两条规则共同生效：普通成员需要发起 PR 并接受审核，不能合并到目标分支；组织管理员必须通过 PR 更新目标分支，但可选择绕过等待批准，合并自己的 PR，不必再等待另一名成员批准。
+
+仅限 PR 的例外不会授予直接推送、强制推送或直接删除受保护分支的权限。管理员不能批准自己的 PR，但可以按规则执行绕过合并；PR 中仍应写清修改与验证。该例外在技术上也可用于其他 PR，日常仍要求管理员先审核成员提交的改动，再确认合并。
 
 仓库当前采用 Free 组织与公开仓库方案。公开意味着代码与历史可被外界读取；免费私有仓库无法据此强制执行规则。修改可见性或套餐时，需要重新确认规则是否执行。
 
