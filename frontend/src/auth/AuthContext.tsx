@@ -13,12 +13,10 @@ export interface AuthContextValue {
   token: string | null
   user: AuthUser | null
   roles: string[]
-  permissions: string[]
   isAdmin: boolean
   login: (username: string, password: string) => Promise<AuthProfile>
   logout: () => Promise<void>
   hasRole: (role: string) => boolean
-  hasPermission: (permission: string) => boolean
 }
 
 interface AuthState {
@@ -107,10 +105,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (role: string) => profile?.roles.includes(role) ?? false,
     [profile],
   )
-  const hasPermission = useCallback(
-    (permission: string) => profile?.permissions.includes(permission) ?? false,
-    [profile],
-  )
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -118,14 +112,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token: state.token,
       user: profile?.user ?? null,
       roles: profile?.roles ?? [],
-      permissions: profile?.permissions ?? [],
       isAdmin: profile?.isAdmin ?? false,
       login,
       logout,
       hasRole,
-      hasPermission,
     }),
-    [state.status, state.token, profile, login, logout, hasRole, hasPermission],
+    [state.status, state.token, profile, login, logout, hasRole],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

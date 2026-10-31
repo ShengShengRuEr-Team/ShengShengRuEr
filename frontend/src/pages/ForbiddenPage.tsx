@@ -10,7 +10,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 /**
  * 无权限页：
- * - 由 RequireRole / RequirePermission 拦截后跳入，或用户直接访问
+ * - 由 RequireRole 拦截后跳入，或用户直接访问
  * - 已登录显示当前身份，并按角色给出「返回首页」；未登录只给「去登录」
  * - 有站内历史时提供「返回上一页」
  */
@@ -66,7 +66,7 @@ export default function ForbiddenPage() {
               ))}
             </Typography.Paragraph>
             <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-              页面访问权限由后端下发的角色与权限码决定。如需访问，请联系管理员，或切换有权限的账号。
+              页面访问权限由后端下发的角色决定。如需访问，请联系管理员，或切换有权限的账号。
             </Typography.Paragraph>
           </div>
         ) : (

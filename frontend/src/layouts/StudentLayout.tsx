@@ -7,10 +7,7 @@ import UserActions from '../ui/UserActions'
 const { Header, Content } = Layout
 
 const STUDENT_ITEMS: MenuProps['items'] = [
-  {
-    key: ROUTES.STUDENT_PAPERS,
-    label: '试卷列表',
-  },
+  { key: ROUTES.STUDENT_HOME, label: '首页' },
 ]
 
 /** 学生端布局：顶部导航 + 内容区；不出现任何管理端菜单。 */
@@ -38,8 +35,7 @@ export default function StudentLayout() {
         </Typography.Title>
         <Menu
           mode="horizontal"
-          // /papers/:id 也高亮「试卷列表」。
-          selectedKeys={[ROUTES.STUDENT_PAPERS]}
+          selectedKeys={[ROUTES.STUDENT_HOME]}
           items={STUDENT_ITEMS}
           onClick={handleMenuClick}
           style={{ flex: 1, minWidth: 0, borderBottom: 'none' }}

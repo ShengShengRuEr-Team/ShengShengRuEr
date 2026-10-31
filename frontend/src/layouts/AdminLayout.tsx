@@ -1,57 +1,19 @@
-import { useMemo } from 'react'
-import type { ReactNode } from 'react'
-import { FileTextOutlined, SyncOutlined } from '@ant-design/icons'
+import { HomeOutlined } from '@ant-design/icons'
 import { Layout, Menu, Typography } from 'antd'
 import type { MenuProps } from 'antd'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../auth/useAuth'
-import { PERMISSIONS } from '../constants/permissions'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../constants/routes'
 import UserActions from '../ui/UserActions'
 
 const { Header, Sider, Content } = Layout
 
-interface AdminMenuItem {
-  key: string
-  icon: ReactNode
-  label: string
-  permission: string
-}
-
-const ADMIN_ITEMS: AdminMenuItem[] = [
-  {
-    key: ROUTES.ADMIN_PAPERS,
-    icon: <FileTextOutlined />,
-    label: '试卷管理',
-    permission: PERMISSIONS.PAPER_READ,
-  },
-  {
-    key: ROUTES.ADMIN_TASKS,
-    icon: <SyncOutlined />,
-    label: '任务管理',
-    permission: PERMISSIONS.TASK_READ,
-  },
+const ADMIN_ITEMS: MenuProps['items'] = [
+  { key: ROUTES.ADMIN_HOME, icon: <HomeOutlined />, label: '首页' },
 ]
 
-/** 管理端布局：左侧菜单 + 顶部用户区 + 内容区。菜单项按后端 permissions 显示。 */
+/** 管理端布局：左侧菜单 + 顶部用户区 + 内容区。 */
 export default function AdminLayout() {
-  const { hasPermission } = useAuth()
-  const location = useLocation()
   const navigate = useNavigate()
-
-  const items = useMemo<MenuProps['items']>(
-    () =>
-      ADMIN_ITEMS.filter((item) => hasPermission(item.permission)).map((item) => ({
-        key: item.key,
-        icon: item.icon,
-        label: item.label,
-      })),
-    [hasPermission],
-  )
-
-  const selectedKey = location.pathname.startsWith(ROUTES.ADMIN_TASKS)
-    ? ROUTES.ADMIN_TASKS
-    : ROUTES.ADMIN_PAPERS
 
   const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     navigate(key)
@@ -70,8 +32,8 @@ export default function AdminLayout() {
         </div>
         <Menu
           mode="inline"
-          selectedKeys={[selectedKey]}
-          items={items}
+          selectedKeys={[ROUTES.ADMIN_HOME]}
+          items={ADMIN_ITEMS}
           onClick={handleMenuClick}
           style={{ borderInlineEnd: 'none' }}
         />

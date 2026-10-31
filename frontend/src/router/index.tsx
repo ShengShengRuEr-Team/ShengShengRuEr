@@ -1,30 +1,20 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
-import { PERMISSIONS, ROLES } from '../constants/permissions'
+import { ROLES } from '../constants/permissions'
 import { ROUTES, homePathForRole } from '../constants/routes'
 import AdminLayout from '../layouts/AdminLayout'
 import StudentLayout from '../layouts/StudentLayout'
 import FullPageLoading from '../ui/FullPageLoading'
 import RequireAuth from './RequireAuth'
-import RequirePermission from './RequirePermission'
 import RequireRole from './RequireRole'
 
-// 路由级代码分割：每个页面单独成 chunk，首屏只加载登录页与守卫。
+// 路由级代码分割：页面单独成 chunk，首屏只加载登录页与守卫。
 // 布局保持同步引入，避免登录后切换页面时反复闪加载态。
 const LoginPage = lazy(() => import('../pages/LoginPage'))
 const ForbiddenPage = lazy(() => import('../pages/ForbiddenPage'))
-const AdminPaperListPage = lazy(() => import('../pages/admin/PaperListPage'))
-const AdminPaperQuestionsPage = lazy(
-  () => import('../pages/admin/PaperQuestionsPage'),
-)
-const AdminTaskListPage = lazy(() => import('../pages/admin/TaskListPage'))
-const StudentPaperListPage = lazy(
-  () => import('../pages/student/PaperListPage'),
-)
-const StudentPaperQuestionsPage = lazy(
-  () => import('../pages/student/PaperQuestionsPage'),
-)
+const AdminHomePage = lazy(() => import('../pages/admin/HomePage'))
+const StudentHomePage = lazy(() => import('../pages/student/HomePage'))
 
 /** `/`：按登录态与角色分流；未登录去登录页。 */
 function HomeRedirect() {
@@ -40,10 +30,10 @@ function HomeRedirect() {
 }
 
 /**
- * 第 4 步路由表 + 路由级懒加载：
- * - 管理端：/admin/** 先 RequireAuth + RequireRole(admin)，布局内再按权限码守任务页
- * - 学生端：/papers/** 先 RequireAuth，再按 paper:read / question:read 守页面
- * - 守卫只决定“能不能看到页面”，越权请求最终由后端 403 兜底
+ * 模块一路由表：
+ * - 管理端 `/admin`：RequireAuth + RequireRole(admin)
+ * - 学生端 `/student`：RequireAuth + RequireRole(student)
+ * - 守卫只决定「能不能看到页面」，越权请求最终由后端 403 兜底
  */
 export default function AppRouter() {
   return (
@@ -54,7 +44,7 @@ export default function AppRouter() {
         <Route path={ROUTES.FORBIDDEN} element={<ForbiddenPage />} />
 
         <Route
-          path="/admin"
+          path={ROUTES.ADMIN_HOME}
           element={
             <RequireAuth>
               <RequireRole role={ROLES.ADMIN}>
@@ -63,43 +53,20 @@ export default function AppRouter() {
             </RequireAuth>
           }
         >
-          <Route index element={<Navigate to="papers" replace />} />
-          <Route path="papers" element={<AdminPaperListPage />} />
-          <Route path="papers/:id" element={<AdminPaperQuestionsPage />} />
-          <Route
-            path="tasks"
-            element={
-              <RequirePermission permission={PERMISSIONS.TASK_READ}>
-                <AdminTaskListPage />
-              </RequirePermission>
-            }
-          />
+          <Route index element={<AdminHomePage />} />
         </Route>
 
         <Route
-          path={ROUTES.STUDENT_PAPERS}
+          path={ROUTES.STUDENT_HOME}
           element={
             <RequireAuth>
-              <StudentLayout />
+              <RequireRole role={ROLES.STUDENT}>
+                <StudentLayout />
+              </RequireRole>
             </RequireAuth>
           }
         >
-          <Route
-            index
-            element={
-              <RequirePermission permission={PERMISSIONS.PAPER_READ}>
-                <StudentPaperListPage />
-              </RequirePermission>
-            }
-          />
-          <Route
-            path=":id"
-            element={
-              <RequirePermission permission={PERMISSIONS.QUESTION_READ}>
-                <StudentPaperQuestionsPage />
-              </RequirePermission>
-            }
-          />
+          <Route index element={<StudentHomePage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
