@@ -1,6 +1,6 @@
 # backend
 
-模块一后端：账号登录、管理员/学生身份区分、接口级鉴权、敏感字段隔离、试卷与题目读取、处理任务占位接口。
+模块一后端：账号登录、退出、当前用户信息、管理员/学生身份区分与基础接口鉴权。
 
 ## 技术栈
 
@@ -18,11 +18,11 @@
 ```text
 backend/
 ├── app/
-│   ├── api/                 # 认证、试卷、管理端题目、任务路由与鉴权依赖
-│   ├── core/                # 配置、权限码、JWT/bcrypt、统一异常
-│   ├── db/                  # 声明基类、会话、8 张表模型
+│   ├── api/                 # 认证路由、管理端占位路由与鉴权依赖
+│   ├── core/                # 配置、角色定义、JWT/bcrypt、统一异常
+│   ├── db/                  # 声明基类、会话、4 张表模型
 │   ├── main.py              # 应用装配与统一响应/异常外壳
-│   ├── schemas.py           # 学生/管理端两套题目响应模型
+│   ├── schemas.py           # 请求与响应模型
 │   └── seed.py              # 开发/测试环境种子数据
 ├── alembic/                 # 版本化迁移
 ├── scripts/acceptance.py    # 真实服务端到端验收脚本
@@ -68,14 +68,16 @@ D:\guochuangxiangmu\.venv-backend\Scripts\python.exe -m alembic upgrade head
 D:\guochuangxiangmu\.venv-backend\Scripts\python.exe -m app.seed
 ```
 
+迁移会创建 4 张表：`users`、`roles`、`user_roles`、`token_revocations`。
+
 种子数据只允许在 `development` / `test` 环境写入默认口令：
 
-| 角色 | 用户名 | 密码 | 权限码 |
-| --- | --- | --- | --- |
-| 管理员 | `admin` | `admin123` | 全部 5 个 |
-| 学生 | `student` | `student123` | `paper:read`、`question:read` |
+| 角色 | `role_key` | 用户名 | 密码 | 进入端 |
+| --- | --- | --- | --- | --- |
+| 管理员 | `admin` | `admin` | `admin123` | 管理端 |
+| 学生 | `student` | `student` | `student123` | 学生端 |
 
-同时写入 1 套占位试卷与 2 道占位题目。
+身份由后端角色决定，前端不做权限码判断。
 
 ## 启动
 
@@ -95,16 +97,13 @@ D:\guochuangxiangmu\.venv-backend\Scripts\python.exe -m uvicorn app.main:app --h
 | 1 | POST | `/api/v1/login` | 公开 |
 | 2 | POST | `/api/v1/logout` | 已登录 |
 | 3 | GET | `/api/v1/getInfo` | 已登录 |
-| 4 | GET | `/api/v1/papers` | `paper:read` |
-| 5 | GET | `/api/v1/papers/{paper_id}/questions` | `question:read` |
-| 6 | GET | `/api/v1/admin/papers/{paper_id}/questions` | `question:read_sensitive` |
-| 7 | POST | `/api/v1/admin/processing-tasks` | `task:start` |
-| 8 | GET | `/api/v1/admin/processing-tasks` | `task:read` |
-| 9 | GET | `/api/v1/admin/processing-tasks/{task_id}` | `task:read` |
+| 4 | GET | `/api/v1/admin/overview` | 仅 `admin` 角色 |
 
-鉴权顺序固定为**先 401、后 403**：无 token / token 失效 / 账号停用返回 401；token 有效但缺少权限码返回 403。
+鉴权顺序固定为**先 401、后 403**：无 token / token 失效 / 账号停用返回 401；
+token 有效但不是管理员，调用接口 4 返回 403。
 
-学生题目接口只返回 `StudentQuestion` 模型，字段为 `id`、`question_no`、`prompt_text`、`option_a`~`option_d`；答案、解析、听力原文只存在于管理端 `AdminQuestion` 模型，不通过运行时删字段实现。
+`/api/v1/admin/overview` 是一期保留的最小管理端接口，用于验证「页面隐藏与后端接口权限保持一致」：
+管理端首页会调用它；学生即使在前端手输 `/admin`，也会被路由守卫拦到 403，直接调接口同样返回 403。
 
 ## 测试
 
@@ -112,9 +111,11 @@ D:\guochuangxiangmu\.venv-backend\Scripts\python.exe -m uvicorn app.main:app --h
 D:\guochuangxiangmu\.venv-backend\Scripts\python.exe -m pytest -v
 ```
 
-测试会自动创建/重建 `shengshengruer_test` 库，执行 Alembic 迁移并写入种子数据。连接账号需要具备 `CREATE DATABASE` 权限；如不希望自动建库，可先手工创建该库。
+测试会自动创建/重建 `shengshengruer_test` 库，执行 Alembic 迁移并写入种子数据。
+连接账号需要具备 `CREATE DATABASE` 权限；如不希望自动建库，可先手工创建该库。
 
-当前结果：15 passed，覆盖 10 条验收用例与鉴权边界（登录失败、422、token 篡改/过期、404、非法任务状态）。
+当前结果：**11 passed**，覆盖 6 条验收用例与 5 条鉴权边界（登录失败提示一致、422、
+token 篡改、非法认证方案、401 优先于 403）。
 
 ## 端到端验收
 
@@ -124,7 +125,7 @@ D:\guochuangxiangmu\.venv-backend\Scripts\python.exe -m pytest -v
 D:\guochuangxiangmu\.venv-backend\Scripts\python.exe scripts\acceptance.py
 ```
 
-预期输出 10/10 通过，退出码为 0。
+预期输出 **8/8 通过**，退出码为 0。
 
 ## 代码风格
 
@@ -136,7 +137,7 @@ Ruff 配置在 [pyproject.toml](pyproject.toml)；`B008` 因 FastAPI `Depends` �
 
 ## 一期边界
 
-- 只实现模块一；不包含作答判分、错题本、画像与推荐。
-- 处理任务为占位实现：创建后状态停留在 `pending`，执行链路由模块三接入。
+- 只实现模块一：登录、退出、当前用户、身份区分、基础接口鉴权。
+- **不包含**题库、题目、处理任务、作答判分、错题本、画像与推荐，这些在后续模块中实现。
 - 不引入 Redis；退出失效写入 `token_revocations` 表。
 - 数据库结构只通过 Alembic 迁移变更。
