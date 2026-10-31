@@ -7,11 +7,7 @@ import { ApiError } from '../../api/api-error'
 import { toPaper } from '../../api/adapters'
 import type { Paper } from '../../api/adapters'
 import { getPapers } from '../../api/papers'
-
-const EXAM_LEVEL_LABELS: Record<string, string> = {
-  cet4: '四级',
-  cet6: '六级',
-}
+import { formatExamLevel } from '../../constants/paper'
 
 /** 管理端试卷列表：读接口 4（admin 可见全部试卷，含未发布）。 */
 export default function AdminPaperListPage() {
@@ -44,7 +40,7 @@ export default function AdminPaperListPage() {
       title: '级别',
       dataIndex: 'examLevel',
       width: 100,
-      render: (value: string) => EXAM_LEVEL_LABELS[value] ?? value,
+      render: (value: string) => formatExamLevel(value),
     },
     { title: '年份', dataIndex: 'examYear', width: 90 },
     { title: '月份', dataIndex: 'examMonth', width: 90 },

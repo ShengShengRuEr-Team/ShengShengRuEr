@@ -4,15 +4,16 @@
 
 ## 当前状态（2026-10-31）
 
-已完成 **第 1–5 步**：
+已完成 **第 1–6 步**：
 
 - 第 1 步：Vite + React + TypeScript + Ant Design 脚手架，可启动、可构建。
 - 第 2 步：axios 封装（统一外壳解包、Bearer 注入、401 / 403 处理）、AuthContext、token 存储、5 个权限码常量，以及 9 个接口的类型与请求函数。
 - 第 3 步：`BrowserRouter` 路由骨架、登录页（真实登录 + 错误提示 + `?redirect=` 回跳 + 开放重定向防护）、`/` 按角色分流、`/403` 可用占位页。
 - 第 4 步：`RequireAuth` / `RequireRole` / `RequirePermission` 三类守卫、管理端侧边菜单布局与学生端顶部导航布局、菜单按后端 `permissions` 显示。
 - 第 5 步：管理端 3 个页面（试卷列表、含答案 / 解析 / 原文的题目页、任务页）；任务页支持启动任务、状态 / 进度 / 异常 / 结果 JSON、受限轮询与手动刷新。
+- 第 6 步：学生端 2 个页面（已发布试卷列表、只含题干与选项的题目页）；全程只调接口 4 / 5，不请求 `/api/v1/admin/**`。
 
-学生端 2 个页面仍是带布局的骨架，内容在第 6 步实现。
+7 个页面全部实现，`/403` 的视觉完善在第 7 步。
 
 ## 技术栈（版本已锁定）
 
@@ -78,7 +79,7 @@ frontend/
    ├─ constants/            权限码 / 角色常量（已实现）
    ├─ router/               路由表 + RequireAuth / RequireRole / RequirePermission（已实现）
    ├─ layouts/              管理端侧边菜单 / 学生端顶部导航（已实现）
-   ├─ pages/                登录页、403、管理端 3 页已实现；学生端 2 页为骨架（第 6 步）
+   ├─ pages/                7 个页面全部实现（登录 / 管理端 3 / 学生端 2 / 403）
    ├─ ui/                   加载态、message 桥、退出登录按钮
    └─ utils/                时间格式化等小工具
 ```
@@ -89,7 +90,8 @@ frontend/
 - 拦截器行为用本地 mock 服务验证 8 项：baseURL 回退、login / getInfo 外壳解包、Bearer 注入、403 提示不跳转、401 清 token 并跳 `/login?redirect=...`、登录页 401 不重复跳转、HTTP 200 + `code !== 200` 抛 `ApiError`、缺少外壳抛 `ApiError`；全部通过。
 - 第 3 步用无头 Edge + DevTools Protocol 跑通 9 项：未登录访问 `/` 跳登录、管理员登录落 `/admin/papers`、token 写入 `ssre_access_token`、401 跳 `/login?redirect=/admin/tasks`、登录后回跳原路径、学生登录落 `/papers`、未知路径回角色首页、`/403` 可访问、错误口令停留登录页并提示；全部通过。
 - 第 4 步同样用无头 Edge + CDP 跑通 13 项：未登录访问 `/admin/tasks` 与 `/papers/1` 都跳登录并带 redirect、管理员菜单/退出登录、`/admin` 索引重定向、任务页与题目页可进、学生访问 `/admin/**` 全部拦到 `/403`、只缺 `question:read` 的账号访问 `/papers/:id` 拦到 `/403`、未知路径回角色首页；全部通过。
-- 第 5 步用无头 Edge + CDP 跑通 7 项：试卷列表展示接口 4 数据、题目页展示答案/解析/原文、任务页状态标签、pending 时每 5 秒自动刷新、无活跃任务时停止刷新、启动任务 Modal 创建成功、任务详情 Drawer 展示字段与结果 JSON；全部通过。真实后端联调在第 8 步执行。
+- 第 5 步用无头 Edge + CDP 跑通 7 项：试卷列表展示接口 4 数据、题目页展示答案/解析/原文、任务页状态标签、pending 时每 5 秒自动刷新、无活跃任务时停止刷新、启动任务 Modal 创建成功、任务详情 Drawer 展示字段与结果 JSON；全部通过。
+- 第 6 步用无头 Edge + CDP 跑通 6 项（含网络层断言）：学生列表只显示已发布试卷、列表页只调 `getInfo` + `/papers`、题目页只调 `GET /papers/1/questions`（除 `getInfo` 外无其它接口）、题干与 A–D 正常展示、DOM 中搜不到 mock 的敏感标记串（`MOCK_EXPLANATION_7f3a` / `MOCK_TRANSCRIPT_9b2c` / `MOCK_ANSWER_4d1e`，mock 故意在接口里多返回这些字段，验证前端白名单适配）、整个流程 0 次 `/api/v1/admin/**` 请求；全部通过。真实后端联调在第 8 步执行。
 
 ## 环境变量
 
@@ -109,8 +111,8 @@ frontend/
 | `/admin/papers` | 管理端试卷列表 | admin | `paper:read` | 已实现（第 5 步） |
 | `/admin/papers/:id` | 管理端题目页（含答案 / 解析 / 原文） | admin | `question:read_sensitive` | 已实现（第 5 步） |
 | `/admin/tasks` | 管理端任务页 | admin | `task:read` | 已实现（第 5 步） |
-| `/papers` | 学生端试卷列表 | student | `paper:read` | 布局 + `paper:read` 守卫已接，内容第 6 步 |
-| `/papers/:id` | 学生端题目页（无答案 / 解析 / 原文） | student | `question:read` | 布局 + `question:read` 守卫已接，内容第 6 步 |
+| `/papers` | 学生端试卷列表 | student | `paper:read` | 已实现（第 6 步） |
+| `/papers/:id` | 学生端题目页（无答案 / 解析 / 原文） | student | `question:read` | 已实现（第 6 步） |
 | `/403` | 无权限页 | 公开 | — | 可用占位（第 7 步完善视觉） |
 
 `/` 按角色重定向：admin → `/admin/papers`，student → `/papers`。
@@ -118,7 +120,7 @@ frontend/
 ## 实现约定
 
 - **身份与权限以后端为准**：`GET /api/v1/getInfo` 返回的 `roles` / `permissions` 是唯一依据，前端只做菜单显隐与路由跳转；前端隐藏不等于安全，越权请求最终由后端 403 兜底。
-- **学生端不渲染敏感字段**：`correct_option`、`explanation_text`、`transcript_text` 只出现在管理端题目页。学生接口本身不返回这些字段，前端也只在管理端 DTO 类型中声明。
+- **学生端不渲染敏感字段**：`correct_option`、`explanation_text`、`transcript_text` 只出现在管理端题目页。学生页面只调接口 4 / 5，绝不请求 `/api/v1/admin/**`；学生 DTO 只声明白名单字段，即使接口多返回敏感字段，适配层也不会把它带进组件（第 6 步已用唯一标记串验证）。
 - **token 存储**：`localStorage`，key 为 `ssre_access_token`。
 - **401 / 403**：401 清 token 与登录态，跳 `/login?redirect=<当前路径>`，不在拦截器里弹窗；403 不跳转，用 `message.error(msg)` 提示（通过 antd `App.useApp()` 的模块级桥，避免静态方法脱离上下文）。
 - **字段命名**：请求 / 响应 JSON 保持 `snake_case`，在 `src/api/adapters.ts` 转成 `camelCase` 视图模型后再进入组件。
