@@ -1,0 +1,28 @@
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  background: #f5f5f5;
+}
+
+.scaffold-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.scaffold-card {
+  width: min(680px, 100%);
+}
+
+.scaffold-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
