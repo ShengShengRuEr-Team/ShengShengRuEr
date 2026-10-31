@@ -20,6 +20,10 @@ function getSafeRedirect(raw: string | null): string | null {
   if (!raw) {
     return null
   }
+  if (raw.includes('\\')) {
+    // 浏览器把反斜杠当斜杠解析（/\evil.com 会被视为 //evil.com），一律拒绝。
+    return null
+  }
   if (!raw.startsWith('/') || raw.startsWith('//')) {
     return null
   }
