@@ -94,3 +94,9 @@ body {
   justify-content: center;
   padding: 48px 0;
 }
+
+.forbidden-detail {
+  max-width: 520px;
+  margin: 0 auto;
+  text-align: center;
+}
