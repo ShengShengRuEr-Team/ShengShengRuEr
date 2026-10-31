@@ -26,3 +26,23 @@ body {
   gap: 8px;
   margin: 16px 0;
 }
+
+.full-page-center {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #f0f2f5;
+}
+
+.auth-card {
+  width: min(400px, 100%);
+}

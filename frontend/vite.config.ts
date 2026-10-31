@@ -9,5 +9,9 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     strictPort: true,
+    // .cache 下是 npm 缓存与本地验证用的临时浏览器数据，不要让 Vite 触发页面重载。
+    watch: {
+      ignored: ['**/.cache/**'],
+    },
   },
 })

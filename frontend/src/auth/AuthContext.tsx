@@ -15,7 +15,7 @@ export interface AuthContextValue {
   roles: string[]
   permissions: string[]
   isAdmin: boolean
-  login: (username: string, password: string) => Promise<void>
+  login: (username: string, password: string) => Promise<AuthProfile>
   logout: () => Promise<void>
   hasRole: (role: string) => boolean
   hasPermission: (permission: string) => boolean
@@ -67,23 +67,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const login = useCallback(async (username: string, password: string) => {
-    const data = await loginRequest({ username, password })
-    setAccessToken(data.token)
-    try {
-      const info = await getInfo()
-      setState({
-        status: 'authenticated',
-        token: data.token,
-        profile: toAuthProfile(info),
-      })
-    } catch (error) {
-      // 登录成功但取用户信息失败：不留下半登录状态。
-      removeAccessToken()
-      setState(ANONYMOUS)
-      throw error
-    }
-  }, [])
+  const login = useCallback(
+    async (username: string, password: string): Promise<AuthProfile> => {
+      const data = await loginRequest({ username, password })
+      setAccessToken(data.token)
+      try {
+        const info = await getInfo()
+        const nextProfile = toAuthProfile(info)
+        setState({
+          status: 'authenticated',
+          token: data.token,
+          profile: nextProfile,
+        })
+        // 返回角色信息，供登录页决定跳转目标（此时组件里的 isAdmin 还是旧值）。
+        return nextProfile
+      } catch (error) {
+        // 登录成功但取用户信息失败：不留下半登录状态。
+        removeAccessToken()
+        setState(ANONYMOUS)
+        throw error
+      }
+    },
+    [],
+  )
 
   const logout = useCallback(async () => {
     try {
