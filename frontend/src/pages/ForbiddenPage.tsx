@@ -53,7 +53,7 @@ export default function ForbiddenPage() {
             <Typography.Paragraph style={{ marginBottom: 8 }}>
               当前登录：
               <Typography.Text strong>
-                {user?.nickname || user?.username || '未知用户'}
+                {user?.username ?? '未知用户'}
               </Typography.Text>
               {roles.map((role) => (
                 <Tag
