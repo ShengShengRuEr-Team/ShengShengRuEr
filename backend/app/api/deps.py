@@ -1,4 +1,8 @@
-"""认证、鉴权与接口依赖。"""
+"""认证与鉴权依赖。
+
+- `get_current_user`：解析 token，任一环节失败返回 401
+- `require_admin`：在 401 判定通过后判断角色，不含管理员则返回 403
+"""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -10,13 +14,14 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.errors import forbidden, unauthorized
+from app.core.permissions import ROLE_ADMIN
 from app.core.security import (
     TokenClaims,
     TokenValidationError,
     decode_access_token,
 )
 from app.db.base import get_db
-from app.db.models import Role, RolePermission, TokenRevocation, User, UserRole
+from app.db.models import Role, TokenRevocation, User, UserRole
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -27,31 +32,22 @@ class CurrentUser:
     username: str
     nickname: str
     roles: tuple[str, ...]
-    permissions: frozenset[str]
     jti: str
     expires_at: datetime
 
     @property
     def is_admin(self) -> bool:
-        return "admin" in self.roles
+        return ROLE_ADMIN in self.roles
 
 
-def _load_roles_and_permissions(
-    db: Session, user_id: int
-) -> tuple[tuple[str, ...], frozenset[str]]:
+def _load_roles(db: Session, user_id: int) -> tuple[str, ...]:
     role_keys = db.scalars(
         select(Role.role_key)
         .join(UserRole, UserRole.role_id == Role.id)
         .where(UserRole.user_id == user_id)
         .order_by(Role.role_key)
     ).all()
-    permission_codes = db.scalars(
-        select(RolePermission.permission_code)
-        .join(UserRole, UserRole.role_id == RolePermission.role_id)
-        .where(UserRole.user_id == user_id)
-        .distinct()
-    ).all()
-    return tuple(role_keys), frozenset(permission_codes)
+    return tuple(role_keys)
 
 
 def _claims_from_credentials(
@@ -89,26 +85,22 @@ def get_current_user(
     if user.username != claims.username:
         raise unauthorized()
 
-    roles, permissions = _load_roles_and_permissions(db, user.id)
+    roles = _load_roles(db, user.id)
     return CurrentUser(
         id=user.id,
         username=user.username,
         nickname=user.nickname,
         roles=roles,
-        permissions=permissions,
         jti=claims.jti,
         expires_at=claims.expires_at,
     )
 
 
-def require_permission(permission_code: str):
-    """先完成 401 判定，再判定 403。"""
+def require_admin(
+    current_user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """先完成 401 判定，再判定角色；不含管理员则返回 403。"""
 
-    def dependency(
-        current_user: CurrentUser = Depends(get_current_user),
-    ) -> CurrentUser:
-        if permission_code not in current_user.permissions:
-            raise forbidden(permission_code)
-        return current_user
-
-    return dependency
+    if not current_user.is_admin:
+        raise forbidden("管理员")
+    return current_user

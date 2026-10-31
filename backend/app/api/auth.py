@@ -97,7 +97,6 @@ def get_info(
                 nickname=current_user.nickname,
             ),
             roles=list(current_user.roles),
-            permissions=sorted(current_user.permissions),
             is_admin=current_user.is_admin,
         )
     )

@@ -8,14 +8,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api import admin_papers, admin_tasks, auth, papers
+from app.api import admin, auth
 from app.core.errors import AppError
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="英语四六级听力错题与推荐系统 - 模块一",
-    version="0.2.0",
+    version="1.0.0",
     docs_url="/docs",
     redoc_url=None,
     openapi_url="/api/v1/openapi.json",
@@ -71,6 +71,4 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
 
 
 app.include_router(auth.router, prefix="/api/v1")
-app.include_router(papers.router, prefix="/api/v1")
-app.include_router(admin_papers.router, prefix="/api/v1")
-app.include_router(admin_tasks.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")

@@ -1,21 +1,21 @@
-"""模块一与占位业务表模型，共 8 张表。"""
+"""模块一数据模型，共 4 张表。
+
+- 账号与角色：users / roles / user_roles
+- 登录状态：token_revocations（退出后旧 token 失效）
+
+本模块只负责认证与身份，不含题库、题目、处理任务等业务表。
+"""
 
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy import (
     BigInteger,
-    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
-    SmallInteger,
     String,
-    Text,
-    UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -73,17 +73,6 @@ class UserRole(Base):
     )
 
 
-class RolePermission(Base):
-    __tablename__ = "role_permissions"
-
-    role_id: Mapped[int] = mapped_column(
-        BigInteger,
-        ForeignKey("roles.id", ondelete="CASCADE"),
-        primary_key=True,
-    )
-    permission_code: Mapped[str] = mapped_column(String(64), primary_key=True)
-
-
 class TokenRevocation(Base):
     __tablename__ = "token_revocations"
 
@@ -99,113 +88,4 @@ class TokenRevocation(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-
-
-class ListeningPaper(Base):
-    __tablename__ = "listening_papers"
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-    exam_level: Mapped[str] = mapped_column(String(16), nullable=False)
-    exam_year: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    exam_month: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    set_no: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    is_visible: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="false"
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-    )
-
-
-class ListeningQuestion(Base):
-    __tablename__ = "listening_questions"
-    __table_args__ = (
-        UniqueConstraint(
-            "paper_id",
-            "question_no",
-            name="uq_listening_questions_paper_id_question_no",
-        ),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    paper_id: Mapped[int] = mapped_column(
-        BigInteger,
-        ForeignKey("listening_papers.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    question_no: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    prompt_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    option_a: Mapped[str | None] = mapped_column(Text, nullable=True)
-    option_b: Mapped[str | None] = mapped_column(Text, nullable=True)
-    option_c: Mapped[str | None] = mapped_column(Text, nullable=True)
-    option_d: Mapped[str | None] = mapped_column(Text, nullable=True)
-    correct_option: Mapped[str | None] = mapped_column(String(4), nullable=True)
-    explanation_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    transcript_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-
-
-class ProcessingTask(Base):
-    __tablename__ = "processing_tasks"
-    __table_args__ = (
-        CheckConstraint(
-            "status IN ('pending', 'running', 'failed', "
-            "'pending_confirm', 'completed')",
-            name="status",
-        ),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    paper_id: Mapped[int | None] = mapped_column(
-        BigInteger,
-        ForeignKey("listening_papers.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-    task_type: Mapped[str] = mapped_column(
-        String(32),
-        nullable=False,
-        default="import_paper",
-        server_default="import_paper",
-    )
-    status: Mapped[str] = mapped_column(
-        String(24),
-        nullable=False,
-        default="pending",
-        server_default="pending",
-        index=True,
-    )
-    progress: Mapped[int] = mapped_column(
-        SmallInteger, nullable=False, default=0, server_default="0"
-    )
-    message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    result: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
-    created_by: Mapped[int | None] = mapped_column(
-        BigInteger,
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-    started_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    finished_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
     )
