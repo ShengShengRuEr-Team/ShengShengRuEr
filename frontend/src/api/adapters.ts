@@ -1,4 +1,5 @@
 import type {
+  AdminQuestionDto,
   GetInfoData,
   PaperDto,
   StudentQuestionDto,
@@ -78,6 +79,22 @@ export function toStudentQuestion(dto: StudentQuestionDto): StudentQuestion {
     optionB: dto.option_b,
     optionC: dto.option_c,
     optionD: dto.option_d,
+  }
+}
+
+/** 管理端题目视图：在非敏感字段基础上带答案 / 解析 / 原文。 */
+export interface AdminQuestion extends StudentQuestion {
+  correctOption: string | null
+  explanationText: string | null
+  transcriptText: string | null
+}
+
+export function toAdminQuestion(dto: AdminQuestionDto): AdminQuestion {
+  return {
+    ...toStudentQuestion(dto),
+    correctOption: dto.correct_option,
+    explanationText: dto.explanation_text,
+    transcriptText: dto.transcript_text,
   }
 }
 
