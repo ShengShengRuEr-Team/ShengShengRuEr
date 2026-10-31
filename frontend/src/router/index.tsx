@@ -1,10 +1,20 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
+import { PERMISSIONS, ROLES } from '../constants/permissions'
 import { ROUTES, homePathForRole } from '../constants/routes'
+import AdminLayout from '../layouts/AdminLayout'
+import StudentLayout from '../layouts/StudentLayout'
+import AdminPaperListPage from '../pages/admin/PaperListPage'
+import AdminPaperQuestionsPage from '../pages/admin/PaperQuestionsPage'
+import AdminTaskListPage from '../pages/admin/TaskListPage'
 import ForbiddenPage from '../pages/ForbiddenPage'
 import LoginPage from '../pages/LoginPage'
-import PlaceholderPage from '../pages/PlaceholderPage'
+import StudentPaperListPage from '../pages/student/PaperListPage'
+import StudentPaperQuestionsPage from '../pages/student/PaperQuestionsPage'
 import FullPageLoading from '../ui/FullPageLoading'
+import RequireAuth from './RequireAuth'
+import RequirePermission from './RequirePermission'
+import RequireRole from './RequireRole'
 
 /** `/`：按登录态与角色分流；未登录去登录页。 */
 function HomeRedirect() {
@@ -20,10 +30,10 @@ function HomeRedirect() {
 }
 
 /**
- * 第 3 步路由骨架：
- * - /login 与 /403 已实现（/403 第 7 步再完善视觉）
- * - 5 个业务路由先挂占位页，第 4 步加守卫与布局，第 5/6 步替换成真实页面
- * - 未知路径回到 `/` 再分流，避免直接 404 空白
+ * 第 4 步路由表：
+ * - 管理端：/admin/** 先 RequireAuth + RequireRole(admin)，布局内再按权限码守任务页
+ * - 学生端：/papers/** 先 RequireAuth，再按 paper:read / question:read 守页面
+ * - 守卫只决定“能不能看到页面”，越权请求最终由后端 403 兜底
  */
 export default function AppRouter() {
   return (
@@ -33,25 +43,53 @@ export default function AppRouter() {
       <Route path={ROUTES.FORBIDDEN} element={<ForbiddenPage />} />
 
       <Route
-        path={ROUTES.ADMIN_PAPERS}
-        element={<PlaceholderPage title="管理端试卷列表" step="第 5 步" />}
-      />
-      <Route
-        path={ROUTES.ADMIN_PAPER_DETAIL}
-        element={<PlaceholderPage title="管理端题目页" step="第 5 步" />}
-      />
-      <Route
-        path={ROUTES.ADMIN_TASKS}
-        element={<PlaceholderPage title="管理端任务页" step="第 5 步" />}
-      />
+        path="/admin"
+        element={
+          <RequireAuth>
+            <RequireRole role={ROLES.ADMIN}>
+              <AdminLayout />
+            </RequireRole>
+          </RequireAuth>
+        }
+      >
+        <Route index element={<Navigate to="papers" replace />} />
+        <Route path="papers" element={<AdminPaperListPage />} />
+        <Route path="papers/:id" element={<AdminPaperQuestionsPage />} />
+        <Route
+          path="tasks"
+          element={
+            <RequirePermission permission={PERMISSIONS.TASK_READ}>
+              <AdminTaskListPage />
+            </RequirePermission>
+          }
+        />
+      </Route>
+
       <Route
         path={ROUTES.STUDENT_PAPERS}
-        element={<PlaceholderPage title="学生端试卷列表" step="第 6 步" />}
-      />
-      <Route
-        path={ROUTES.STUDENT_PAPER_DETAIL}
-        element={<PlaceholderPage title="学生端题目页" step="第 6 步" />}
-      />
+        element={
+          <RequireAuth>
+            <StudentLayout />
+          </RequireAuth>
+        }
+      >
+        <Route
+          index
+          element={
+            <RequirePermission permission={PERMISSIONS.PAPER_READ}>
+              <StudentPaperListPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path=":id"
+          element={
+            <RequirePermission permission={PERMISSIONS.QUESTION_READ}>
+              <StudentPaperQuestionsPage />
+            </RequirePermission>
+          }
+        />
+      </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

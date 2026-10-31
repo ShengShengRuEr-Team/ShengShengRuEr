@@ -4,13 +4,14 @@
 
 ## 当前状态（2026-10-31）
 
-已完成 **第 1–3 步**：
+已完成 **第 1–4 步**：
 
 - 第 1 步：Vite + React + TypeScript + Ant Design 脚手架，可启动、可构建。
 - 第 2 步：axios 封装（统一外壳解包、Bearer 注入、401 / 403 处理）、AuthContext、token 存储、5 个权限码常量，以及 9 个接口的类型与请求函数。
-- 第 3 步：`BrowserRouter` 路由骨架、登录页（真实登录 + 错误提示 + `?redirect=` 回跳 + 开放重定向防护）、`/` 按角色分流、`/403` 可用占位页；5 个业务路由先挂占位页。
+- 第 3 步：`BrowserRouter` 路由骨架、登录页（真实登录 + 错误提示 + `?redirect=` 回跳 + 开放重定向防护）、`/` 按角色分流、`/403` 可用占位页。
+- 第 4 步：`RequireAuth` / `RequireRole` / `RequirePermission` 三类守卫、管理端侧边菜单布局与学生端顶部导航布局、菜单按后端 `permissions` 显示。
 
-路由守卫、两套布局与 7 个业务页面在后续步骤接入。
+5 个业务页面目前是带布局的骨架，页面内容在第 5 / 6 步实现。
 
 ## 技术栈（版本已锁定）
 
@@ -74,16 +75,18 @@ frontend/
    ├─ api/                  请求封装、DTO 类型、snake_case → camelCase 适配（已实现）
    ├─ auth/                 AuthContext、token 存储、401 跳转（已实现）
    ├─ constants/            权限码 / 角色常量（已实现）
-   ├─ router/               路由表（已实现骨架，第 4 步补守卫）
-   ├─ layouts/              管理端侧边栏 / 学生端顶部导航（待实现）
-   └─ pages/                登录页、403 已实现；5 个业务页为占位（第 5 / 6 步）
+   ├─ router/               路由表 + RequireAuth / RequireRole / RequirePermission（已实现）
+   ├─ layouts/              管理端侧边菜单 / 学生端顶部导航（已实现）
+   ├─ pages/                登录页、403 已实现；5 个业务页为带布局的骨架（第 5 / 6 步填内容）
+   └─ ui/                   加载态、message 桥、退出登录按钮
 ```
 
 ## 已验证（2026-10-31）
 
 - `npm run build`：`tsc -b` 零错误，`vite build` 通过（antd 全量引入，单 chunk 偏大，后续按路由拆分）。
 - 拦截器行为用本地 mock 服务验证 8 项：baseURL 回退、login / getInfo 外壳解包、Bearer 注入、403 提示不跳转、401 清 token 并跳 `/login?redirect=...`、登录页 401 不重复跳转、HTTP 200 + `code !== 200` 抛 `ApiError`、缺少外壳抛 `ApiError`；全部通过。
-- 第 3 步用无头 Edge + DevTools Protocol 跑通 9 项：未登录访问 `/` 跳登录、管理员登录落 `/admin/papers`、token 写入 `ssre_access_token`、401 跳 `/login?redirect=/admin/tasks`、登录后回跳原路径、学生登录落 `/papers`、未知路径回角色首页、`/403` 可访问、错误口令停留登录页并提示；全部通过。真实后端联调在第 8 步执行。
+- 第 3 步用无头 Edge + DevTools Protocol 跑通 9 项：未登录访问 `/` 跳登录、管理员登录落 `/admin/papers`、token 写入 `ssre_access_token`、401 跳 `/login?redirect=/admin/tasks`、登录后回跳原路径、学生登录落 `/papers`、未知路径回角色首页、`/403` 可访问、错误口令停留登录页并提示；全部通过。
+- 第 4 步同样用无头 Edge + CDP 跑通 13 项：未登录访问 `/admin/tasks` 与 `/papers/1` 都跳登录并带 redirect、管理员菜单/退出登录、`/admin` 索引重定向、任务页与题目页可进、学生访问 `/admin/**` 全部拦到 `/403`、只缺 `question:read` 的账号访问 `/papers/:id` 拦到 `/403`、未知路径回角色首页；全部通过。真实后端联调在第 8 步执行。
 
 ## 环境变量
 
@@ -100,11 +103,11 @@ frontend/
 | 路径 | 页面 | 角色 | 权限 | 状态 |
 | --- | --- | --- | --- | --- |
 | `/login` | 登录页 | 公开 | — | 已实现（第 3 步） |
-| `/admin/papers` | 管理端试卷列表 | admin | `paper:read` | 路由占位（第 5 步） |
-| `/admin/papers/:id` | 管理端题目页（含答案 / 解析 / 原文） | admin | `question:read_sensitive` | 路由占位（第 5 步） |
-| `/admin/tasks` | 管理端任务页 | admin | `task:read` | 路由占位（第 5 步） |
-| `/papers` | 学生端试卷列表 | student | `paper:read` | 路由占位（第 6 步） |
-| `/papers/:id` | 学生端题目页（无答案 / 解析 / 原文） | student | `question:read` | 路由占位（第 6 步） |
+| `/admin/papers` | 管理端试卷列表 | admin | `paper:read` | 布局 + 守卫已接，内容第 5 步 |
+| `/admin/papers/:id` | 管理端题目页（含答案 / 解析 / 原文） | admin | `question:read_sensitive` | 布局 + 守卫已接，内容第 5 步 |
+| `/admin/tasks` | 管理端任务页 | admin | `task:read` | 布局 + `task:read` 守卫已接，内容第 5 步 |
+| `/papers` | 学生端试卷列表 | student | `paper:read` | 布局 + `paper:read` 守卫已接，内容第 6 步 |
+| `/papers/:id` | 学生端题目页（无答案 / 解析 / 原文） | student | `question:read` | 布局 + `question:read` 守卫已接，内容第 6 步 |
 | `/403` | 无权限页 | 公开 | — | 可用占位（第 7 步完善视觉） |
 
 `/` 按角色重定向：admin → `/admin/papers`，student → `/papers`。
