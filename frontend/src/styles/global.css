@@ -1,0 +1,102 @@
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  background: #f5f5f5;
+}
+
+.scaffold-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.scaffold-card {
+  width: min(680px, 100%);
+}
+
+.scaffold-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.full-page-center {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #f0f2f5;
+}
+
+.auth-card {
+  width: min(400px, 100%);
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.page-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.list-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.option-item {
+  display: flex;
+  gap: 8px;
+}
+
+.option-key {
+  min-width: 18px;
+  font-weight: 600;
+}
+
+.json-block {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+}
+
+.drawer-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+
+.forbidden-detail {
+  max-width: 520px;
+  margin: 0 auto;
+  text-align: center;
+}

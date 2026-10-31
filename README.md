@@ -6,7 +6,19 @@
 
 ## 当前状态
 
-仓库目前完成目录和协作规范初始化，尚未包含可运行的前端、后端或 AI 服务。技术框架、依赖版本和部署平台待团队确认；各模块选型后，补充自己的安装、启动和测试说明。
+模块一（登录与管理端、用户端框架）已完成，前后端均可运行：
+
+| 模块 | 内容 | 技术栈 |
+| --- | --- | --- |
+| 后端 | 登录、退出、当前用户信息、身份区分、基础接口鉴权 | FastAPI + SQLAlchemy + Alembic + PostgreSQL |
+| 前端 | 登录页、管理端 / 学生端页面框架、路由守卫 | React + TypeScript + Ant Design + Vite |
+
+- 后端 4 个接口、4 张表，测试 11 项、端到端验收 8 项全部通过
+- 前端 4 个页面，`tsc -b` 零错误，`vite build` 通过
+
+安装、启动与测试说明见 [backend/README.md](backend/README.md) 与 [frontend/README.md](frontend/README.md)。
+
+题库、处理任务、作答判分、错因分析与推荐等功能在后续模块中实现。
 
 ## 项目标识
 
@@ -68,7 +80,9 @@ git switch -c feature/23-listening-player
 
 ## 配置与数据
 
-`.env.example` 仅定义配置名称，程序尚未读取它。真实配置由各模块后续明确，保存在本地或部署平台，不提交到 Git。
+后端已读取 `backend/.env`（数据库连接、JWT 密钥等），样例见 `backend/.env.example`；
+前端读取 `frontend/.env` 的 `VITE_API_BASE_URL`，样例见 `frontend/.env.example`。
+真实配置保存在本地或部署平台，**不提交到 Git**。
 
 听力音频、完整题库、模型权重、用户录音和生产数据库不保存在本仓库。需要入库的样例应可公开、已脱敏且体积小；资料目录与下载的参考项目不整批导入。
 
