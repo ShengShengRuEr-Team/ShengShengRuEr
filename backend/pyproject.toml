@@ -1,0 +1,18 @@
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+extend-exclude = [".pgtest", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "RUF"]
+# FastAPI 的依赖注入约定就是在参数默认值里调用 Depends。
+# 中文标点是有意使用，不按英文标点规则检查。
+ignore = ["B008", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "tests"]
+# 仓库内的 alembic/ 目录会遮蔽同名第三方包，显式声明避免误判。
+known-third-party = ["alembic"]
+
+[tool.ruff.lint.per-file-ignores]
+"alembic/versions/*.py" = ["E501"]
