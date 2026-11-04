@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = Field(default=120, gt=0)
 
+    # 模块二：音频受控目录（storage_key 的相对根；音频本体不入库，不进 Git）。
+    audio_storage_dir: str = "var/audio"
+
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
         env_file_encoding="utf-8",
@@ -71,6 +74,12 @@ class Settings(BaseSettings):
     @property
     def access_token_expire_seconds(self) -> int:
         return self.access_token_expire_minutes * 60
+
+    @property
+    def audio_storage_path(self) -> Path:
+        """音频受控目录的绝对路径（相对值基于 backend/ 解析）。"""
+        path = Path(self.audio_storage_dir)
+        return path if path.is_absolute() else (BASE_DIR / path)
 
 
 @lru_cache

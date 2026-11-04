@@ -26,7 +26,9 @@ settings = get_settings()
 engine = create_engine(
     settings.database_url,
     pool_pre_ping=True,
-    connect_args={"options": "-c timezone=UTC"},
+    # connect_timeout：数据库不可达时在限定时间内失败并返回明确的 500，
+    # 而不是让请求长时间挂起（验收 B14 要求断库时明确报错、不回退到样例数据）。
+    connect_args={"options": "-c timezone=UTC", "connect_timeout": 5},
 )
 SessionLocal = sessionmaker(
     bind=engine,
