@@ -22,6 +22,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 import uuid
@@ -72,6 +73,17 @@ def validate_payload(payload: dict) -> None:
     for section in PAYLOAD_SECTIONS:
         _require(section in payload, f"导入文件缺少段落：{section}")
     paper = payload["exam_paper"]
+    count = paper.get("expected_question_count")
+    source = paper.get("expected_question_count_source")
+    if count is not None or source is not None:
+        _require(type(count) is int and count > 0, "应有题量必须是正整数")
+        _require(
+            isinstance(source, dict)
+            and all(isinstance(source.get(key), str) and source[key].strip()
+                    for key in ("document", "sha256", "locator"))
+            and re.fullmatch(r"[0-9a-f]{64}", source.get("sha256", "")) is not None,
+            "应有题量须附原卷核对依据 expected_question_count_source：document、sha256、locator",
+        )
     for field in ("exam_paper_code", "exam_level", "exam_year", "exam_month", "paper_set"):
         _require(paper.get(field) not in (None, ""), f"exam_paper 缺少字段：{field}")
     audio = payload["audio"]
@@ -105,12 +117,37 @@ def _resolve_audio_target(
     - 目标已存在但内容不同：改用带内容指纹的文件名（``<名>-<hash8><后缀>``），
       旧文件原样保留，旧当前批次继续可播放
     """
+    _require(Path(requested_key).name == requested_key, "storage_key 必须是单个文件名")
     target = audio_dir / requested_key
-    if not target.is_file():
-        return target, True
-    if sha256_file(target) == content_hash:
-        return target, False
-    return audio_dir / f"{target.stem}-{content_hash[:8]}{target.suffix}", True
+    candidates = (
+        target,
+        audio_dir / f"{target.stem}-{content_hash[:8]}{target.suffix}",
+        audio_dir / f"{target.stem}-{content_hash}{target.suffix}",
+    )
+    for candidate in candidates:
+        if not candidate.exists():
+            return candidate, True
+        if candidate.is_file() and sha256_file(candidate) == content_hash:
+            return candidate, False
+    raise ValueError("音频内容指纹路径冲突，拒绝覆盖已有文件")
+
+
+def _set_expected_count(paper: m.ExamPaper, paper_data: dict) -> None:
+    """只有显式原卷核对结果可建立基准，绝不按待校验的题数推导。"""
+    declared = paper_data.get("expected_question_count")
+    if declared is None:
+        return
+    if paper.expected_question_count is not None and declared != paper.expected_question_count:
+        raise ValueError(
+            f"应有题量与已固定值冲突：已固定 {paper.expected_question_count} 题，"
+            f"本次申报 {declared} 题；同一试卷的应有题量不允许被后续批次改写"
+        )
+    if paper.expected_question_count_source and (
+        paper.expected_question_count_source != paper_data["expected_question_count_source"]
+    ):
+        raise ValueError("应有题量来源与已固定依据冲突")
+    paper.expected_question_count = declared
+    paper.expected_question_count_source = paper_data["expected_question_count_source"]
 
 
 def run_import(payload_path: Path, audio_file: Path) -> dict:
@@ -136,11 +173,9 @@ def run_import(payload_path: Path, audio_file: Path) -> dict:
     # 实际落库的键可能因内容冲突而与申报值不同，以落盘结果为准。
     storage_key = destination.name
 
-    # 先写临时文件，导入成功提交前才移入正式位置；失败时删除，旧文件不受影响。
+    # 仅在数据库写入完成后暂存；created 只记录本次实际创建的正式文件。
     staged: Path | None = None
-    if needs_write:
-        staged = audio_dir / f".incoming-{uuid.uuid4().hex}{destination.suffix}"
-        shutil.copyfile(audio_file, staged)
+    created: Path | None = None
 
     mhash = manifest_hash(payload)
     paper_code = payload["exam_paper"]["exam_paper_code"]
@@ -154,15 +189,12 @@ def run_import(payload_path: Path, audio_file: Path) -> dict:
             if existing is not None and existing.status == "active":
                 if staged is not None and staged.exists():
                     staged.unlink(missing_ok=True)
-                # 老数据可能缺应有题量（如刚降级再升级过的库），幂等返回前补一次。
+                # 幂等材料也必须检查基准冲突；不从材料题数补基准。
                 paper = db.scalar(
                     select(m.ExamPaper).where(m.ExamPaper.exam_paper_code == paper_code)
                 )
-                declared = payload["exam_paper"].get("expected_question_count")
-                if paper is not None and paper.expected_question_count is None:
-                    paper.expected_question_count = (
-                        int(declared) if declared else len(payload["questions"])
-                    )
+                if paper is not None:
+                    _set_expected_count(paper, payload["exam_paper"])
                     db.commit()
                 return {
                     "status": "noop",
@@ -238,17 +270,7 @@ def run_import(payload_path: Path, audio_file: Path) -> dict:
                 db.add(paper_rec)
                 db.flush()
 
-            # 应有题量：首次导入时固定，后续批次不得改写（验收报告 F02）。
-            declared_expected = payload["exam_paper"].get("expected_question_count")
-            if paper_rec.expected_question_count is None:
-                paper_rec.expected_question_count = (
-                    int(declared_expected) if declared_expected else len(payload["questions"])
-                )
-            elif declared_expected and int(declared_expected) != paper_rec.expected_question_count:
-                raise ValueError(
-                    f"应有题量与已固定值冲突：已固定 {paper_rec.expected_question_count} 题，"
-                    f"本次申报 {declared_expected} 题；同一试卷的应有题量不允许被后续批次改写"
-                )
+            _set_expected_count(paper_rec, paper_data)
             paper_rec.playback_audio_id = audio_rec.id
 
             batch = m.ImportBatch(
@@ -263,6 +285,8 @@ def run_import(payload_path: Path, audio_file: Path) -> dict:
                     "audio_file_hash": expected_hash,
                     "duration_ms": audio_data["duration_ms"],
                     "source_xlsx_sha256": payload.get("meta", {}).get("source_xlsx_sha256"),
+                    "expected_question_count": paper_rec.expected_question_count,
+                    "expected_question_count_source": paper_rec.expected_question_count_source,
                 },
             )
             db.add(batch)
@@ -370,12 +394,20 @@ def run_import(payload_path: Path, audio_file: Path) -> dict:
             batch.is_current = True
             batch.imported_at = datetime.now(timezone.utc)
 
-            # 全部写入成功，把临时文件原子移入正式位置（此时旧文件必然未被覆盖）。
-            if staged is not None:
-                os.replace(staged, destination)
+            # 先完成 flush，再发布文件。硬链接以排他方式新建，永不覆盖已有目标。
+            db.flush()
+            if needs_write:
+                staged = audio_dir / f".incoming-{uuid.uuid4().hex}{destination.suffix}"
+                shutil.copyfile(audio_file, staged)
+                try:
+                    os.link(staged, destination)
+                except FileExistsError:
+                    _require(destination.is_file() and sha256_file(destination) == actual_hash,
+                             "音频目标在导入期间发生冲突，拒绝覆盖")
+                else:
+                    created = destination
 
-            db.commit()
-            return {
+            result = {
                 "status": "imported",
                 "batch_code": batch_code,
                 "exam_paper_code": paper_code,
@@ -393,13 +425,16 @@ def run_import(payload_path: Path, audio_file: Path) -> dict:
                 },
                 "expected_question_count": paper_rec.expected_question_count,
             }
+            db.commit()
+            return result
         except Exception:
             db.rollback()
-            # 数据库回滚之外，还要清掉本次新建的文件，保证旧当前批次引用的音频不受影响。
-            for leftover in (staged, destination if needs_write else None):
-                if leftover is not None:
-                    leftover.unlink(missing_ok=True)
+            if created is not None:
+                created.unlink(missing_ok=True)
             raise
+        finally:
+            if staged is not None:
+                staged.unlink(missing_ok=True)
 
 
 def main() -> int:

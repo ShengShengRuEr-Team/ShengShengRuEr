@@ -30,6 +30,11 @@ def _sample_payload(audio_hash: str) -> dict:
             "_src_id": 1, "exam_paper_code": PAPER_CODE, "exam_level": "CET4",
             "exam_year": 2025, "exam_month": 6, "paper_set": 1,
             "content_scope": "listening", "playback_audio_src_id": 1,
+            "expected_question_count": 1,
+            "expected_question_count_source": {
+                "document": "synthetic-test-paper.txt", "sha256": "0" * 64,
+                "locator": "测试夹具独立定义为 1 题；不是实际真题验收记录",
+            },
         },
         "audio": {
             "_src_id": 1, "audio_code": "TEST_M2_AUDIO", "storage_provider": "local",

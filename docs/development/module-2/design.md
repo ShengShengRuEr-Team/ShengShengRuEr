@@ -1,9 +1,11 @@
 # 模块二后端开发文档（V1.0 定版）
 
+> 状态说明：本文保留开发方案与阶段记录；历史“完成”不等于当前验收通过，当前结论见 [验收索引](../../acceptance/README.md)。
+
 - 状态：**V1.0 定版**。V0.1 草案经两位验收人独立审核，2026-11-03 汇总确认：第 2 项（本期只建最小业务子集）、第 12 项（Python 用 3.14.2）按审核意见裁定，其余条目按草案默认通过。审核结论见第 9 节。
 - 基线：`develop` @ `6af6197`（已克隆核实，与需求文档 §1.1 记录一致）。
 - 依据：模块二需求文档 V1.5、技术选型整合稿 V1.5、16 表逐表解释与采集试填报告、本仓库 `backend/` 实际代码与 `docs/` 规范。
-- 标记说明：本文分「已核实的工程事实」与「建议方案（待确认）」两类。**所有标注「待确认」的条目，在双人审核与施博宇确认前不得作为实现依据**；确认后接口契约拆分到 `docs/api/listening-papers.md`，技术决策写入 `docs/decisions/`。
+- 标记说明：本文分「已核实的工程事实」与「建议方案（待确认）」两类。**所有标注「待确认」的条目，在双人审核与施博宇确认前不得作为实现依据**；确认后接口契约拆分到 `docs/development/module-2/api.md`，技术决策写入 `docs/decisions/`。
 
 ---
 
@@ -26,8 +28,8 @@
 | 验收脚本 | `backend/scripts/acceptance.py`：httpx 打真实服务，逐项打印 PASS/FAIL，退出码 0/1 | 新增 `scripts/acceptance_module2.py` 沿用同一风格 |
 | 依赖 | `backend/requirements.txt` 锁定 fastapi 0.143.0 / SQLAlchemy 2.1.4 / alembic 1.20.0 / psycopg 3.3.6 / pytest 9.2.0 / httpx 0.28.1 等 | 本阶段**不新增第三方依赖**；音频读取用标准库 + FastAPI 响应类 |
 | Redis | `README.md` 一期边界明确「不引入 Redis；退出失效写入 `token_revocations` 表」；`.env.example` 与 requirements 均无 Redis | **模块二不需要 Redis**，本地环境只需 PostgreSQL |
-| 命名规范 | `docs/naming-conventions.md`：表名复数 `snake_case`、主键统一 `id`、外键 `<实体>_id`、时间 `created_at/updated_at` 且 UTC、布尔 `is_/has_/can_` 前缀、枚举小写 `snake_case`、API 路径复数 `kebab-case`、字段 `snake_case`、环境变量 `UPPER_SNAKE_CASE` | 全部沿用 |
-| API 契约约定 | `docs/api/README.md` 要求每个接口写明 6 项，且「响应外壳、分页和错误码尚未决定，不在各模块中自行采用不同方案」 | 本文第 5 节给出冻结建议，须在审核时确认 |
+| 命名规范 | `docs/development/naming-conventions.md`：表名复数 `snake_case`、主键统一 `id`、外键 `<实体>_id`、时间 `created_at/updated_at` 且 UTC、布尔 `is_/has_/can_` 前缀、枚举小写 `snake_case`、API 路径复数 `kebab-case`、字段 `snake_case`、环境变量 `UPPER_SNAKE_CASE` | 全部沿用 |
+| API 契约约定 | `docs/development/api-conventions.md` 要求每个接口写明 6 项，且「响应外壳、分页和错误码尚未决定，不在各模块中自行采用不同方案」 | 本文第 5 节给出冻结建议，须在审核时确认 |
 
 > 更正：早期按 RuoYi-FastAPI 通用框架推断的「后端依赖 Redis」不适用于本项目，模块一是自建的最小 FastAPI 工程，已按实际代码更正。
 
@@ -76,7 +78,7 @@
 | `paper_visibility` | 学生可见状态 | `exam_paper_id`, `batch_id`, `is_visible`, `confirmed_by`, `confirmed_at`, `cancelled_by`, `cancelled_at` | 确认记录**绑定批次**，新批次不继承旧确认 | 系统记录，新增 |
 | `visibility_audit_logs` | 可见性操作记录 | `exam_paper_id`, `batch_id`, `action`(`confirm`/`cancel`), `operator_user_id`, `reason`, `created_at` | 只追加，不修改 | 系统记录，新增 |
 
-> 字段表比对已闭环：`schema_options_merged_16tables.json` 已到位，7 张业务表逐字段对齐，结论见 `docs/module-2-schema-alignment.md`。仍待确认：`issues` 用 JSONB 还是独立明细表；`source_manifest` 是否单独建表。
+> 字段表比对已闭环：`schema_options_merged_16tables.json` 已到位，7 张业务表逐字段对齐，结论见 `docs/development/module-2/schema-alignment.md`。仍待确认：`issues` 用 JSONB 还是独立明细表；`source_manifest` 是否单独建表。
 
 ### 3.3 四个状态必须分离
 
@@ -217,7 +219,7 @@
 
 ## 8. 交付顺序与依赖
 
-按任务卡 `docs/module-2-backend-tasks.md` 执行，顺序为：迁移与模型 → 材料核对与结构化文件 → 导入工具 → 数据访问层 → 列表/详情接口 → 管理员配套与权限 → 可见性与检查 → 受控音频 → 端到端验证与文档。每张卡一人开发、两人独立验收，均通过后提交施博宇决定是否合并。
+按任务卡 `docs/development/module-2/tasks.md` 执行，顺序为：迁移与模型 → 材料核对与结构化文件 → 导入工具 → 数据访问层 → 列表/详情接口 → 管理员配套与权限 → 可见性与检查 → 受控音频 → 端到端验证与文档。每张卡一人开发、两人独立验收，均通过后提交施博宇决定是否合并。
 
 ---
 
@@ -227,23 +229,23 @@ V0.1 提出的 13 条待确认事项，逐条裁定如下。**「已确认」条
 
 | # | 事项 | 结论 | 落地方式 |
 | --- | --- | --- | --- |
-| 1 | 表名字段与 16 表字段表逐字段比对 | **已闭环（2026-11-03 补做）** | `schema_options_merged_16tables.json` 已到位，7 张业务表逐字段比对完成并补齐字段、类型与枚举，详见 `docs/module-2-schema-alignment.md` |
+| 1 | 表名字段与 16 表字段表逐字段比对 | **已闭环（2026-11-03 补做）** | `schema_options_merged_16tables.json` 已到位，7 张业务表逐字段比对完成并补齐字段、类型与枚举，详见 `docs/development/module-2/schema-alignment.md` |
 | 2 | 本期只建最小业务子集，还是一次建齐 16 表 | **只建最小业务子集** | 建 11 张表（第 3.2 节），不建 `06_skill`、`07A~07D`、`08_evidence` 等词典与标注表 |
 | 3 | 接口 URL、结构、状态码、404 口径、音频 Range | 已确认 | 按第 5 节实现；音频接口支持 Range（206） |
 | 4 | 音频受控目录、`mime_type`、哈希算法 | 已确认 | `AUDIO_STORAGE_DIR`（默认 `var/audio`，相对 `backend/` 解析）；`mime_type` 由 `format` 映射，`m4a→audio/mp4`；哈希 SHA-256 |
-| 5 | `batch_code` 规则、`is_current` 唯一索引 | 已确认 | `batch_code` = 来源清单哈希前 16 位；`is_current` 用部分唯一索引 `WHERE is_current` |
+| 5 | `batch_code` 规则、`is_current` 唯一索引 | 已确认 | `batch_code` = 试卷编码 + `-` + 来源清单哈希前 12 位；`is_current` 用部分唯一索引 `WHERE is_current` |
 | 6 | 幂等判定粒度 | 已确认 | 整份来源清单哈希，同一 `batch_code` 重复导入直接返回无变更 |
 | 7 | `issues` 用 JSONB 还是明细表 | 已确认 | JSONB（`content_checks.issues`），本阶段不建明细表 |
-| 8 | 内容核对负责人与记录位置 | 已确认（负责人待施博宇指定） | 记录模板在仓库 `docs/module-2-content-check-record.md`；填写后的实际记录放受控目录，不进 Git |
+| 8 | 内容核对负责人与记录位置 | 已确认（负责人待施博宇指定） | 记录模板在仓库 `docs/acceptance/module-2/content-check-record.md`；填写后的实际记录放受控目录，不进 Git |
 | 9 | 枚举最终取值 | 已确认 | `content_scope=listening`；批次 `pending/active/failed`；动作 `confirm/cancel`；`segment_type=body/question`；内容枚举保留中文原值 |
 | 10 | 列表是否分页 | 已确认 | 本阶段不分页，返回全量 |
 | 11 | 本地 PostgreSQL 版本与两套库 | 已确认 | 锁定 PostgreSQL 18.6，`shengshengruer` / `shengshengruer_test` 两套库（见第 11.3 节环境说明） |
 | 12 | Python 版本 | **用 3.14.2** | 本地虚拟环境与依赖均按 3.14 系安装 |
 | 13 | 真实 `.env`、音频原件、真题 PDF 的存放 | 已确认 | 全部在本机受控目录，`.gitignore` 已覆盖 `*.m4a` / `*.mp3` / `.env` / `venv`；仓库只留 `.env.example` |
 
-**仍未闭环的两项**（不阻塞代码，阻塞 B16 验收）：
+**资料与人工核对状态**（更新于 2026-11-04）：
 
-- `schema_options_merged_16tables.json` 与旧采集表 `四六级听力数据采集汇总_ljt.xlsx` 尚未提供，无法做字段表逐字段比对与历史数据追溯。
+- `schema_options_merged_16tables.json` 已到位，字段表比对见 [表结构比对](schema-alignment.md)；旧采集表仍缺，仅影响历史追溯。
 - 内容核对负责人未指定，25 题逐题核对与整套音频核听尚未由人完成。
 
 ---
@@ -283,12 +285,12 @@ V0.1 提出的 13 条待确认事项，逐条裁定如下。**「已确认」条
 
 ### 11.2 与草案的偏差（均已在审核结论内）
 
-1. **字段表比对已闭环**：`schema_options_merged_16tables.json` 于 2026-11-03 到位，7 张业务表逐字段对齐（补齐 14 个字段、放宽 5 处类型、修正 1 处枚举默认值、新增 7 个 CHECK），逐字段结论见 `docs/module-2-schema-alignment.md`；未建的 9 张词典/标注/关系表按「最小业务子集」留待模块三。
+1. **字段表比对已闭环**：`schema_options_merged_16tables.json` 于 2026-11-03 到位，7 张业务表逐字段对齐（补齐 14 个字段、放宽 5 处类型、修正 1 处枚举默认值、新增 7 个 CHECK），逐字段结论见 `docs/development/module-2/schema-alignment.md`；未建的 9 张词典/标注/关系表按「最小业务子集」留待模块三。
 2. **`audio_files` 增加 `format` 与 `mime_type`**：源材料 `02_audio` 只有 `format="m4a"` 没有 `mime_type`，接口要设 `Content-Type`，故保留 `format` 并显式存 `audio/mp4`。
 3. **`passages` / `questions` 增加 `*_code` 列**：对应源表业务编码，便于导入重映射与排错，不改变业务语义。
 4. **`content_groups` 字段命名对齐源表**：用 `content_group_code` / `group_name` / `exam_level_scope` / `content_fingerprint`，不是草案里的 `group_code` / `title`。
 5. **新增 `connect_timeout=5`**（`backend/app/db/base.py`）：验收 B14 要求断库时明确报错，实测无该参数会长时间挂起；加上后断库 5.1 秒返回 500，不影响模块一行为。
-6. **主键命名**：基线用 `question_id` / `segment_id` 作主键名，本仓库 `docs/naming-conventions.md` 统一要求主键 `id`、外键 `<实体>_id`，本期沿用仓库约定，语义等价（对照见 alignment 文档第 1 节）。
+6. **主键命名**：基线用 `question_id` / `segment_id` 作主键名，本仓库 `docs/development/naming-conventions.md` 统一要求主键 `id`、外键 `<实体>_id`，本期沿用仓库约定，语义等价（对照见 alignment 文档第 1 节）。
 
 ### 11.3 验证证据（实际执行结果）
 
@@ -305,7 +307,7 @@ V0.1 提出的 13 条待确认事项，逐条裁定如下。**「已确认」条
 | B09/B13 | 重复导入、哈希不符、事务中途失败 | 重复导入 `noop`；两类失败均整体回滚，批次/题目/试卷计数不变 |
 | B14 | 重启后端、断开数据库 | 重启后 25 题与音频仍可查；断库 5.1 秒返回 `{"code":500,"msg":"服务器内部错误"}`，无写死样例；恢复后自动重连成功 |
 | B15 | `pytest` + 模块一验收脚本 | `18 passed`（模块一 11 + 模块二 7）；模块一验收 8/8 |
-| B16 | 逐题核对与整套核听 | **未完成**，须真实人员按 `docs/module-2-content-check-record.md` 执行 |
+| B16 | 逐题核对与整套核听 | **未完成**，须真实人员按 `docs/acceptance/module-2/content-check-record.md` 执行 |
 
 ### 11.4 本机环境搭建记录（可复现）
 
@@ -336,3 +338,13 @@ V0.1 提出的 13 条待确认事项，逐条裁定如下。**「已确认」条
 - A/B 互换后管理员配套 → `correct_option=B`、`correct_option_base=A`，B 对应文本为正确项
 - 失败导入后旧音频 SHA-256 不变，无 `.incoming-*` 残留
 
+
+## 11.6 扩展复验修复（2026-11-04）
+
+本节对应本地 `fix/module2-recheck-20261104`，取代 §11.5 中 F01/F02 的首次修复方案。验证结果见 [修复验证记录](../../acceptance/module-2/fix-20261104.md)。
+
+- 最终版本路径也校验已有文件哈希；相同内容直接复用，短哈希碰撞时尝试完整哈希路径。数据库写入完成后暂存音频，以排他硬链接发布，禁止覆盖已有目标。只有本次实际新建的正式文件会在回滚时被清理，临时文件在成功和失败后均清理。
+- `exam_papers.expected_question_count_source` 使用 JSONB 保存题量来源，含 `document`、`sha256`、`locator`。应有题量为正整数，来自管理员对独立原卷的核对申报；输入格式校验不等于自动证明原卷语义正确，不能把待校验题数当基准。
+- 题量与来源一起提供；未提供基准的材料可导入为待核对批次，但检查报告 `expected_count_missing`，不能确认开放。后续批次不得改写已有题量或来源。批次 `source_manifest` 同时记录该依据。
+- 迁移 `0004_expected_count_source` 使旧无来源基准失效，保留历史检查并追加失败检查。升级后先核对原卷、补录来源，再重新检查与确认；不修改历史 `0003` 迁移，也不删除认证记录。迁移应在维护时段执行，旧版应用须停止后再切换新版。
+- 发布文件与数据库不能跨进程实现单个原子事务；本次覆盖可捕获的写入、复制与提交失败，不声称提供进程崩溃恢复或生产并发保证。

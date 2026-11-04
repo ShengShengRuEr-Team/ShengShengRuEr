@@ -11,7 +11,7 @@
 
 | 基线表 | 本期表 | 说明 |
 | --- | --- | --- |
-| `exam_paper` | `exam_papers` | 表名复数遵循仓库 `docs/naming-conventions.md` |
+| `exam_paper` | `exam_papers` | 表名复数遵循仓库 `docs/development/naming-conventions.md` |
 | `audio` | `audio_files` | 同上；`audio` 是保留词，加 `_files` 更清晰 |
 | `passage` | `passages` | |
 | `transcript_segment` | `transcript_segments` | |
@@ -25,7 +25,7 @@
 | `skill` / `error_cause` / `evidence` / `classification_dict` / `language_item` | 未建 | 见第 4 节 |
 | `07A`~`07D` 四张关系表 | 未建 | 见第 4 节 |
 
-> **主键命名差异（有意为之）**：基线用 `question_id` / `audio_id` / `segment_id` 作为各自主键名；本仓库 `docs/naming-conventions.md` 统一要求主键叫 `id`、外键叫 `<实体>_id`。本期沿用仓库约定，因此 `transcript_segments` 的主键是 `id`，而 `questions.question_segment_id` 指向它——语义与基线的 `question_segment_id → transcript_segment.segment_id` 完全等价。
+> **主键命名差异（有意为之）**：基线用 `question_id` / `audio_id` / `segment_id` 作为各自主键名；本仓库 `docs/development/naming-conventions.md` 统一要求主键叫 `id`、外键叫 `<实体>_id`。本期沿用仓库约定，因此 `transcript_segments` 的主键是 `id`，而 `questions.question_segment_id` 指向它——语义与基线的 `question_segment_id → transcript_segment.segment_id` 完全等价。
 
 ---
 
@@ -186,3 +186,7 @@
 | 模块二端到端验收 | 16/16 |
 | pytest | 18 passed |
 | 管理员配套接口 | 已返回 `review_status` / `content_state` / `question_index` / `scene` / `accent` |
+
+## 题量来源扩展（0004）
+
+新增 `exam_papers.expected_question_count_source`（JSONB，可空）保存独立原卷题量依据，与应有题量配套；基线16表无该字段，属于本期完整性检查系统扩展。无来源时不能开放。升级使0003按实际题数回填的基准失效，保留原内容、账号和操作历史。

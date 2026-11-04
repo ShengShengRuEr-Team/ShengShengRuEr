@@ -58,9 +58,9 @@ def check_environment() -> None:
     try:
         with engine.connect() as conn:
             revision = conn.execute(text("select version_num from alembic_version")).scalar()
-        record(revision == "0003_exam_paper_expected_count", "迁移版本 = 0003", str(revision))
+        record(revision == "0004_expected_count_source", "迁移版本 = 0004", str(revision))
     except Exception as exc:  # noqa: BLE001
-        record(False, "迁移版本 = 0003", f"{type(exc).__name__}: {str(exc)[:120]}")
+        record(False, "迁移版本 = 0004", f"{type(exc).__name__}: {str(exc)[:120]}")
 
 
 def check_data() -> None:
@@ -83,6 +83,12 @@ def check_data() -> None:
             record(paper is not None, "试卷存在", paper.exam_paper_code if paper else "无")
             if paper is None:
                 return
+            record(
+                paper.expected_question_count is not None
+                and bool(paper.expected_question_count_source),
+                "应有题量具备原卷来源依据",
+                str(paper.expected_question_count_source),
+            )
             batch = db.scalar(
                 select(ImportBatch).where(
                     ImportBatch.exam_paper_id == paper.id, ImportBatch.is_current.is_(True)

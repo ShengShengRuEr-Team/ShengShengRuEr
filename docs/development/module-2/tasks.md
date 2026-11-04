@@ -1,7 +1,9 @@
 # 模块二后端任务卡（V1.0 定版）
 
-- 状态：**V1.0 已实现**。与 `docs/module-2-backend-development.md` V1.0 配套；2026-11-03 审核确认「只建最小业务子集、Python 3.14.2，其余按草案默认」，T01–T09 已全部落地并完成可自动执行的验证。
-- 实现与验证结果见文末「T01–T09 实现状态」与 `docs/module-2-delivery-report.md`。
+> 状态说明：本文保留开发方案与阶段记录；历史“完成”不等于当前验收通过，当前结论见 [验收索引](../../acceptance/README.md)。
+
+- 状态：**V1.0 已实现**。与 `docs/development/module-2/design.md` V1.0 配套；2026-11-03 审核确认「只建最小业务子集、Python 3.14.2，其余按草案默认」，T01–T09 已全部落地并完成可自动执行的验证。
+- 实现与验证结果见文末「T01–T09 实现状态」与 `docs/development/module-2/delivery.md`。
 - 基线：`develop` @ `6af6197`。
 - 流程（需求 §2）：每项任务**一人开发、两人独立验收**；两名验收人员均通过后才向施博宇提交结果，日常任务由施博宇最终合并到 `develop`。
 - 分支：每卡从**最新 `develop`** 建 `feature/<Issue 编号>-<说明>`，PR 目标 `develop`，标题用 `type(scope): 说明`。文档类改动走 `docs/<编号>-<说明>`。
@@ -163,7 +165,7 @@ T02 与 T01 可并行启动（材料核对不依赖代码），但 T03 必须等
 - **对应需求**：需求 §7、§9；验收 B01–B16 全项复核
 - **依赖**：T05、T06、T07、T08
 - **目标**：形成可复现的验证脚本与完整交付说明，组织两名验收人员分别出具记录。
-- **改动范围**：`backend/scripts/acceptance_module2.py`（新增）、`docs/api/listening-papers.md`（接口契约，确认后拆分）、`backend/README.md`（补充模块二启动/导入/验证命令）、`docs/decisions/`（版本冻结记录）
+- **改动范围**：`backend/scripts/acceptance_module2.py`（新增）、`docs/development/module-2/api.md`（接口契约，确认后拆分）、`backend/README.md`（补充模块二启动/导入/验证命令）、`docs/decisions/`（版本冻结记录）
 - **实现要点**：验收脚本用 httpx 打真实服务，逐项打印 PASS/FAIL 并以退出码表示结果，风格与 `scripts/acceptance.py` 一致；覆盖 B01–B16；记录真实查询、音频核听、重启持久化、导入可靠性、模块一回归结果；写清接口字段映射、权限、输入输出、异常响应及未实施事项。
 - **验收标准**：B01–B16 全部有结论；两名验收人员对**同一版 PR** 分别出具记录，均通过后提交施博宇（B12）；模块一 `pytest -v` 11 passed、`scripts/acceptance.py` 8/8 通过（B15）。
 - **验证命令**：`python -m scripts.acceptance_module2 --base-url http://127.0.0.1:8000`；`python -m pytest -v`；`python -m scripts.acceptance --base-url http://127.0.0.1:8000`。
@@ -211,7 +213,7 @@ PR：#<编号>    版本：<commit sha>
 
 | 卡 | 内容 | 状态 | 主要产物 | 验证方式与结果 |
 | --- | --- | --- | --- | --- |
-| T01 | 业务模型与 Alembic 迁移 | 完成 | `backend/app/db/models_listening.py`（11 张表）、`alembic/versions/0002_module2_listening_papers.py` | `alembic upgrade head` 成功；`downgrade 0001` → `downgrade base` → `upgrade head` 均成功，表数 16；已按 16 表基线逐字段对齐（`docs/module-2-schema-alignment.md`） |
+| T01 | 业务模型与 Alembic 迁移 | 完成 | `backend/app/db/models_listening.py`（11 张表）、`alembic/versions/0002_module2_listening_papers.py` | `alembic upgrade head` 成功；`downgrade 0001` → `downgrade base` → `upgrade head` 均成功，表数 16；已按 16 表基线逐字段对齐（`docs/development/module-2/schema-alignment.md`） |
 | T02 | 材料核对与结构化导入文件 | 部分完成 | `scripts/prepare_module2_materials.py`、`_local_materials/import_payload.json` | 17/17 自动预检通过；**人工逐题核对与整套核听未完成**（负责人未指定，B16 未闭环） |
 | T03 | 导入工具（幂等/回滚/批次/音频） | 完成 | `backend/app/import_module2.py` | 首次导入 inserted（1/8/165/25/25）；重复导入返回 `noop` 无重复；哈希不符与事务中途失败均整体回滚，计数不变 |
 | T04 | 数据访问层 | 完成 | `backend/app/repositories/listening.py`、`services/content_check.py`、`services/visibility.py` | 由 T05–T08 接口用例覆盖 |
@@ -219,6 +221,10 @@ PR：#<编号>    版本：<commit sha>
 | T06 | 管理员配套内容与权限 | 完成 | `backend/app/api/admin_listening_papers.py` | 配套返回 25 题含答案解析原文；学生调用 403；无 token 401 |
 | T07 | 可见性、检查与操作记录 | 完成 | `services/visibility.py`、`services/content_check.py` | 确认→学生可见；取消→列表不含、详情与音频 404；操作写入 `visibility_audit_logs` |
 | T08 | 受控音频接口 | 完成 | `backend/app/core/audio_response.py` | Range `bytes=0-1023` → 206 `bytes 0-1023/4169648`；完整下载 200 / 4169648 字节 / `audio/mp4` |
-| T09 | 端到端验证与交付文档 | 完成 | `scripts/acceptance_module2.py`、`docs/module-2-delivery-report.md` | 模块二验收 16/16；pytest 18 passed；模块一验收 8/8 |
+| T09 | 端到端验证与交付文档 | 完成 | `scripts/acceptance_module2.py`、`docs/development/module-2/delivery.md` | 模块二验收 16/16；pytest 18 passed；模块一验收 8/8 |
 
-**未闭环项（须人工/外部补齐）**：B16 逐题内容核对与整套音频核听；`schema_options_merged_16tables.json` 与旧采集表尚未提供，字段表逐字段比对待补。
+**未闭环项（须人工/外部补齐）**：B16 逐题内容核对与整套音频核听；字段结构文件已到位并完成比对；旧采集表仍待提供，用于历史追溯。
+
+## 扩展复验修复交付
+
+本地 `fix/module2-recheck-20261104` 已处理 F01/F02 扩展场景，新增迁移 `0004_expected_count_source`、来源字段与边界回归。34 项 pytest、一键自检18/18及真实材料主复验19/19通过，详见 [本轮修复验证记录](../../acceptance/module-2/fix-20261104.md)。本节为开发者自检记录，未替代真实人员验收。

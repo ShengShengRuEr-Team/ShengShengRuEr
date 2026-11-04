@@ -1,6 +1,6 @@
 # 听力试卷接口契约（模块二）
 
-- 状态：**V1.0 已实现**。对应开发文档 `docs/module-2-backend-development.md` V1.0 第 5 节、任务卡 T04–T08。
+- 状态：**V1.0 已实现**。对应开发文档 `docs/development/module-2/design.md` V1.0 第 5 节、任务卡 T04–T08。
 - 实现位置：`backend/app/api/listening_papers.py`、`backend/app/api/admin_listening_papers.py`。
 - 需求编号：M2-B01（试卷与题目可查）、M2-B03/B04（管理员配套内容与权限）、M2-B05（真实音频）、M2-B06（可见性）、M2-B10（异常处理）。
 - 兼容性：本次为模块二首批业务接口，无历史版本，无破坏性变更。
@@ -265,7 +265,7 @@
 | kind | 触发条件 |
 | --- | --- |
 | `missing_questions` | 当前批次没有任何题目 |
-| `expected_count_missing` | 试卷未记录应有题量，无法校验整卷完整性 |
+| `expected_count_missing` | 试卷未建立具备原卷来源依据的应有题量，无法校验整卷完整性 |
 | `question_count_mismatch` | 题目数与应有题量不符，或题目数与映射数不符 |
 | `question_no_not_sequential` | 原卷题号不是 1—应有题量的连续序列（含末尾整题缺失） |
 | `question_text_empty` / `option_empty` | 题干或选项为空 |
@@ -293,3 +293,5 @@
 {"code": 404, "msg": "资源不存在", "data": null}
 {"code": 400, "msg": "内容检查未通过，不能确认可见", "data": null}
 ```
+
+题量依据属于受控导入数据，不由学生接口提供。修复版的字段格式及升级后重新确认步骤见 [验收指南](../../acceptance/module-2/guide.md#扩展复验修复版建立原卷题量基准)。
