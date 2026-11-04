@@ -73,7 +73,9 @@ class SegmentAdmin(BaseModel):
 
 
 class QuestionAdmin(QuestionStudent):
+    # correct_option 是本套原卷展示下的答案字母；correct_option_base 是题库原始字母。
     correct_option: str
+    correct_option_base: str = ""
     explanation_text: str
     explanation_source: str
     question_index: int | None = None

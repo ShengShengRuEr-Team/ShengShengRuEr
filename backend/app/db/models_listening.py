@@ -91,6 +91,9 @@ class ExamPaper(Base):
     playback_audio_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("audio_files.id", ondelete="SET NULL"), nullable=True
     )
+    # 该套选定原卷的应有题量：首次导入时固定，后续批次的题量与题序都对照它校验，
+    # 避免「末尾整题缺失」这类不完整数据被当成整卷（验收报告 F02）。
+    expected_question_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # 16 表基线：来源说明与题号/选项映射来源。
     source: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
     mapping_source: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")

@@ -58,9 +58,9 @@ def check_environment() -> None:
     try:
         with engine.connect() as conn:
             revision = conn.execute(text("select version_num from alembic_version")).scalar()
-        record(revision == "0002_module2_listening_papers", "迁移版本 = 0002", str(revision))
+        record(revision == "0003_exam_paper_expected_count", "迁移版本 = 0003", str(revision))
     except Exception as exc:  # noqa: BLE001
-        record(False, "迁移版本 = 0002", f"{type(exc).__name__}: {str(exc)[:120]}")
+        record(False, "迁移版本 = 0003", f"{type(exc).__name__}: {str(exc)[:120]}")
 
 
 def check_data() -> None:

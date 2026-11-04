@@ -151,6 +151,25 @@ def _options_for(question: Question, presentation: Presentation | None) -> list[
     return options
 
 
+def _paper_correct_option(
+    question: Question, presentation: Presentation | None
+) -> tuple[str, str]:
+    """返回 (本套原卷答案字母, 题库答案字母)。
+
+    选项已按本套映射重排，题库字母可能不再对应展示位置；不换算会出现
+    「正确文字在 B、答案却写 A」的不一致（验收报告 F04）。
+    """
+    base_letter = question.correct_option
+    mapping = (presentation.option_letter_mapping if presentation else None) or {
+        letter: letter for letter in BASE_OPTIONS
+    }
+    for paper_letter in BASE_OPTIONS:
+        if str(mapping.get(paper_letter, paper_letter)) == base_letter:
+            return paper_letter, base_letter
+    # 映射非法时原样返回，由最低内容检查报 option_mapping_invalid。
+    return base_letter, base_letter
+
+
 def assemble_student_detail(db: Session, paper: ExamPaper, batch: ImportBatch) -> dict:
     passages, seg_by_passage, questions_by_passage, presentation_by_question, _ = (
         _load_batch_content(db, batch.id)
@@ -246,13 +265,15 @@ def assemble_admin_companion(
         out_questions = []
         for q in questions:
             presentation = presentation_by_question.get(q.id)
+            paper_letter, base_letter = _paper_correct_option(q, presentation)
             out_questions.append(
                 {
                     "question_no": presentation.question_no if presentation else 0,
                     "question_id": q.id,
                     "question_text": q.question_text,
                     "options": _options_for(q, presentation),
-                    "correct_option": q.correct_option,
+                    "correct_option": paper_letter,
+                    "correct_option_base": base_letter,
                     "explanation_text": q.explanation_text,
                     "explanation_source": q.explanation_source,
                     "question_index": q.question_index,

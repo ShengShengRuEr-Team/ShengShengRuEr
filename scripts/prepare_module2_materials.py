@@ -188,6 +188,8 @@ def build_payload(tables, xlsx_path: Path, audio_rel_key: str) -> dict:
             "paper_set": to_int(paper["paper_set"]),
             "content_scope": "listening",
             "playback_audio_src_id": to_int(paper["playback_audio_id"]),
+            # 选定原卷的应有题量：导入时固定，后续批次对照校验（见验收报告 F02）。
+            "expected_question_count": len(questions),
             # 来源与采集/审核状态：字段名与取值沿用 16 表基线。
             "source": sanitize_source(paper.get("source", "")),
             "mapping_source": sanitize_source(paper.get("mapping_source", "")),

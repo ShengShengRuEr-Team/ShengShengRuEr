@@ -35,9 +35,26 @@ def evaluate(db: Session, paper: ExamPaper, batch: ImportBatch, audio_dir: Path)
     ).all()
     passages = db.scalars(select(Passage).where(Passage.batch_id == batch.id)).all()
 
-    # 1. 完整题量
+    # 1. 完整题量：以该套选定原卷固定的应有题量为准，而不是只比较题目数与映射数。
+    #    否则「末尾整题一起缺失」仍会通过检查（验收报告 F02）。
     if not questions:
         issues.append(_issue("missing_questions", "当前批次没有任何题目"))
+
+    expected_count = paper.expected_question_count
+    if expected_count is None:
+        issues.append(
+            _issue(
+                "expected_count_missing",
+                "试卷未记录应有题量，无法校验整卷完整性；请重新导入以固定应有题量",
+            )
+        )
+    elif len(questions) != expected_count:
+        issues.append(
+            _issue(
+                "question_count_mismatch",
+                f"题目数({len(questions)})与选定原卷应有题量({expected_count})不一致",
+            )
+        )
     if len(questions) != len(presentations):
         issues.append(
             _issue(
@@ -46,10 +63,16 @@ def evaluate(db: Session, paper: ExamPaper, batch: ImportBatch, audio_dir: Path)
             )
         )
 
-    # 2. 题序与映射连续
+    # 2. 题序连续，且覆盖 1..应有题量
     question_nos = sorted(p.question_no for p in presentations)
-    if question_nos and question_nos != list(range(1, len(question_nos) + 1)):
-        issues.append(_issue("question_no_not_sequential", f"原卷题号不连续：{question_nos}"))
+    upper_bound = expected_count if expected_count is not None else len(question_nos)
+    if question_nos and question_nos != list(range(1, upper_bound + 1)):
+        issues.append(
+            _issue(
+                "question_no_not_sequential",
+                f"原卷题号应为 1—{upper_bound}，实际为：{question_nos}",
+            )
+        )
 
     presentation_by_question = {p.question_id: p for p in presentations}
     passage_ids = {p.id for p in passages}
@@ -78,10 +101,34 @@ def evaluate(db: Session, paper: ExamPaper, batch: ImportBatch, audio_dir: Path)
             issues.append(_issue("presentation_missing", f"题目 {q.question_code} 缺少原卷映射"))
         else:
             mapping = presentation.option_letter_mapping or {}
-            if sorted(mapping.keys()) != ["A", "B", "C", "D"]:
+            letters = ["A", "B", "C", "D"]
+            if sorted(mapping.keys()) != letters:
                 issues.append(
                     _issue("option_mapping_incomplete", f"题目 {q.question_code} 选项映射未覆盖 A-D")
                 )
+            elif sorted(str(mapping[letter]) for letter in letters) != letters:
+                # 映射值必须是 A–D 的一一对应，否则会出现空选项或重复选项（验收报告 F03）。
+                issues.append(
+                    _issue(
+                        "option_mapping_invalid",
+                        f"题目 {q.question_code} 选项映射值非法：{mapping}（必须是 A–D 的排列）",
+                    )
+                )
+            else:
+                base_options = {
+                    "A": q.option_a,
+                    "B": q.option_b,
+                    "C": q.option_c,
+                    "D": q.option_d,
+                }
+                shown = [base_options[str(mapping[letter])] for letter in letters]
+                if any(not (text or "").strip() for text in shown):
+                    issues.append(
+                        _issue(
+                            "option_display_empty",
+                            f"题目 {q.question_code} 按本套映射组装后存在空选项",
+                        )
+                    )
 
     # 5. 音频可用性
     from app.db.models_listening import AudioFile
