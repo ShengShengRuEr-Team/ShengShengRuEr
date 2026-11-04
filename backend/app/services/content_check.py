@@ -41,11 +41,11 @@ def evaluate(db: Session, paper: ExamPaper, batch: ImportBatch, audio_dir: Path)
         issues.append(_issue("missing_questions", "当前批次没有任何题目"))
 
     expected_count = paper.expected_question_count
-    if expected_count is None:
+    if expected_count is None or not paper.expected_question_count_source:
         issues.append(
             _issue(
                 "expected_count_missing",
-                "试卷未记录应有题量，无法校验整卷完整性；请重新导入以固定应有题量",
+                "试卷未建立有原卷来源依据的应有题量，无法校验整卷完整性；请核对原卷并补录题量及来源",
             )
         )
     elif len(questions) != expected_count:

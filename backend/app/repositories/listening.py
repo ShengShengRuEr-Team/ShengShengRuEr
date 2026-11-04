@@ -73,6 +73,8 @@ def student_access(db: Session, exam_paper_id: int) -> tuple[bool, ExamPaper | N
     paper = get_paper(db, exam_paper_id)
     if paper is None:
         return False, None, None
+    if paper.expected_question_count is None or not paper.expected_question_count_source:
+        return False, paper, None
     batch = get_current_batch(db, exam_paper_id)
     if batch is None:
         return False, paper, None

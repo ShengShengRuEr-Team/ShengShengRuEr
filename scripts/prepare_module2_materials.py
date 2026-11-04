@@ -188,8 +188,7 @@ def build_payload(tables, xlsx_path: Path, audio_rel_key: str) -> dict:
             "paper_set": to_int(paper["paper_set"]),
             "content_scope": "listening",
             "playback_audio_src_id": to_int(paper["playback_audio_id"]),
-            # 选定原卷的应有题量：导入时固定，后续批次对照校验（见验收报告 F02）。
-            "expected_question_count": len(questions),
+            # 应有题量必须另行对照原卷登记，不能由待校验 questions 反推。
             # 来源与采集/审核状态：字段名与取值沿用 16 表基线。
             "source": sanitize_source(paper.get("source", "")),
             "mapping_source": sanitize_source(paper.get("mapping_source", "")),
@@ -316,6 +315,12 @@ def precheck(payload: dict) -> list[tuple[bool, str, str]]:
     questions = payload["questions"]
     presentations = payload["presentations"]
     groups = payload["content_groups"]
+
+    expected = paper.get("expected_question_count")
+    add(expected is not None and bool(paper.get("expected_question_count_source")),
+        "原卷题量依据", "已登记原卷来源" if expected is not None else "未建立基准，禁止开放")
+    if expected is not None:
+        add(len(questions) == expected, "题量符合原卷", f"应有 {expected}，实际 {len(questions)}")
 
     add(True, "试卷字段", f"code={paper['exam_paper_code']} level={paper['exam_level']} "
                          f"{paper['exam_year']}-{paper['exam_month']:02d} 第{paper['paper_set']}套 scope={paper['content_scope']}")
@@ -450,7 +455,7 @@ def write_outputs(out_dir: Path, payload: dict, checks, xlsx_path: Path):
         "| 答案解析 PDF | ⚠️ 需人工对照 | 见来源清单_CET4_2025_06_1.md | 核对答案/解析 |",
         "| 原始时间校对稿 | ❌ 缺失 | 待补 | 现有为由采集表导出的替代稿 |",
         "| 旧采集表 ljt.xlsx | ❌ 缺失 | 待补 | 数据溯源 |",
-        "| schema_options_merged_16tables.json | ❌ 缺失 | 待补 | 16 表字段结构与枚举 |",
+        "| schema_options_merged_16tables.json | 作为受控资料单独提供 | 按收到的文件核验 | 16 表字段比对已归档，见开发目录 |",
     ]
     (out_dir / "source_manifest.md").write_text("\n".join(manifest), encoding="utf-8")
 
@@ -459,6 +464,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="整理模块二结构化导入文件并自动预检")
     parser.add_argument("--xlsx", required=True, help="16 表试填工作簿路径")
     parser.add_argument("--out", required=True, help="输出目录（仓库外，禁止提交 Git）")
+    parser.add_argument("--expected-question-count", type=int, help="对照原卷核定的正整数题量")
+    parser.add_argument("--count-source-file", help="题量依据的原卷文件，用于计算 SHA-256")
+    parser.add_argument("--count-source-locator", help="原卷页码、听力题号范围等定位说明")
     parser.add_argument(
         "--audio-key",
         default="CET4_2025_06_1_听力.m4a",
@@ -470,6 +478,21 @@ def main() -> None:
     out_dir = Path(args.out)
     tables = load_workbook(xlsx_path)
     payload = build_payload(tables, xlsx_path, args.audio_key)
+    if any(value is not None for value in (
+        args.expected_question_count, args.count_source_file, args.count_source_locator
+    )):
+        if not (args.expected_question_count and args.expected_question_count > 0
+                and args.count_source_file and args.count_source_locator):
+            parser.error("题量、原卷文件、定位说明须同时提供，题量须为正整数")
+        source_file = Path(args.count_source_file)
+        payload["exam_paper"]["expected_question_count"] = args.expected_question_count
+        payload["exam_paper"]["expected_question_count_source"] = {
+            "document": source_file.name,
+            "sha256": sha256_file(source_file),
+            "locator": args.count_source_locator,
+        }
+    else:
+        print("未提供原卷题量依据：可以导入待核对材料，不能确认学生可见。")
     checks = precheck(payload)
     write_outputs(out_dir, payload, checks, xlsx_path)
 
