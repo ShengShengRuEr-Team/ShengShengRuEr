@@ -68,6 +68,16 @@ def prepared_database() -> Generator[None]:
     from app.db.base import engine
     from app.seed import seed
 
+    # 安全护栏：engine 必须真的连到测试库。
+    # 若有测试模块在收集阶段就 import 了 app.*，engine 会提前绑定开发库，
+    # 下面的 DROP SCHEMA 就会把开发库数据清空。这里改为立刻报错。
+    bound_database = engine.url.database
+    if bound_database != TEST_DATABASE_NAME:
+        raise RuntimeError(
+            f"engine 绑定到 {bound_database!r}，不是测试库 {TEST_DATABASE_NAME!r}；"
+            "请检查是否有测试模块在模块级 import 了 app.*，改为在夹具内延迟导入。"
+        )
+
     # 测试库每次从空 schema 开始，保证迁移文件可独立建表。
     with engine.begin() as connection:
         connection.execute(text("DROP SCHEMA public CASCADE"))

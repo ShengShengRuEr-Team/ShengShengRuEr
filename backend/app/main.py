@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api import admin, auth
+from app.api import admin, admin_listening_papers, auth, listening_papers
 from app.core.errors import AppError
 
 logger = logging.getLogger(__name__)
@@ -72,3 +72,5 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
+app.include_router(listening_papers.router, prefix="/api/v1")
+app.include_router(admin_listening_papers.router, prefix="/api/v1")
