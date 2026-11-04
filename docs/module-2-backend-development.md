@@ -76,7 +76,7 @@
 | `paper_visibility` | 学生可见状态 | `exam_paper_id`, `batch_id`, `is_visible`, `confirmed_by`, `confirmed_at`, `cancelled_by`, `cancelled_at` | 确认记录**绑定批次**，新批次不继承旧确认 | 系统记录，新增 |
 | `visibility_audit_logs` | 可见性操作记录 | `exam_paper_id`, `batch_id`, `action`(`confirm`/`cancel`), `operator_user_id`, `reason`, `created_at` | 只追加，不修改 | 系统记录，新增 |
 
-> 待确认：表名与字段是否与 `schema_options_merged_16tables.json` 完全一致（该文件当前不在本机，需从 `D:/ppt or work/课题组/outputs/listening_options_merged_20261024/` 取回后逐字段核对）；`issues` 用 JSON/JSONB 还是独立明细表；`source_manifest` 是否单独建表。
+> 字段表比对已闭环：`schema_options_merged_16tables.json` 已到位，7 张业务表逐字段对齐，结论见 `docs/module-2-schema-alignment.md`。仍待确认：`issues` 用 JSONB 还是独立明细表；`source_manifest` 是否单独建表。
 
 ### 3.3 四个状态必须分离
 
@@ -164,7 +164,7 @@
 
 ### 6.1 材料清单与来源固定
 
-需从 `D:/ppt or work/课题组/收集资料/2025年四级/` 取回并放入**本机受控目录**（不进 Git）：原卷 PDF、答案解析 PDF、原始 M4A 音频、听力时间校对稿、旧采集表，以及 `schema_options_merged_16tables.json` 字段结构。逐文件记录版本或哈希，形成来源清单。当前工作区只有试填 xlsx 与 5 份文档，**上述原件均未就位**。
+材料已于 2026-11-03 到位并逐文件核对哈希，全部放入**本机受控目录**（不进 Git）：原卷 PDF、答案解析 PDF、原始音频（`.mp3` 后缀，实为 AAC/M4A 容器）、听力时间校对稿、字段结构 `schema_options_merged_16tables.json`，以及来源清单 `source_manifest`。逐文件版本与 SHA-256 见来源清单；仓库内不存放这些原件。
 
 试填记录（16 表报告）：25 题、8 篇章、165 条转写片段、100 个选项、音频 AAC 44100Hz 双声道 1416.046 秒、哈希已留；但英文转写与时间沿用自动对齐结果，**本次没有重新逐句人工核听**，新标注均为试标且保留待审核。因此不能作为人工审核通过的验收依据。
 

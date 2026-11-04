@@ -44,8 +44,8 @@
 
 ```bash
 # 1. 启动数据库（本机为后台进程；重启机器后需重新启动）
-"C:/Users/win/AppData/Local/ssre_pg/pgsql/bin/postgres.exe" \
-  -D "C:/Users/win/AppData/Local/ssre_pg/pgdata" -p 5432 -c listen_addresses=127.0.0.1
+# <PG_DIR> 为本机 PostgreSQL 解压目录，<PG_DATA> 为数据目录，按自己机器替换
+"<PG_DIR>/bin/postgres.exe" -D "<PG_DATA>" -p 5432 -c listen_addresses=127.0.0.1
 
 # 2. 建库（首次）
 psql -h 127.0.0.1 -U postgres -d postgres -c "CREATE DATABASE shengshengruer;"
@@ -56,8 +56,8 @@ cd backend
 .venv/Scripts/python.exe -m alembic upgrade head
 .venv/Scripts/python.exe -m app.seed
 .venv/Scripts/python.exe -m app.import_module2 \
-  --input  "C:/Users/win/Desktop/模块二/_local_materials/import_payload.json" \
-  --audio-file "C:/Users/win/Desktop/模块二/CET4_2025年6月_第1套_听力.mp3"
+  --input  "<受控目录>/import_payload.json" \
+  --audio-file "<受控目录>/CET4_2025_06_1_听力.m4a"
 
 # 4. 启动服务 + 验收
 .venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
