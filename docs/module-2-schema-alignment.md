@@ -39,6 +39,7 @@
 | `exam_level` | `exam_level` VARCHAR(32) | 类型已对齐（原 VARCHAR(16) 已放宽） |
 | `exam_year` / `exam_month` / `paper_set` | 同名 INT | 一致 |
 | `source` | `source` TEXT | **本次新增**，导入写入来源说明 |
+| — | `expected_question_count` INT | **本期扩展（基线无）**：该套选定原卷的应有题量，首次导入固定，用于发现「末尾整题缺失」；见验收报告 F02 |
 | `playback_audio_id` | `playback_audio_id` | 一致 |
 | `mapping_source` | `mapping_source` TEXT | **本次新增**，导入写入原卷路径 |
 | `collector` | `collector` VARCHAR(64) | **本次新增**，本套为 `ljt` |

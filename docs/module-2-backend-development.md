@@ -64,7 +64,7 @@
 
 | 表名 | 用途 | 主要字段 | 关键约束 | 对应 16 表 |
 | --- | --- | --- | --- | --- |
-| `exam_papers` | 试卷身份与内容范围 | `exam_paper_code`, `exam_level`, `exam_year`, `exam_month`, `paper_set`, `content_scope`, `playback_audio_id`, `current_batch_id`, 时间戳 | `uq exam_paper_code`；`content_scope` 固定 `listening` | `01_exam_paper` |
+| `exam_papers` | 试卷身份与内容范围 | `exam_paper_code`, `exam_level`, `exam_year`, `exam_month`, `paper_set`, `content_scope`, `playback_audio_id`, `expected_question_count`, 时间戳 | `uq exam_paper_code`；`content_scope` 固定 `listening` | `01_exam_paper` |
 | `audio_files` | 音频引用与校验 | `storage_provider`, `storage_key`, `duration_ms`, `file_hash`, `mime_type` | `uq storage_key`；`file_hash` 非空 | `02_audio` |
 | `passages` | 篇章与题组顺序 | `exam_paper_id`, `batch_id`, `audio_id`, `passage_index`, `passage_type` | `uq (batch_id, passage_index)`；FK 到试卷/批次/音频 | `03_passage` |
 | `transcript_segments` | 正文与录音问题片段 | `passage_id`, `batch_id`, `segment_index`, `segment_type`(`body`/`question`), `text`, `start_ms`, `end_ms` | `uq (passage_id, segment_index)`；时间落在篇章范围内 | `04_transcript_segment` |
@@ -230,7 +230,7 @@ V0.1 提出的 13 条待确认事项，逐条裁定如下。**「已确认」条
 | 1 | 表名字段与 16 表字段表逐字段比对 | **已闭环（2026-11-03 补做）** | `schema_options_merged_16tables.json` 已到位，7 张业务表逐字段比对完成并补齐字段、类型与枚举，详见 `docs/module-2-schema-alignment.md` |
 | 2 | 本期只建最小业务子集，还是一次建齐 16 表 | **只建最小业务子集** | 建 11 张表（第 3.2 节），不建 `06_skill`、`07A~07D`、`08_evidence` 等词典与标注表 |
 | 3 | 接口 URL、结构、状态码、404 口径、音频 Range | 已确认 | 按第 5 节实现；音频接口支持 Range（206） |
-| 4 | 音频受控目录、`mime_type`、哈希算法 | 已确认 | `LISTENING_AUDIO_DIR`（默认 `backend/var/audio`）；`mime_type` 由 `format` 映射，`m4a→audio/mp4`；哈希 SHA-256 |
+| 4 | 音频受控目录、`mime_type`、哈希算法 | 已确认 | `AUDIO_STORAGE_DIR`（默认 `var/audio`，相对 `backend/` 解析）；`mime_type` 由 `format` 映射，`m4a→audio/mp4`；哈希 SHA-256 |
 | 5 | `batch_code` 规则、`is_current` 唯一索引 | 已确认 | `batch_code` = 来源清单哈希前 16 位；`is_current` 用部分唯一索引 `WHERE is_current` |
 | 6 | 幂等判定粒度 | 已确认 | 整份来源清单哈希，同一 `batch_code` 重复导入直接返回无变更 |
 | 7 | `issues` 用 JSONB 还是明细表 | 已确认 | JSONB（`content_checks.issues`），本阶段不建明细表 |
@@ -314,3 +314,25 @@ V0.1 提出的 13 条待确认事项，逐条裁定如下。**「已确认」条
 - **踩坑与解决**：`initdb` 在 post-bootstrap 阶段反复 `0xC0000005`。事件日志显示故障模块是本机 **Java JRE 目录下的旧版 `MSVCP140.dll`（14.16.27033）**——该目录在 PATH 中先于系统目录，PG 18 加载了它。系统未安装 VC++ 运行时；把 **14.44.35211** 的 `msvcp140.dll` / `vcruntime140.dll` / `vcruntime140_1.dll` 放进 `pgsql/bin`（DLL 优先同目录）后 `initdb` 一次成功。这不是 PG 版本问题，**换 PG 17/16 无效**，其它机器遇到同样崩溃可按此排查。
 - 连接串：`postgresql+psycopg://postgres:<密码>@127.0.0.1:5432/shengshengruer`；测试库 `shengshengruer_test` 由 `tests/conftest.py` 自动创建。
 - 音频受控目录：`backend/var/audio/`（`.gitignore` 已忽略音频扩展名与 `.env`）。
+
+### 11.5 验收报告整改（2026-11-04，对应 PR #5 首轮验收）
+
+首轮验收提出 5 类代码缺陷，逐条修复并补回归用例（`tests/test_module2_listening.py`，用例数 7 → 12，全量 23 passed）。
+
+| 编号 | 问题 | 修复方式 | 回归用例 |
+| --- | --- | --- | --- |
+| F01 | 失败导入会覆盖仍在使用的旧音频 | 音频先写 `.incoming-*` 临时文件，全部写入成功后在提交前原子移入；内容不同时不复用原文件名，改存 `<名>-<hash8><后缀>`，旧文件原样保留；异常分支同时清理数据库事务与本次新建文件 | `test_failed_import_keeps_existing_audio` |
+| F02 | 末尾整题一起缺失仍能通过完整题量检查 | 新增 `exam_papers.expected_question_count`（迁移 `0003`），首次导入固定、后续批次不得改写；检查改为「题目数 == 应有题量」且题号必须覆盖 1—应有题量 | `test_missing_questions_against_expected_count` |
+| F03 | 非法选项映射仍可开放，学生收到空选项 | 映射键与值都必须是 A–D 的一一排列，并按映射组装后校验四项文本非空；新增 `option_mapping_invalid`、`option_display_empty` 问题种类 | `test_invalid_option_mapping_blocks_confirm` |
+| F04 | 选项重排后管理员答案字母未换算 | 管理员配套接口按本套映射把题库字母换算为本套展示字母，返回 `correct_option`（本套）+ `correct_option_base`（题库） | `test_admin_answer_follows_option_mapping` |
+| F05 | 同一 `audio_code` 的新文件元数据被静默忽略 | 复用已有音频记录前核对哈希、`storage_key`、时长，任一不符即拒绝并给出可操作提示，要求内容变更使用新 `audio_code` | `test_audio_code_conflict_is_rejected` |
+
+另按 B11 统一配置名：文档中误写的 `LISTENING_AUDIO_DIR` 更正为实际的 `AUDIO_STORAGE_DIR`。
+
+实测复现（真实服务 + 真实库）：
+
+- 删除第 25 题与映射后确认可见 → `400 题目数(24)与选定原卷应有题量(25)不一致；原卷题号应为 1—25`
+- 映射改成 `A→Z` 后确认可见 → `400 …选项映射值非法`
+- A/B 互换后管理员配套 → `correct_option=B`、`correct_option_base=A`，B 对应文本为正确项
+- 失败导入后旧音频 SHA-256 不变，无 `.incoming-*` 残留
+

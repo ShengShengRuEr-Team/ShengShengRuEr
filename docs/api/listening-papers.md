@@ -146,7 +146,8 @@
 
 | 追加字段 | 说明 |
 | --- | --- |
-| `correct_option` | 标准答案字母（A–D） |
+| `correct_option` | **本套原卷展示下的**正确答案字母（已按 `option_letter_mapping` 换算；学生看到的就是这个字母） |
+| `correct_option_base` | 题库侧的原始答案字母；与 `correct_option` 不同即说明本套做过选项重排 |
 | `explanation_text` / `explanation_source` | 解析文本与来源 |
 | `segments` | 原文片段：`segment_index`、`segment_type`(`body`/`question`)、`text`、`speaker_code`、`start_ms`、`end_ms` |
 | `start_ms` / `body_end_ms` / `end_ms` | 篇章时间范围 |
@@ -259,7 +260,25 @@
 }
 ```
 
-`issues` 每项为 `{"kind": "...", "message": "..."}`，`kind` 取值示例：`missing_questions`、`question_order`、`option_mapping`、`audio_unavailable`。无批次或无检查记录时 `is_passed=false`、`issues=[]`、`checked_at=null`。
+`issues` 每项为 `{"kind": "...", "message": "..."}`。当前实现的 `kind`：
+
+| kind | 触发条件 |
+| --- | --- |
+| `missing_questions` | 当前批次没有任何题目 |
+| `expected_count_missing` | 试卷未记录应有题量，无法校验整卷完整性 |
+| `question_count_mismatch` | 题目数与应有题量不符，或题目数与映射数不符 |
+| `question_no_not_sequential` | 原卷题号不是 1—应有题量的连续序列（含末尾整题缺失） |
+| `question_text_empty` / `option_empty` | 题干或选项为空 |
+| `correct_option_invalid` | 答案字母不是 A–D |
+| `content_state_not_usable` | 题目内容完整度不是「可用」 |
+| `presentation_missing` | 题目缺少原卷映射 |
+| `option_mapping_incomplete` | 映射未覆盖 A–D |
+| `option_mapping_invalid` | 映射值不是 A–D 的一一排列（会导致空选项或重复选项） |
+| `option_display_empty` | 按本套映射组装后仍存在空选项 |
+| `question_passage_missing` | 题目所属篇章不存在 |
+| `audio_unbound` / `audio_missing` | 试卷未绑定音频 / 音频文件不存在 |
+
+无批次或无检查记录时 `is_passed=false`、`issues=[]`、`checked_at=null`。
 
 5. **失败**：`401`；`403`；`404` 试卷不存在；`500`。
 6. **关联**：M2-B06 / B08；实现状态已交付。
