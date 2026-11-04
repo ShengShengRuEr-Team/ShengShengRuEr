@@ -1,7 +1,9 @@
 # 模块二后端交付说明（2026-11-03）
 
+> 历史交付记录：下列数字对应文内记录的阶段；首轮和扩展复验均发现缺陷，不能据历史脚本通过判定完整验收通过。各轮结果见 [验收索引](../../acceptance/README.md)。
+
 - 基线：`develop` @ `6af6197`（与需求文档 §1.1 记录一致）
-- 依据：`docs/module-2-backend-development.md` V1.0、`docs/module-2-backend-tasks.md` V1.0
+- 依据：`docs/development/module-2/design.md` V1.0、`docs/development/module-2/tasks.md` V1.0
 - 结论：**代码可运行、可复现、自动化验收全部通过**；**B16（人工逐题核对与整套核听）未完成**，需真实人员执行。
 
 ## 一、交付内容
@@ -25,13 +27,13 @@
 
 | 文件 | 内容 |
 | --- | --- |
-| `docs/module-2-backend-development.md` | 开发文档 V1.0：工程调研、表设计、功能—字段—接口—角色对照表、接口契约、导入方案、B01–B16 验证方法、审核结论、实现与证据 |
-| `docs/module-2-backend-tasks.md` | 任务卡 V1.0：T01–T09 依赖、改动文件、验收标准，附实现状态表 |
-| `docs/api/listening-papers.md` | 6 个接口的完整契约（含样例、错误码、状态口径） |
-| `docs/module-2-schema-alignment.md` | 与 16 表基线的逐字段比对、枚举对齐、未建 9 张表的理由 |
-| `docs/module-2-acceptance-guide.md` | 验收指南：环境、材料、一键自检、B01–B16 核查表、记录模板、常见问题 |
-| `docs/module-2-content-check-record.md` | B16 逐题核对与核听记录**空模板**（25 行） |
-| `docs/module-2-delivery-report.md` | 本文件 |
+| `docs/development/module-2/design.md` | 开发文档 V1.0：工程调研、表设计、功能—字段—接口—角色对照表、接口契约、导入方案、B01–B16 验证方法、审核结论、实现与证据 |
+| `docs/development/module-2/tasks.md` | 任务卡 V1.0：T01–T09 依赖、改动文件、验收标准，附实现状态表 |
+| `docs/development/module-2/api.md` | 6 个接口的完整契约（含样例、错误码、状态口径） |
+| `docs/development/module-2/schema-alignment.md` | 与 16 表基线的逐字段比对、枚举对齐、未建 9 张表的理由 |
+| `docs/acceptance/module-2/guide.md` | 验收指南：环境、材料、一键自检、B01–B16 核查表、记录模板、常见问题 |
+| `docs/acceptance/module-2/content-check-record.md` | B16 逐题核对与核听记录**空模板**（25 行） |
+| `docs/development/module-2/delivery.md` | 本文件 |
 
 ### 环境改动（仅本机，无一条进仓库）
 
@@ -102,9 +104,9 @@ PR #5 首轮验收提出 5 类代码缺陷，已全部修复并补回归用例�
 
 ## 四、未完成项与下一步
 
-1. **B16 内容核对（阻塞验收）**：需指定负责人，按 `docs/module-2-content-check-record.md` 逐题核对 25 题的题干、选项、标准答案、解析、原文对应，并**完整核听整套 1416 秒音频**。现有试填数据来自自动转写与自动对齐，按需求 §3.3 **不能视为人工审核通过**。
-2. **字段表比对已闭环**（2026-11-03）：`schema_options_merged_16tables.json` 到位后完成 7 张业务表逐字段对齐，补齐 14 个字段、放宽 5 处类型、修正 1 处枚举默认值、新增 7 个 CHECK，并让 `content_state != 可用` 的题目阻断确认可见。详见 `docs/module-2-schema-alignment.md`。仍缺旧采集表 `四六级听力数据采集汇总_ljt.xlsx`（仅用于历史数据追溯，不影响本期验收）。
-3. **合并流程**：本次改动在本地分支 `feature/m2-backend-listening-papers`，**未推送到远端**（需要仓库 Write 权限）。按流程应发 PR 到 `develop`，由两人独立验收后交施博宇合并。
+1. **B16 内容核对（阻塞验收）**：需指定负责人，按 `docs/acceptance/module-2/content-check-record.md` 逐题核对 25 题的题干、选项、标准答案、解析、原文对应，并**完整核听整套 1416 秒音频**。现有试填数据来自自动转写与自动对齐，按需求 §3.3 **不能视为人工审核通过**。
+2. **字段表比对已闭环**（2026-11-03）：`schema_options_merged_16tables.json` 到位后完成 7 张业务表逐字段对齐，补齐 14 个字段、放宽 5 处类型、修正 1 处枚举默认值、新增 7 个 CHECK，并让 `content_state != 可用` 的题目阻断确认可见。详见 `docs/development/module-2/schema-alignment.md`。仍缺旧采集表 `四六级听力数据采集汇总_ljt.xlsx`（仅用于历史数据追溯，不影响本期验收）。
+3. **合并流程**：本次改动在本地分支 `feature/m2-backend-listening-papers`，已对应 PR #5（首次交付时的“未推送”状态已过时；当前远端状态以仓库实际查询为准）。按流程应发 PR 到 `develop`，由两人独立验收后交施博宇合并。
 4. **本机环境**：PostgreSQL 是本机后台进程而非系统服务，**机器重启后需手动启动**；如需长期使用，可考虑注册为 Windows 服务。
 
 ## 五、给学生端的接口自查提示
@@ -114,3 +116,7 @@ PR #5 首轮验收提出 5 类代码缺陷，已全部修复并补回归用例�
 - 学生详情里**没有**答案、解析、原文片段是设计要求，不是缺字段；
 - 未确认可见的试卷统一 404，不区分「不存在」和「无权」；
 - 音频支持 `Range`，播放器可直接 seek；`Content-Type` 为 `audio/mp4`（源文件为 AAC 容器，仅扩展名为 mp3）。
+
+## 扩展复验修复交付
+
+本地 `fix/module2-recheck-20261104` 已处理 F01/F02 扩展场景，新增迁移 `0004_expected_count_source`、来源字段与边界回归。34 项 pytest、一键自检18/18及真实材料主复验19/19通过，详见 [本轮修复验证记录](../../acceptance/module-2/fix-20261104.md)。本节为开发者自检记录，未替代真实人员验收。

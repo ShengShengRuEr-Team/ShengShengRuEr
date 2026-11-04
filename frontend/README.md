@@ -2,6 +2,8 @@
 
 负责浏览器端界面：登录页、管理端与学生端页面框架，以及调用模块一后端 API 的适配层。
 
+Windows 首次运行请先阅读 [本地启动指南](../docs/development/startup-guide.md)，按顺序准备数据库、后端与前端，并使用锁文件安装依赖。
+
 ## 当前状态（2026-10-31）
 
 模块一前端已实现，页面共 4 个：
@@ -36,7 +38,7 @@
 
 `package.json` 中的直接依赖**全部写精确版本，禁止 `^` / `~`**；传递依赖由 `package-lock.json` 锁定，锁文件必须提交。
 
-选型理由见 [技术决策 0002](../docs/decisions/0002-frontend-stack.md)。
+选型理由见 [技术决策 0002](../docs/decisions/module-1/0002-frontend-stack.md)。
 
 ## 环境要求
 
@@ -136,7 +138,7 @@ frontend/
   避免静态方法脱离上下文）。
 - **字段命名**：请求 / 响应 JSON 保持 `snake_case`，在 `src/api/adapters.ts`
   转成 `camelCase` 视图模型后再进入组件。
-- **命名**：按 [命名规范](../docs/naming-conventions.md)；页面与 UI 组件用 `PascalCase`。
+- **命名**：按 [命名规范](../docs/development/naming-conventions.md)；页面与 UI 组件用 `PascalCase`。
   `useXxx.ts` 是 React 社区惯例特例。
 - **XSS**：不渲染不可信 HTML；token 放 localStorage 的残余风险由
   「不渲染不可信 HTML + 后续 CSP」缓解。

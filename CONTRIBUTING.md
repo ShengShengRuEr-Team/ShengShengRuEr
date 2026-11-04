@@ -1,6 +1,6 @@
 # 参与开发
 
-第一次参与项目，请先按 [团队开发流程](docs/development-guide.md) 完成环境准备、分支创建和第一次 PR。本文件补充需要遵守的协作规则。
+第一次参与项目，请先按 [团队开发流程](docs/development/development-guide.md) 完成环境准备、分支创建和第一次 PR。本文件补充需要遵守的协作规则。
 
 ## 开始任务
 
@@ -50,7 +50,7 @@ PR 应说明变化、验证方法和影响。页面变化附截图；接口变�
 - PR 作者处理冲突，影响其他模块时请对应负责人确认。共享任务分支优先通过合并来源分支同步，不强制覆盖他人的历史。
 - 不对 `main`、`develop` 和 `release/*` 直接推送或强制推送。
 
-规则必须在 GitHub 中实际启用，文档本身不会授予或限制权限。两条规则的设置和适用范围见 [Git 工作流](docs/git-workflow.md#仓库保护规则)。
+规则必须在 GitHub 中实际启用，文档本身不会授予或限制权限。两条规则的设置和适用范围见 [Git 工作流](docs/development/git-workflow.md#仓库保护规则)。
 
 ## 提交前检查
 
@@ -64,4 +64,4 @@ PR 应说明变化、验证方法和影响。页面变化附截图；接口变�
 
 文本统一 UTF-8、LF 换行，遵守 `.editorconfig`。各模块后续用实际格式化工具落实语言规范，避免多人编辑后出现整文件换行变化。
 
-命名细节见 [命名规范](docs/naming-conventions.md)，发布与回合流程见 [Git 工作流](docs/git-workflow.md)。
+命名细节见 [命名规范](docs/development/naming-conventions.md)，发布与回合流程见 [Git 工作流](docs/development/git-workflow.md)。
