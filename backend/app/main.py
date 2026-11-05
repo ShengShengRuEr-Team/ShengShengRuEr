@@ -6,10 +6,18 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api import admin, admin_listening_papers, auth, listening_papers
+from app.api import (
+    admin,
+    admin_listening_papers,
+    admin_processing,
+    auth,
+    listening_papers,
+)
 from app.core.errors import AppError
+from app.module3.contracts import ProcessingError
 
 logger = logging.getLogger(__name__)
 
@@ -74,3 +82,28 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(listening_papers.router, prefix="/api/v1")
 app.include_router(admin_listening_papers.router, prefix="/api/v1")
+app.include_router(admin_processing.router, prefix="/api/v1")
+
+
+@app.exception_handler(ProcessingError)
+async def processing_error_handler(request: Request, exc: ProcessingError):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "code": 422,
+            "msg": str(exc),
+            "data": {"issue_code": exc.code},
+        },
+    )
+
+
+@app.exception_handler(OperationalError)
+async def database_error_handler(request: Request, exc: OperationalError):
+    return JSONResponse(
+        status_code=503,
+        content={
+            "code": 503,
+            "msg": "数据库暂不可用",
+            "data": None,
+        },
+    )

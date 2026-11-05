@@ -6,8 +6,12 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.core.config import get_settings
-from app.db import models  # noqa: F401  确保所有模型注册到 metadata
-from app.db import models_listening  # noqa: F401  模块二业务模型注册到 metadata
+from app.db import (  # noqa: F401
+    models,
+    models_annotations,
+    models_listening,
+    models_processing,
+)
 from app.db.base import Base
 
 config = context.config

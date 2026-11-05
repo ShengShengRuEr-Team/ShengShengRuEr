@@ -1,0 +1,170 @@
+[
+  {
+    "repository": "Systran/faster-whisper-large-v3",
+    "revision": "edaa852ec7e145841d8ffdb056a99866b5f0a478",
+    "files": [
+      {
+        "filename": "config.json",
+        "url": "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/config.json",
+        "size": 2394,
+        "sha256": "a9306624f5ec14270a014b647e5c316b6e03a662c369758d1b90697a7b0655b9",
+        "hash_source": "downloaded_bytes",
+        "downloaded": true
+      },
+      {
+        "filename": "model.bin",
+        "url": "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/model.bin",
+        "size": 3087284237,
+        "sha256": "69f74147e3334731bc3a76048724833325d2ec74642fb52620eda87352e3d4f1",
+        "hash_source": "publisher_lfs_metadata",
+        "downloaded": false
+      },
+      {
+        "filename": "preprocessor_config.json",
+        "url": "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/preprocessor_config.json",
+        "size": 340,
+        "sha256": "7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711",
+        "hash_source": "downloaded_bytes",
+        "downloaded": true
+      },
+      {
+        "filename": "tokenizer.json",
+        "url": "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/tokenizer.json",
+        "size": 2480617,
+        "sha256": "6d8cbd7cd0d8d5815e478dac67b85a26bbe77c1f5e0c6d76d1ce2abc0e5f21ca",
+        "hash_source": "downloaded_bytes",
+        "downloaded": true
+      },
+      {
+        "filename": "vocabulary.json",
+        "url": "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/vocabulary.json",
+        "size": 1068114,
+        "sha256": "c69260f2ab26d659b7c398f9a2b2b48ed0df16c3b47d7326782fd9cba71690c1",
+        "hash_source": "downloaded_bytes",
+        "downloaded": true
+      }
+    ]
+  },
+  {
+    "repository": "jonatasgrosman/wav2vec2-large-xlsr-53-english",
+    "revision": "569a6236e92bd5f7652a0420bfe9bb94c5664080",
+    "files": [
+      {
+        "filename": "config.json",
+        "url": "https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-english/resolve/569a6236e92bd5f7652a0420bfe9bb94c5664080/config.json",
+        "size": 1531,
+        "sha256": "ffcc5c417fe11433447975d5053b2279fbeafd6bca03dd2753082e72ad2d36b7",
+        "hash_source": "downloaded_bytes",
+        "downloaded": true
+      },
+      {
+        "filename": "model.safetensors",
+        "url": "https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-english/resolve/569a6236e92bd5f7652a0420bfe9bb94c5664080/model.safetensors",
+        "size": 1261942732,
+        "sha256": "6144f8464c6aaa220dd57c5a2ad4039b5710dcf8ee6e67057675f76597c19875",
+        "hash_source": "publisher_lfs_metadata",
+        "downloaded": false
+      },
+      {
+        "filename": "preprocessor_config.json",
+        "url": "https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-english/resolve/569a6236e92bd5f7652a0420bfe9bb94c5664080/preprocessor_config.json",
+        "size": 262,
+        "sha256": "ca5999a45e98bb76ea87a461ba28a23ad32a5bb9f733b8e0f6546ff38b6c612d",
+        "hash_source": "downloaded_bytes",
+        "downloaded": true
+      },
+      {
+        "filename": "special_tokens_map.json",
+        "url": "https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-english/resolve/569a6236e92bd5f7652a0420bfe9bb94c5664080/special_tokens_map.json",
+        "size": 85,
+        "sha256": "bb7068de1150661a10b55f9e4b12a0e77af8bf91f5e45e1b58afaf1d0e17f675",
+        "hash_source": "downloaded_bytes",
+        "downloaded": true
+      },
+      {
+        "filename": "vocab.json",
+        "url": "https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-english/resolve/569a6236e92bd5f7652a0420bfe9bb94c5664080/vocab.json",
+        "size": 300,
+        "sha256": "1ec5eeced764da0e4a4d2e95c1c3470c3235222db0182088beac3e7c67eda8ff",
+        "hash_source": "downloaded_bytes",
+        "downloaded": true
+      }
+    ]
+  },
+  {
+    "repository": "PaddlePaddle/PP-OCRv5_server_det",
+    "revision": "ca867c897ecbca8873081573a802ad70d499cb94",
+    "files": [
+      {
+        "filename": "config.json",
+        "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_server_det/resolve/ca867c897ecbca8873081573a802ad70d499cb94/config.json",
+        "size": 2871,
+        "sha256": "436bf19010fe3879477e8599a870a0ec8ccd14ca39056805ec4ed20ab318ec04",
+        "hash_source": "downloaded_bytes",
+        "downloaded": true
+      },
+      {
+        "filename": "inference.json",
+        "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_server_det/resolve/ca867c897ecbca8873081573a802ad70d499cb94/inference.json",
+        "size": 402480,
+        "sha256": "af5876933d8806a1b50d895867e0781e135cd92ff37381992828fc8d1b842d28",
+        "hash_source": "downloaded_bytes",
+        "downloaded": true
+      },
+      {
+        "filename": "inference.pdiparams",
+        "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_server_det/resolve/ca867c897ecbca8873081573a802ad70d499cb94/inference.pdiparams",
+        "size": 87932887,
+        "sha256": "183146fe9d9910352f68482f623bcbbb9fa7b9e8fa1463b9ad288cef00524d2d",
+        "hash_source": "publisher_lfs_metadata",
+        "downloaded": false
+      },
+      {
+        "filename": "inference.yml",
+        "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_server_det/resolve/ca867c897ecbca8873081573a802ad70d499cb94/inference.yml",
+        "size": 903,
+        "sha256": "28fb721efc3634fc8aa677e474b9602cb815a91cf569ef357a7a553d7b3ce685",
+        "hash_source": "downloaded_bytes",
+        "downloaded": true
+      }
+    ]
+  },
+  {
+    "repository": "PaddlePaddle/PP-OCRv5_server_rec",
+    "revision": "b26c3587fda8da3c8ec0ce357214b4d661ff1558",
+    "files": [
+      {
+        "filename": "config.json",
+        "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_server_rec/resolve/b26c3587fda8da3c8ec0ce357214b4d661ff1558/config.json",
+        "size": 352253,
+        "sha256": "6a780e213d7a830058ae1b6899c62cc13ca9c1f0f04ae39a27ebb2610fae7c51",
+        "hash_source": "downloaded_bytes",
+        "downloaded": true
+      },
+      {
+        "filename": "inference.json",
+        "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_server_rec/resolve/b26c3587fda8da3c8ec0ce357214b4d661ff1558/inference.json",
+        "size": 325204,
+        "sha256": "8e6e12e5d42531840310977fffb58165bf889fc5061408c5a8afdb6985f47fcb",
+        "hash_source": "downloaded_bytes",
+        "downloaded": true
+      },
+      {
+        "filename": "inference.pdiparams",
+        "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_server_rec/resolve/b26c3587fda8da3c8ec0ce357214b4d661ff1558/inference.pdiparams",
+        "size": 84390117,
+        "sha256": "63853f062a5f4089befc16f565a68277618e0da5cb45468b49d11079de0ada77",
+        "hash_source": "publisher_lfs_metadata",
+        "downloaded": false
+      },
+      {
+        "filename": "inference.yml",
+        "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_server_rec/resolve/b26c3587fda8da3c8ec0ce357214b4d661ff1558/inference.yml",
+        "size": 148345,
+        "sha256": "2c719dba044c4e2228aef8ff92f5f575394d75d24c16de096a33b7cfd902f66d",
+        "hash_source": "downloaded_bytes",
+        "downloaded": true
+      }
+    ]
+  }
+]
