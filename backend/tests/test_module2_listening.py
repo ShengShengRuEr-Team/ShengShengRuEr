@@ -128,7 +128,9 @@ def test_repeat_import_is_idempotent(module2_paper_id: int) -> None:
             )
         ).one()
         questions = db.scalars(
-            select(func.count()).select_from(Question)
+            select(func.count()).select_from(Question).join(
+                ImportBatch, ImportBatch.id == Question.batch_id
+            ).where(ImportBatch.exam_paper_id == module2_paper_id)
         ).one()
     assert batches == 1
     assert questions == 1
@@ -365,7 +367,7 @@ def test_audio_code_conflict_is_rejected(module2_paper_id: int, tmp_path) -> Non
     with SessionLocal() as db:
         from sqlalchemy import select
 
-        audio = db.scalar(select(AudioFile))
+        audio = db.scalar(select(AudioFile).where(AudioFile.audio_code == "TEST_M2_AUDIO"))
         existing_code = audio.audio_code
 
     new_bytes = b"MODULE2-DIFFERENT-AUDIO-BYTES"
@@ -401,7 +403,7 @@ def test_failed_import_keeps_existing_audio(module2_paper_id: int, tmp_path) -> 
 
     settings = get_settings()
     with SessionLocal() as db:
-        audio = db.scalar(select(AudioFile))
+        audio = db.scalar(select(AudioFile).where(AudioFile.audio_code == "TEST_M2_AUDIO"))
         key = audio.storage_key
         original_hash = audio.file_hash
 

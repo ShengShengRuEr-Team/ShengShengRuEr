@@ -1,5 +1,7 @@
 # backend
 
+模块三新增自动原文准备、句级对齐、题目组装、关联标注、复核及版本化入库。测试本次代码请从[模块三拉取与测试指南](../docs/development/module-3/testing-guide.md)开始：使用三个独立的Python 3.13.16环境及模块三锁文件；下文Python 3.14.2和`requirements.txt`描述模块一、二的历史环境。
+
 后端包含模块一认证权限与模块二题库、整卷展示、管理员配套内容、可见性和受控音频。模块二验收整改见 [验收目录](../docs/acceptance/README.md)。
 
 Windows 首次运行请先阅读 [本地启动指南](../docs/development/startup-guide.md)，创建 `backend/.venv`、安装依赖并初始化数据库。下文命令均在 `backend` 目录执行。
@@ -141,6 +143,6 @@ Ruff 配置在 [pyproject.toml](pyproject.toml)；`B008` 因 FastAPI `Depends` �
 
 - 模块一：登录、退出、当前用户、角色及基础接口鉴权。
 - 模块二：真实数据库题库、整卷查询、配套内容、可见性、音频与导入；[接口契约](../docs/development/module-2/api.md)、[验收指南](../docs/acceptance/module-2/guide.md)。
-- 自动处理、作答判分、错题本、画像与推荐后续实施。
+- 模块三自动处理已在本次分支实现；作答判分、错题本、画像与推荐后续实施。
 - 不引入 Redis；退出失效写入 `token_revocations` 表。
 - 数据库结构只通过 Alembic 迁移变更。
