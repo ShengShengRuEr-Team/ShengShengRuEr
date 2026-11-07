@@ -59,6 +59,7 @@ def context(client, admin_token, tmp_path, monkeypatch):
         },
         "material_ids": [r["id"] for r in materials],
         "document_mode": "text",
+        "text_source": "asr",  # Synthetic legacy-route tests supply no real text.
         "expected_question_count": 1,
         "expected_question_count_source": {
             "document": paper.name,

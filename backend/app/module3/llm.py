@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import time
+from contextlib import contextmanager
 from decimal import Decimal
 
 import httpx
-from sqlalchemy import select, text
+from sqlalchemy import create_engine, select, text
 
-from app.db.base import SessionLocal
+from app.db.base import SessionLocal, engine
 from app.db.models_processing import LlmAttempt
 from app.module3.contracts import ProcessingError, canonical_bytes, fingerprint
 
@@ -18,24 +19,94 @@ OUTPUT_PER_TOKEN = Decimal("0.00000120")
 MAX_OUTPUT = 4096
 
 
+@contextmanager
+def cluster_budget_lock():
+    """Serialize reservations even when workers use different isolated databases."""
+    shared = create_engine(engine.url.set(database="postgres"))
+    try:
+        with shared.connect().execution_options(
+            isolation_level="AUTOCOMMIT"
+        ) as connection:
+            connection.execute(text("SELECT pg_advisory_lock(3913343171)"))
+            try:
+                yield
+            finally:
+                connection.execute(text("SELECT pg_advisory_unlock(3913343171)"))
+    finally:
+        shared.dispose()
+
+
+def external_commitments(run_key):
+    """Conservatively include surviving ledgers in other local databases.
+
+    No database URL is logged. Unknown/test reservations are retained rather than
+    presumed free. Creating another task or isolated DB cannot reset stage spend.
+    """
+    with engine.connect() as connection:
+        names = (
+            connection.execute(
+                text(
+                    "SELECT datname FROM pg_database "
+                    "WHERE NOT datistemplate AND datallowconn"
+                )
+            )
+            .scalars()
+            .all()
+        )
+    totals = [Decimal(0), Decimal(0), Decimal(0)]
+    for name in names:
+        if name == engine.url.database:
+            continue
+        other = create_engine(
+            engine.url.set(database=name), connect_args={"connect_timeout": 5}
+        )
+        try:
+            with other.connect() as connection:
+                exists = connection.execute(
+                    text("SELECT to_regclass('public.processing_llm_attempts')")
+                ).scalar()
+                if not exists:
+                    continue
+                row = connection.execute(
+                    text("""
+                    SELECT coalesce(sum(coalesce(charged_usd,reserved_usd)),0),
+                    coalesce(sum(coalesce(charged_usd,reserved_usd))
+                        FILTER (WHERE run_key=:run),0),
+                    coalesce(sum(coalesce(charged_usd,reserved_usd))
+                        FILTER (WHERE run_key=:run AND phase='sample'),0)
+                    FROM processing_llm_attempts
+                """),
+                    {"run": run_key},
+                ).one()
+                totals = [a + b for a, b in zip(totals, row, strict=True)]
+        except Exception:
+            raise ProcessingError(
+                "BUDGET_AUDIT_BLOCKED", "无法核查历史费用账本，停止新调用"
+            ) from None
+        finally:
+            other.dispose()
+    return totals
+
+
 def reserve(task_id, run_key, phase, request, settings):
     # UTF-8 byte count is a conservative upper bound for byte-level tokenization.
     maximum = (
         Decimal(len(canonical_bytes(request))) * INPUT_PER_TOKEN
         + MAX_OUTPUT * OUTPUT_PER_TOKEN
     ) * Decimal("1.20")
-    with SessionLocal() as db:
+    with cluster_budget_lock(), SessionLocal() as db:
         db.execute(text("SELECT pg_advisory_xact_lock(3913343171)"))
         rows = db.scalars(select(LlmAttempt)).all()
 
         def cost(row):
             return row.charged_usd if row.charged_usd is not None else row.reserved_usd
 
-        total = sum((cost(r) for r in rows), Decimal(0))
-        run = sum((cost(r) for r in rows if r.run_key == run_key), Decimal(0))
+        external_total, external_run, external_sample = external_commitments(run_key)
+        total = sum((cost(r) for r in rows), external_total)
+        run = sum((cost(r) for r in rows if r.run_key == run_key), external_run)
         sample = sum(
             (cost(r) for r in rows if r.run_key == run_key and r.phase == "sample"),
-            Decimal(0),
+            external_sample,
         )
         if (
             total + maximum > Decimal(str(settings.m3_total_budget_usd))

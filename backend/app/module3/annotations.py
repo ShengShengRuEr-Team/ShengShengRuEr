@@ -12,11 +12,12 @@ from app.services.processing.validation import load_dictionary
 class EvidenceCandidate(StrictModel):
     evidence_segment_src_ids: list[NonEmpty] = Field(min_length=1)
     quote: NonEmpty
+    support_note: NonEmpty | None = None
 
 
 class SkillCandidate(EvidenceCandidate):
     skill_code: NonEmpty
-    role: Literal["PRIMARY", "SECONDARY"]
+    role: Literal["PRIMARY", "AUXILIARY"]
     rationale: NonEmpty
 
 
@@ -38,7 +39,8 @@ class AnnotationCandidate(StrictModel):
 SYSTEM_PROMPT = """Annotate a listening question from its given answer and passage.
 Do not change the correct answer, question, options, transcript or timestamps.
 Select enabled level-3 skills from the supplied dictionary. Include PRIMARY skill(s),
-with a concrete rationale, and evidence for EVERY skill. ANSWER evidence is separate.
+with a concrete rationale, and evidence for EVERY skill.
+Use role PRIMARY or AUXILIARY. ANSWER evidence is separate.
 Use only consecutive body segments in the same passage; quotes must be verbatim.
 S07/S13 and all skill usage boundaries are binding. Optional candidate errors need
 specific support; they are question-level candidates, never student diagnoses.
@@ -47,6 +49,61 @@ evidence_segment_src_ids,quote}],answer_evidence:[{evidence_segment_src_ids,quot
 candidate_errors:[{error_cause_code,rationale,option_letter,
 evidence_segment_src_ids,quote}],language_items:[],genre_candidate:null}.
 Never provide database IDs, answer overrides, timestamps, other keys or fake evidence.
+For each answer_evidence also provide support_note: explain how the quoted facts
+support the supplied correct option and the question's target, including any
+arithmetic/inference. Select the smallest sufficient evidence span; do not quote
+an entire passage when a sentence answers the question. Normally choose ONE PRIMARY
+skill, at most two where independently necessary. Directly stated facts are not
+implicit inference; a word appearing does not prove a vocabulary/grammar skill.
+Only usage_scope=题目标注 is eligible; S07/S13 are diagnostic-only and forbidden.
+S11 is local word/phrase equivalence; S23 concerns whole proposition matching;
+do not mechanically duplicate them. Candidate errors are OPTIONAL: omit them unless
+a particular distractor and its concrete mechanism support the selected definition.
+No learner response is supplied: never diagnose an individual or assume unknown words.
+Use Chinese for rationale/support_note. Do not echo boilerplate or self-rate accuracy.
+
+PRIMARY selection is an operation decision, not a list of everything a listener does:
+identify the decisive NONTRIVIAL operation needed to get from the evidence to the
+correct option. If arithmetic, aggregation, magnitude or degree comparison is
+necessary, S18 takes PRIMARY over generic S21 fact retrieval. Do not label an
+arithmetic answer as simple fact retrieval just because its input numbers are explicit.
+Direct extraction of a single stated number remains S21. Combining numbers within
+one sentence is not automatically S29 cross-sentence integration.
+
+Default to NO AUXILIARY skills. Add an AUXILIARY only when the rationale identifies
+a second, distinct and necessary operation with a concrete difficulty beyond the
+PRIMARY. Merely recognizing the same statement in an almost identical option is
+not grounds to append S23. Matching "the" to "an", copying the same words,
+identifying the question topic, and retrieving inputs for an arithmetic operation
+do not justify extra skill labels. This applies to every question, not just examples.
+S23 requires a substantive whole-proposition paraphrase/mapping beyond a trivial
+local wording change; S11 requires a consequential local equivalence, not any synonym.
+For directly stated causes/purposes, S22 alone normally suffices.
+
+Evidence sufficiency comes BEFORE brevity: each answer evidence must establish the
+predicate actually asked, not merely mention the same actor or action. If one sentence
+states an action and its adjacent sentence establishes the asked outcome, include
+BOTH consecutive sentences. Vague statements about change do not by themselves
+establish improvement, motive or cause. Never use the question/answer to fill a fact
+missing from the quoted evidence. Reference supplied sentence IDs in rationales;
+do not invent paragraph numbers or structural locations not present in the input.
+
+Speaker M/W is source data, not something to infer from turn order. Keep speaker,
+referent and target attribution correct. Include the antecedent when the selected
+sentence says only he/she/his/it and the target entity would otherwise be unknown.
+When both speakers' attitude is asked, evidence must include both voices (including
+the agreement if one person's evaluation concerns a different target).
+Within each evidence_segment_src_ids array, EVERY intervening body ID must be
+included: e.g. s032,s033,s035 is INVALID; quote s032,s033,s034,s035 verbatim instead,
+or use separate evidence objects for distinct spans. Never splice a skipped span.
+
+Use the most specific decisive operation as PRIMARY. Where understanding a fixed
+idiom is necessary to obtain the answer meaning, S10 takes PRIMARY over generic
+cause/fact retrieval. Conversely, a question asking WHAT WORD another speaker
+explicitly found confusing is normally S21 retrieval of their expressed reaction;
+do not add S08 unless resolving that word's contextual meaning is necessary to
+distinguish the options. A word merely being the topic does not establish a lexical
+meaning test. Rationale facts must be supported by the selected evidence.
 """
 
 
@@ -54,9 +111,28 @@ def annotation_input(payload, question):
     dictionary = load_dictionary()
     tables = {t["name"]: t for t in dictionary["tables"]}
     return {
-        "question": question,
+        "question": {
+            k: question[k]
+            for k in (
+                "_src_id",
+                "passage_src_id",
+                "question_text",
+                "option_a",
+                "option_b",
+                "option_c",
+                "option_d",
+                "correct_option",
+                "explanation_text",
+            )
+        },
         "segments": [
-            s
+            {
+                **{
+                    k: s[k]
+                    for k in ("_src_id", "text", "segment_type", "segment_index")
+                },
+                "speaker": s.get("speaker"),
+            }
             for s in payload["transcript_segments"]
             if s["passage_src_id"] == question["passage_src_id"]
         ],
@@ -69,6 +145,8 @@ def annotation_input(payload, question):
             }
             for r in tables["skill"]["rows"]
             if r["skill_level"] == 3
+            and r["status"] == "启用"
+            and r.get("usage_scope") == "题目标注"
         ],
         "candidate_error_dictionary": [
             {
@@ -78,7 +156,7 @@ def annotation_input(payload, question):
                 not in {"legacy_payload_json", "reviewer", "reviewed_at", "review_note"}
             }
             for r in tables["error_cause"]["rows"]
-            if r["cause_level"] == 3
+            if r["cause_level"] == 3 and r["status"] == "启用"
         ],
     }
 
@@ -125,6 +203,8 @@ def merge_candidate(payload, question, raw):
                 "char_ranges": ranges,
                 "evidence_text": value.quote,
                 "evidence_type": "正文",
+                "start_ms": segments[refs[0]]["start_ms"],
+                "end_ms": segments[refs[-1]]["end_ms"],
                 "source": "DeepSeek候选，待人工复核",
                 "collector": "module3",
             }
@@ -176,6 +256,7 @@ def merge_candidate(payload, question, raw):
             question_src_id=qid,
             evidence_src_id=eid,
             sort_order=i + 1,
+            attributes_json={"support_note": value.support_note or ""},
         )
     for i, value in enumerate(candidate.candidate_errors):
         eid = evidence(value, f"c{i}")

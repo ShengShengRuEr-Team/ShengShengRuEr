@@ -19,6 +19,7 @@ STAGES = (
     "preflight",
     "extract",
     "normalize",
+    "reference",
     "transcribe",
     "align",
     "assemble",

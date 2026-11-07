@@ -1,6 +1,8 @@
 """Administrator-only material, processing and immutable result APIs."""
 
+import json
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -13,6 +15,7 @@ from app.core.errors import AppError, not_found, ok
 from app.db import models_processing as m
 from app.db.base import get_db
 from app.db.models_listening import ImportBatch
+from app.module3.contracts import controlled_path, file_hash
 from app.schemas_processing import (
     ActivationRequest,
     CheckRequest,
@@ -157,6 +160,44 @@ def get_result(
             "missing": False,
             "result_hash": draft.result_hash,
             "result": result,
+        }
+    )
+
+
+@router.get("/admin/processing-tasks/{task_id}/stages/{stage}")
+def get_stage_result(
+    task_id: UUID,
+    stage: Literal[
+        "extract", "normalize", "reference", "transcribe", "align", "reuse",
+        "assembly_extract", "assemble", "annotate", "annotation_checks",
+    ],
+    user: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    tasks.get_task(db, task_id)
+    artifact = db.scalar(
+        select(m.ProcessingArtifact)
+        .where(
+            m.ProcessingArtifact.task_id == task_id,
+            m.ProcessingArtifact.stage == stage,
+        )
+        .order_by(m.ProcessingArtifact.id.desc())
+        .limit(1)
+    )
+    if artifact is None:
+        return ok({"task_id": task_id, "stage": stage, "missing": True})
+    path = controlled_path(settings.m3_path("m3_artifacts_dir"), artifact.storage_key)
+    if file_hash(path) != artifact.artifact_hash:
+        raise AppError(409, "阶段产物哈希不符，禁止返回未经验证的内容")
+    return ok(
+        {
+            "task_id": task_id,
+            "stage": stage,
+            "missing": False,
+            "artifact_hash": artifact.artifact_hash,
+            "source_artifact_id": artifact.source_artifact_id,
+            "result": json.loads(path.read_text(encoding="utf-8")),
         }
     )
 

@@ -1,13 +1,13 @@
 # 模块三逐字段实施映射
 
-> 更新日期：2026-11-04；同步开发文档V1.2、需求V1.7和技术基线V1.1／`M3-WIN64-1.1.0`；配套[开发文档](development-plan.md)。这是待实现的字段设计，不是迁移已执行或字段已齐全的报告。
+> 更新日期：2026-11-06；同步开发文档V1.5、需求V1.9和统一技术版本V1.2／`M3-WIN64-1.1.0`；配套[开发文档](development-plan.md)。这是待实现的字段设计，不是迁移已执行或字段已齐全的报告。
 > 当前列通过固定提交 `b965a0f3771c9f6212be29b65fda326ce0307b11` 的SQLAlchemy模型逐项读取；不使用本机旧分支推断集成现状。
 > 业务基线SHA-256：`6348030d2b5acb49e0cf036487f4ddd508428f33b0033e5cfb4261d40a986580`。`MEDICAL_VALIDATION=NOT_CLAIMED`。
 
 ## 使用规则
 
 - 每行“现有”仅说明代码中存在列，不证明数据库已迁移、数据已正确或数据库已具备全部基线约束；列类型展示是模型声明。
-- 本次技术更新只将API目标解释器从3.14.10统一到3.13.16，三个环境仍独立；16表JSON哈希及304个字段定义未改变，因此不为解释器变更重建业务表或修改字段语义。迁移、模型导入和读写约束须在Python3.13.16 API环境复验，旧Python3.14证据保留历史效力但不代替新目标通过结论。
+- 解释器沿用已冻结的Python3.13.16，三个环境仍独立；本次只同步原文优先流程及文档引用，不变更组件/锁文件；16表JSON哈希及304个字段定义未改变，因此不为解释器变更重建业务表或修改字段语义。迁移、模型导入和读写约束须在Python3.13.16 API环境复验，旧Python3.14证据保留历史效力但不代替新目标通过结论。
 - 主键均映射物理 `id BIGINT`，由数据库生成；基线整数、显示码和旧码不能直接充当新外键。
 - 基线的“条件必填”按输入题型、关系种类和正文/选项位置执行；不得因为数据库列可空就跳过业务必填。基线可空但模块三要求更严者，以开发文档的必交检查为准。
 - `attributes_json`从基线TEXT解析为JSONB，保留原始来源哈希与文本；模型/schema/方法/复核不能只存无校验的大JSON。关系attributes按rulesByKind白名单检查。
@@ -17,6 +17,15 @@
 - 下列基线规则中涉及跨卷共享、派生音频链的能力保留原定义，但不列为本期实现范围；本期以同套、批次内绑定满足必交关系。词典原ID和显示码通过映射保留，不要求新数据库自增ID等于采集表ID。
 - 现有 `format VARCHAR(16)`、`exam_level_scope VARCHAR(16)`、`option_mapping_state VARCHAR(16)` 足以容纳当前确认枚举，本期保留容量并说明与基线VARCHAR(32)的差异；不宣称物理类型逐字一致。`duration_ms BIGINT`比基线INT容量更大，保留。超长自由文本按逐行指定扩展，不截断。
 - 音频 `storage_key`目标TEXT，但写入服务限制为受控相对路径、最长512个Unicode码点，并验证实际文件系统可用；既有短键兼容。稳定试卷的source/mapping_source等若被本次修订影响，先保存到批次产物/metadata，激活事务才同步当前表示，不能待审时覆盖旧状态。
+
+## 原文来源与对齐字段补充
+
+- 默认文字来自已登记答案/原文；固定segment_id、text、segment_type、passage_key、question_no、source_storage_key、source_sha256及source_pages，来源、类型和题号均须校验。
+- search_start_ms/search_end_ms是粗搜索范围，最终start_ms/end_ms由CPU强制对齐产生；两者不得混用。原文、分句或搜索范围变更须重对齐并使相关证据/复核失效。
+- 以上来源及方法信息保存在reference/align阶段产物和任务元数据，最终句段按基线字段映射；不因此宣称业务表已增列或迁移已执行。
+- 默认stop_after=align；确认前仅保存任务/阶段产物，不写入正式业务批次。正文起止分别≤300ms须实际核听，不能凭字段非空判定精度PASS。
+
+- m3.reference-ctc.v2在对齐产物保存boundary_method、alignment_score及search_attempts。自动扩窗时另存requested_search_start_ms/requested_search_end_ms，search_start_ms/search_end_ms表示实际使用范围；原reference输入及来源哈希保持。声学分数只用于重试/筛查，不代表文字或300ms精度已由人工确认。
 
 ## 01_exam_paper → `exam_papers`
 
@@ -598,3 +607,63 @@
 本文件覆盖16张业务表，共304个基线字段条目；同名字段在不同表分别核对。当前列判断来自源码静态比对；新增设计尚未建表。
 
 T03实施后逐行回填物理列/审计对象、Alembic revision、真实DDL类型/约束、读写入口、空值/枚举/归属测试和证据路径。原有同名列也要检查数据库类型/长度/约束与业务读取行为，不能只凭名称判断全部对齐。验收状态只用PASS/PARTIAL/FAIL/BLOCKED；本轮运行结论为BLOCKED（仅文档）。
+
+
+## 原件自动准备的审计字段（2026-11-06）
+
+| 数据 | 保存位置 | 规则 |
+| --- | --- | --- |
+| `reference_preparation=auto/provided` | processing_tasks.request | 无预录入原文时默认auto；auto与reference_segments不能混用；auto允许align/assemble/annotate_sample/annotate；本轮不允许completed |
+| 原卷自动题量、题组、来源页/材料/哈希 | reference阶段trusted_question_structure | 独立从原卷题组标题导出，不根据答案提取数反推；与显式可信题量/范围冲突即停止 |
+| 正文、提问、说话人、稳定segment_id、来源页/哈希 | reference阶段groups及segments | 答案原件是文字来源；历史转写和人工准备文件不作生产输入 |
+| 行框、页图哈希、OCR原始读数、置信度、数字独立复读 | extract阶段documents及reference-pages | 原件字节不改；用官方检测/排序/透视裁图；不以词典重写单词；题号无一致证据即停止 |
+| 20秒声学块、篇章锚点、句级粗位置、search_start/end | 声学文件及reference.locator | 无自由ASR输出；粗位置只供精对齐搜索，不写作正式句界 |
+| 新增英文识别/轻量检测模型固定revision及逐文件SHA | config/module3/model-artifact-manifest.json及task.method.implementation_sha256 | 方法快照包含manifest哈希；原包版本/锁/既有模型保留，旧方法结果不能冒充新方法 |
+
+本轮不新增业务字段或业务迁移；原件自动准备结果由既有任务/产物审计对象保存。`align`之后保持待确认，正式题目/证据/关系及批次当前版本均不在本轮写入范围。
+
+
+## 第7—8步草稿与审计增量（2026-11-06）
+
+不增加业务表/迁移；沿用processing_tasks/artifacts/drafts/llm_attempts。题目/映射/关联只存在处理草稿中，不建立import_batches。
+
+| 字段/对象 | 含义与校验 |
+| --- | --- |
+| request.stop_after | align仍是默认；assemble、annotate_sample、annotate在第9步前停止 |
+| request.reuse_alignment_task_id | 原件集合、方法/锁/模型和阶段/页图哈希核验；完整复用165句文字/ID/时间 |
+| request.reuse_assembly_scan_task_id | 解析OCR可独立复用；检查原件、OCR实现/依赖/模型、阶段JSON和页图 |
+| request.reuse_assembly_task_id | 复用同上游的原件组装；不重复OCR或模型提取来源字段 |
+| request.reuse_annotation_task_id / sample_review | 只复用完整5题小样，绑定草稿hash、逐题答案支持与技能适用复核；继续其余20题 |
+| questions.source_refs | 原件材料ID/SHA-256、页码、行或block/box、原始文字/置信度；另列原卷KEYS交叉核对依据 |
+| presentations.option_letter_mapping | 同一原卷提取A—D原序，显式完整恒等映射；不推广到其他套别 |
+| evidences.start_ms/end_ms | 程序从同篇有效对齐正文句取值；模型不接收也不能提供时间字段 |
+| ANSWER_EVIDENCE.attributes_json.support_note | 对应引文为何支持已给定标准答案；不把非空理由当语义正确证明 |
+| annotation_raw / annotate / annotation_checks | 原始候选、通过门控的候选与第8步检查分别保存；不调用第9步业务检查 |
+
+版本、真实证据及限制见[assembly-annotation.md](assembly-annotation.md)。
+
+### 第7—8步完成补充（2026-11-07，需求V2.1／开发V1.7）
+
+| 字段/对象 | 含义与校验 |
+| --- | --- |
+| transcript_segments.speaker | 保留reference原件M/W；独立检查与上游一致，模型不负责生成说话人 |
+| request.reuse_full_annotation_task_id / annotation_review | 绑定整套源草稿hash与25题复核，approved题复用，changes_required题须repair_feedback并真实重请求；题目、正文、词典、提示词或候选不一致则拒绝 |
+| skill_question_relations.role | 使用既有PRIMARY/AUXILIARY，不新增SECONDARY枚举 |
+| annotation_rejected / annotation_checks | 有界契约重试保留被拒候选与反馈；语义审核保留每题依据和修订来源 |
+| QUESTION_ERROR_CANDIDATE | 仅有证据的具体选项错因机制，可为空；本套1项，不作学习者个人诊断 |
+
+最终25题草稿与处理审计已完成，第9步业务检查/待审入库未开始。上文历史“只到align”不再描述本轮授权；没有新增业务表或业务批次。
+
+### 全流程增量（2026-11-07，需求V2.2／开发V1.8）
+
+| 字段/对象 | 本轮实现 |
+| --- | --- |
+| stop_after=completed | 自动原文路线必须显式绑定已核验对齐、组装、5题小样、25题整套及全部通过的复核；只进入pending入库，不自动激活或可见 |
+| expected_question_count/source/ranges | 创建入库任务时从已核验上游原卷独立题量冻结；校验原件哈希与完整题组，再将实际持久化后的请求计入input_hash |
+| transcript_segments.speaker → speaker_code | 将原件M/W写入既有业务列；无说话人写空字符串，不丢弃对话角色 |
+| reviews.review_basis | itemized为默认；仅音频approved可用user_confirmation，并要求approval_reference；不需要新增数据库列 |
+| processing_reviews.items | 用户审批条目记录原音哈希、实际确认原话、review_basis、approval_reference及millisecond_measurement=not_claimed；不制造人工测量数值 |
+| 业务review_status | 内容、音频、标注复核按范围同步本批次的已通过/需修改状态；共享词典和其他批次不随之改写；激活时同步试卷审核状态 |
+| current-batch / visibility | 复核和检查通过后独立切换，再独立确认可见；幂等重导和重复激活保留已确认可见状态，取消后列表/详情/音频同步拒绝 |
+
+本节替代上一节历史“第9步未开始”的当前状态说明。完整契约及证据见[全流程说明](full-pipeline.md)。

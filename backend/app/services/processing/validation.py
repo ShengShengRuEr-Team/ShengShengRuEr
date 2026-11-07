@@ -300,7 +300,7 @@ def validate_result(
                     skill is None
                     or skill.get("skill_level") != 3
                     or skill.get("status") != "启用"
-                    or r.get("role") not in {"PRIMARY", "SECONDARY"}
+                    or r.get("role") not in {"PRIMARY", "AUXILIARY"}
                 ):
                     issue("SKILL_INVALID", "只能标注启用的三级技能和有效角色", rid)
                 if not attr.get("annotation_reason"):

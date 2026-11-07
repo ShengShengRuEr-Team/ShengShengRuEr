@@ -7,7 +7,7 @@ import json
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -181,7 +181,32 @@ def create_task(db: Session, data: TaskRequest, user_id: int, settings: Settings
         ProcessingError("MATERIAL_MISSING", f"缺少必需材料：{kind}").issue("registered")
         for kind in sorted(required - kinds)
     ]
-    if source is None:
+    if data.text_source == "reference":
+        if not data.reference_segments and data.reference_preparation == "provided":
+            issues.append(
+                ProcessingError(
+                    "REFERENCE_TEXT_REQUIRED", "请先提取并核对答案原文，不自动运行ASR"
+                ).issue("registered")
+            )
+        for segment in data.reference_segments:
+            if not any(
+                r.source_kind in {"answer_explanation", "transcript"}
+                and r.storage_key == segment.source_storage_key
+                and r.sha256 == segment.source_sha256
+                for r in materials
+            ):
+                raise conflict("逐句原文须引用本任务的答案原文材料及其哈希")
+        if data.reference_segments and data.expected_question_count is not None:
+            numbers = sorted(
+                s.question_no
+                for s in data.reference_segments
+                if s.segment_type == "question"
+            )
+            if numbers != list(range(1, data.expected_question_count + 1)):
+                raise conflict("原文提问须完整且不重复覆盖可信题号")
+    if source is None and not (
+        data.text_source == "reference" and data.reference_preparation == "auto"
+    ):
         issues.append(
             ProcessingError("EXPECTED_COUNT_MISSING", "尚未冻结可信题量").issue(
                 "registered"
@@ -195,14 +220,22 @@ def create_task(db: Session, data: TaskRequest, user_id: int, settings: Settings
             k: file_hash(CONFIG_DIR / f"requirements-{k}.lock.txt")
             for k in ("api", "asr", "ocr")
         },
-        "prompt_version": "m3.annotations.v1",
+        "prompt_version": "m3.annotations.v5",
         "implementation_sha256": {
-            str(path.relative_to(CONFIG_DIR.parents[1])): file_hash(path)
-            for folder in (
-                CONFIG_DIR.parents[1] / "app/module3",
-                CONFIG_DIR.parents[1] / "app/services/processing",
-            )
-            for path in sorted(folder.glob("*.py"))
+            "app/schemas_processing.py": file_hash(
+                CONFIG_DIR.parents[1] / "app/schemas_processing.py"
+            ),
+            "config/module3/model-artifact-manifest.json": file_hash(
+                CONFIG_DIR / "model-artifact-manifest.json"
+            ),
+            **{
+                str(path.relative_to(CONFIG_DIR.parents[1])): file_hash(path)
+                for folder in (
+                    CONFIG_DIR.parents[1] / "app/module3",
+                    CONFIG_DIR.parents[1] / "app/services/processing",
+                )
+                for path in sorted(folder.glob("*.py"))
+            },
         },
         "rule_version": RULE_VERSION,
         "sentence_tolerance_ms": settings.m3_sentence_tolerance_ms,
@@ -235,6 +268,64 @@ def create_task(db: Session, data: TaskRequest, user_id: int, settings: Settings
     db.flush()
     db.add_all(m.TaskMaterial(task_id=task.id, material_id=r.id) for r in materials)
     db.flush()
+    if data.stop_after == "completed" and data.reuse_alignment_task_id:
+        # Freeze the independently discovered paper count before any business write.
+        # Material IDs in old OCR output are not authoritative; match source bytes.
+        from app.module3.reuse import load
+
+        upstream, _ = load(db, task, settings)
+        structure = upstream["reference"].get("trusted_question_structure", {})
+        groups, count = structure.get("groups", []), structure.get("question_count")
+        ranges = [
+            {k: group[k] for k in ("section", "start", "end")} for group in groups
+        ]
+        numbers = [n for r in ranges for n in range(r["start"], r["end"] + 1)]
+        if (
+            type(count) is not int
+            or count < 1
+            or sorted(numbers) != list(range(1, count + 1))
+            or structure.get("source") != "original_paper_question_headings"
+        ):
+            raise conflict("上游缺少原卷独立导出的完整可信题量/题组")
+        paper_sources = [
+            material
+            for material in materials
+            if material.source_kind == "paper_" + data.document_mode
+            and all(
+                group["source_sha256"] == material.sha256
+                and group["source_storage_key"] == material.storage_key
+                for group in groups
+            )
+        ]
+        if len(paper_sources) != 1:
+            raise conflict("可信题量须唯一绑定本任务原卷身份")
+        if data.expected_question_count not in {None, count} or (
+            data.expected_question_ranges
+            and request["expected_question_ranges"] != ranges
+        ):
+            raise conflict("申报题量/题组与原卷独立提取结果冲突")
+        paper_source = paper_sources[0]
+        source = request["expected_question_count_source"] or {
+            "document": paper_source.storage_key,
+            "sha256": paper_source.sha256,
+            "locator": "original_paper_question_headings; pages="
+            + ",".join(str(p) for p in sorted({g["source_page"] for g in groups})),
+        }
+        request = {
+            **request,
+            "expected_question_count": count,
+            "expected_question_count_source": source,
+            "expected_question_ranges": ranges,
+        }
+        task.request = request
+        task.input_hash = fingerprint(
+            {
+                "request": {k: v for k, v in request.items() if k != "material_ids"},
+                "materials": sorted((r.source_kind, r.sha256) for r in materials),
+                "method": method,
+            }
+        )
+        db.flush()
     return task
 
 
@@ -413,6 +504,8 @@ def record_review(db, task_id, data: ReviewRequest, user):
                 for s in payload["transcript_segments"]
                 if s["segment_type"] == "body"
             }
+            if data.review_basis == "user_confirmation":
+                expected = set()
             expected.add(("audio", "original"))
         else:
             expected = {
@@ -440,13 +533,18 @@ def record_review(db, task_id, data: ReviewRequest, user):
             raise AppError(422, "复核明细必须逐项覆盖当前范围并提供实际依据")
         if data.scope == "audio":
             original = found[("audio", "original")]
-            if (
-                original.get("file_hash") != payload["audio"]["file_hash"]
-                or original.get("listened_to_end") is not True
-            ):
+            if original.get("file_hash") != payload["audio"]["file_hash"]:
+                raise AppError(422, "核听审批必须绑定当前原音哈希")
+            if data.review_basis == "user_confirmation":
+                if any(k.startswith("reference_") for k in original):
+                    raise AppError(422, "用户确认不得冒充逐端毫秒参考测量")
+            elif original.get("listened_to_end") is not True:
                 raise AppError(422, "整套核听记录须确认原音身份并完成核听")
             for segment in payload["transcript_segments"]:
-                if segment["segment_type"] != "body":
+                if (
+                    segment["segment_type"] != "body"
+                    or data.review_basis == "user_confirmation"
+                ):
                     continue
                 item = found[("transcript_segments", str(segment["_src_id"]))]
                 for field in ("start_ms", "end_ms"):
@@ -457,14 +555,53 @@ def record_review(db, task_id, data: ReviewRequest, user):
                         > task.method["sentence_tolerance_ms"]
                     ):
                         raise AppError(422, "句级边界未达到已冻结的300ms精度口径")
+    values = data.model_dump(exclude={"review_basis", "approval_reference"})
+    if data.review_basis == "user_confirmation":
+        values["items"] = [
+            {
+                **item,
+                "review_basis": "user_confirmation",
+                "approval_reference": data.approval_reference,
+                "millisecond_measurement": "not_claimed",
+            }
+            for item in values["items"]
+        ]
     row = m.ProcessingReview(
         task_id=task.id,
-        **data.model_dump(),
+        **values,
         operator_user_id=user.id,
         operator_label=user.username,
     )
     db.add(row)
     db.flush()
+    if task.batch_id is not None:
+        from app.db import models_annotations as annotations
+        from app.db import models_listening as listening
+
+        models = {
+            "content": (
+                listening.ContentGroup,
+                listening.Passage,
+                listening.Question,
+                listening.Presentation,
+            ),
+            "audio": (listening.TranscriptSegment,),
+            "annotations": (
+                annotations.EvidenceItem,
+                annotations.SkillQuestionRelation,
+                annotations.ErrorQuestionRelation,
+                annotations.OtherRelation,
+                annotations.LanguageItem,
+            ),
+        }
+        for model in models[data.scope]:
+            db.execute(
+                update(model)
+                .where(model.batch_id == task.batch_id)
+                .values(
+                    review_status="已通过" if data.decision == "approved" else "需修改"
+                )
+            )
     reviews = latest_reviews(db, task)
     checked = db.scalar(
         select(ContentCheck)
@@ -670,6 +807,7 @@ def activate(db, paper_id, data: ActivationRequest, user_id):
         db.flush()
     batch.is_current, batch.status = True, "active"
     paper.playback_audio_id = batch.audio_id
+    paper.review_status = "已通过"
     visibility = db.scalar(
         select(PaperVisibility)
         .where(PaperVisibility.batch_id == batch.id)

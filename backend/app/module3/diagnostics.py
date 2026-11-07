@@ -41,7 +41,10 @@ def diagnose(profile: str, settings=None):
         issues.append("PYTHON_VERSION_MISMATCH")
     from app.services.processing.validation import CONFIG_DIR
 
-    report["lock_sha256"] = file_hash(CONFIG_DIR / f"requirements-{profile}.lock.txt")
+    environment = "asr" if profile == "align" else profile
+    report["lock_sha256"] = file_hash(
+        CONFIG_DIR / f"requirements-{environment}.lock.txt"
+    )
     expected = {
         "api": {
             "fastapi": "0.143.0",
@@ -52,6 +55,12 @@ def diagnose(profile: str, settings=None):
         "asr": {
             "torch": "2.8.0+cu128",
             "faster-whisper": "1.2.1",
+            "whisperx": "3.8.6",
+            "torchcodec": "0.7.0",
+        },
+        "align": {
+            "torch": "2.8.0+cu128",
+            "torchaudio": "2.8.0+cu128",
             "whisperx": "3.8.6",
             "torchcodec": "0.7.0",
         },
@@ -71,11 +80,17 @@ def diagnose(profile: str, settings=None):
         report["packages"][name] = actual
         if actual != version:
             issues.append("PACKAGE_MISMATCH:" + name)
-    if profile in {"asr", "ocr"}:
+    if profile in {"asr", "ocr", "align"}:
         manifest = json.loads(
             (CONFIG_DIR / "model-artifact-manifest.json").read_text(encoding="utf-8")
         )
         for model in manifest:
+            if (
+                profile == "align"
+                and model["repository"]
+                != "jonatasgrosman/wav2vec2-large-xlsr-53-english"
+            ):
+                continue
             if model["repository"].startswith("PaddlePaddle/") != (profile == "ocr"):
                 continue
             directory = (
@@ -92,7 +107,7 @@ def diagnose(profile: str, settings=None):
                         + "/"
                         + item["filename"]
                     )
-    if profile == "asr" and not issues:
+    if profile in {"asr", "align"} and not issues:
         dll_dir = Path(settings.ffmpeg_dll_dir)
         native = json.loads(
             (CONFIG_DIR / "ffmpeg-artifact-manifest.json").read_text(encoding="utf-8")
@@ -111,9 +126,13 @@ def diagnose(profile: str, settings=None):
                 import torch
                 from torchcodec.decoders import AudioDecoder  # noqa: F401
 
-                report["cuda_available"] = torch.cuda.is_available()
-                if not report["cuda_available"]:
-                    issues.append("GPU_UNAVAILABLE")
+                if profile == "asr":
+                    report["cuda_available"] = torch.cuda.is_available()
+                    if not report["cuda_available"]:
+                        issues.append("GPU_UNAVAILABLE")
+            except (ImportError, OSError, RuntimeError) as exc:
+                issues.append("NATIVE_IMPORT_FAILED:" + type(exc).__name__)
+                report["native_error"] = str(exc)
             finally:
                 if handle:
                     handle.close()
@@ -123,7 +142,9 @@ def diagnose(profile: str, settings=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--profile", choices=("api", "asr", "ocr"), required=True)
+    parser.add_argument(
+        "--profile", choices=("api", "asr", "ocr", "align"), required=True
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model-root", type=Path)
     args = parser.parse_args()

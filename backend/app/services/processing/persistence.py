@@ -347,6 +347,7 @@ def persist_result(db, task_id, token, payload, audio_source, settings):
         lambda d: {
             **column_values(m.TranscriptSegment, d, exclude=("passage_id",)),
             "passage_id": ref("passages", d["passage_src_id"]),
+            "speaker_code": d.get("speaker") or d.get("speaker_code") or "",
         },
     )
     insert(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gc
 import json
+import math
 import os
 import re
 from pathlib import Path
@@ -55,6 +56,7 @@ def decode(source, destination, settings):
     try:
         decoder = AudioDecoder(str(source), sample_rate=16000, num_channels=1)
         samples = decoder.get_all_samples()
+        source_pts = float(samples.pts_seconds)
         audio = (
             samples.data.squeeze(0).contiguous().numpy().astype(np.float32, copy=False)
         )
@@ -62,6 +64,10 @@ def decode(source, destination, settings):
         raise ProcessingError("AUDIO_DECODE_FAILED", "固定TorchCodec解码失败") from None
     if audio.ndim != 1 or not audio.size or not np.isfinite(audio).all():
         raise ProcessingError("AUDIO_DECODE_FAILED", "音频必须为有限float32单声道")
+    if not math.isfinite(source_pts) or abs(source_pts) > 1e-9:
+        raise ProcessingError(
+            "AUDIO_TIMELINE_UNSUPPORTED", "原音起始PTS非零，禁止静默按零偏移对齐"
+        )
     destination.parent.mkdir(parents=True, exist_ok=True)
     np.save(destination, audio, allow_pickle=False)
     return {
@@ -73,6 +79,7 @@ def decode(source, destination, settings):
         "file_sha256": file_hash(source),
         "normalized_sha256": file_hash(destination),
         "decoder": "torchcodec",
+        "source_pts_seconds": source_pts,
         "offset_ms": 0,
     }
 
@@ -107,6 +114,9 @@ def transcribe(normalized, settings):
                 "start": s.start,
                 "end": s.end,
                 "text": s.text,
+                "avg_logprob": float(s.avg_logprob),
+                "no_speech_prob": float(s.no_speech_prob),
+                "compression_ratio": float(s.compression_ratio),
                 "words": [
                     {
                         "word": w.word,
@@ -119,7 +129,25 @@ def transcribe(normalized, settings):
             }
             for s in stream
         ]
-        return {"language": info.language, "segments": items}
+        if not items:
+            raise ProcessingError("TRANSCRIPTION_EMPTY", "音频未产生任何转写片段")
+        if any(
+            not str(item["text"]).strip()
+            or not (
+                math.isfinite(item["start"])
+                and math.isfinite(item["end"])
+                and 0 <= item["start"] < item["end"] <= info.duration + 0.1
+            )
+            for item in items
+        ):
+            raise ProcessingError("TRANSCRIPTION_INVALID", "转写文本或时间边界无效")
+        return {
+            "language": info.language,
+            "segments": items,
+            "language_probability": float(info.language_probability),
+            "duration_seconds": float(info.duration),
+            "duration_after_vad_seconds": float(info.duration_after_vad),
+        }
     finally:
         del model
         gc.collect()
@@ -131,6 +159,8 @@ def align(normalized, transcription, settings):
     import numpy as np
     import whisperx
 
+    samples = np.load(normalized, allow_pickle=False)
+    duration_seconds = len(samples) / 16000
     directory = local_model(settings, "jonatasgrosman/wav2vec2-large-xlsr-53-english")
     model, metadata = whisperx.load_align_model(
         language_code="en",
@@ -139,15 +169,22 @@ def align(normalized, transcription, settings):
         model_cache_only=True,
     )
     try:
-        raw = whisperx.align(
-            transcription["segments"],
-            model,
-            metadata,
-            np.load(normalized, allow_pickle=False),
-            device="cpu",
-            return_char_alignments=True,
-            interpolate_method="ignore",
-        )
+        if transcription.get("boundary_method"):
+            from app.module3.ctc_alignment import METHOD_VERSION, align_segments
+
+            if transcription["boundary_method"] != METHOD_VERSION:
+                raise ProcessingError("ALIGNMENT_METHOD_UNKNOWN", "未知原文对齐方法")
+            raw = align_segments(transcription["segments"], model, metadata, samples)
+        else:
+            raw = whisperx.align(
+                transcription["segments"],
+                model,
+                metadata,
+                samples,
+                device="cpu",
+                return_char_alignments=True,
+                interpolate_method="ignore",
+            )
     finally:
         del model
         gc.collect()
@@ -156,18 +193,31 @@ def align(normalized, transcription, settings):
         chars = item.get("chars", [])
         spoken = [c for c in chars if c.get("char", "").isalnum()]
         aligned = bool(spoken) and all(
-            c.get("start") is not None and c.get("end") is not None for c in spoken
+            all(
+                isinstance(c.get(key), (float, int)) and math.isfinite(c[key])
+                for key in ("start", "end")
+            )
+            and 0 <= c["start"] <= c["end"] <= duration_seconds
+            for c in spoken
         )
         start, end = item.get("start"), item.get("end")
+        valid_time = all(
+            isinstance(value, (float, int)) and math.isfinite(value)
+            for value in (start, end)
+        )
+        valid_time = valid_time and 0 <= start < end <= duration_seconds
+        aligned = aligned and valid_time
         segments.append(
             {
                 "_src_id": f"seg:{i + 1}",
                 "text": item["text"].strip(),
-                "start_ms": round(start * 1000) if start is not None else None,
-                "end_ms": round(end * 1000) if end is not None else None,
+                "start_ms": round(start * 1000) if valid_time else None,
+                "end_ms": round(end * 1000) if valid_time else None,
                 "alignment_status": "aligned" if aligned else "requires_review",
                 "chars": chars,
                 "offset_ms": 0,
+                "boundary_method": item.get("boundary_method"),
+                "alignment_score": item.get("alignment_score", 1.0),
             }
         )
     source_words = re.findall(
@@ -175,6 +225,14 @@ def align(normalized, transcription, settings):
     )
     aligned_words = re.findall(r"\w+", " ".join(s["text"] for s in segments).casefold())
     issues = []
+    unverified = [s["_src_id"] for s in segments if s["alignment_status"] != "aligned"]
+    if unverified:
+        issues.append(
+            {
+                "issue_code": "ALIGNMENT_SEGMENTS_UNVERIFIED",
+                "segment_src_ids": unverified,
+            }
+        )
     if source_words != aligned_words:
         issues.append(
             {
@@ -183,4 +241,9 @@ def align(normalized, transcription, settings):
                 "aligned_words": len(aligned_words),
             }
         )
-    return {"segments": segments, "issues": issues}
+    return {
+        "segments": segments,
+        "issues": issues,
+        "boundary_method": transcription.get("boundary_method"),
+        "duration_ms": round(duration_seconds * 1000),
+    }

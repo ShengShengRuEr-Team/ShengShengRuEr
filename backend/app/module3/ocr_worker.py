@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 from app.module3.contracts import ProcessingError, atomic_json, file_hash
@@ -29,8 +30,12 @@ def make_ocr(model_root):
                 raise ProcessingError(
                     "MODEL_HASH_MISMATCH", "OCR本地模型缺失或哈希不符"
                 )
-    det = next(m for m in selected if m["repository"].endswith("_det"))
-    rec = next(m for m in selected if m["repository"].endswith("_rec"))
+    det = next(
+        m for m in selected if m["repository"] == "PaddlePaddle/PP-OCRv5_server_det"
+    )
+    rec = next(
+        m for m in selected if m["repository"] == "PaddlePaddle/PP-OCRv5_server_rec"
+    )
     return PaddleOCR(
         device="cpu",
         text_detection_model_name="PP-OCRv5_server_det",
@@ -49,6 +54,14 @@ def make_ocr(model_root):
 
 
 def extract(manifest, output_dir):
+    if manifest.get("assembly_only"):
+        from app.module3.assembly_scan import extract as extract_assembly
+
+        return extract_assembly(manifest, output_dir)
+    if manifest.get("reference_only"):
+        from app.module3.reference_document_scan import extract_reference_only
+
+        return extract_reference_only(manifest, output_dir)
     import pdfplumber
     import pypdfium2
 
@@ -59,9 +72,19 @@ def extract(manifest, output_dir):
         path = Path(material["path"])
         if file_hash(path) != material["sha256"]:
             raise ProcessingError("SOURCE_CHANGED", "提取前原件哈希不符")
+        if material["source_kind"] == "paper_scan" and path.suffix.lower() == ".pdf":
+            from app.module3.paper_scan import extract as extract_paper
+
+            pages.extend(extract_paper(material, model_root, output_dir))
+            continue
         scan = material["source_kind"] == "paper_scan"
         if not scan and path.suffix.lower() == ".pdf":
             with pdfplumber.open(path) as document:
+                selected = material.get("page_numbers")
+                if selected and any(
+                    number > len(document.pages) or number < 1 for number in selected
+                ):
+                    raise ProcessingError("PAGE_RANGE_INVALID", "材料页码超出原件")
                 for number, page in enumerate(document.pages, 1):
                     if (
                         material.get("page_numbers")
@@ -104,6 +127,7 @@ def extract(manifest, output_dir):
             from PIL import Image
 
             images = [(1, Image.open(path).convert("RGB"))]
+        listening_started = False
         for number, image in images:
             import numpy as np
 
@@ -161,9 +185,94 @@ def extract(manifest, output_dir):
                 flush=True,
             )
             image.close()
+            if manifest.get("prepare_reference") and material["source_kind"] in {
+                "answer_explanation",
+                "transcript",
+            }:
+                text = pages[-1]["text"]
+                listening_started |= bool(
+                    re.search(r"News\s*Report|Conversation\s*One|听力原文", text, re.I)
+                )
+                if listening_started and re.search(
+                    r"Part\s*III|Reading\s*Comprehension|选词填空", text, re.I
+                ):
+                    break
         if path.suffix.lower() == ".pdf":
             document.close()
+    if manifest.get("prepare_reference"):
+        refine_reference_pages(pages, output_dir, model_root)
     return {"schema_version": "m3.v1", "pages": pages}
+
+
+def refine_reference_pages(pages, output_dir, model_root):
+    from paddleocr import TextRecognition
+    from PIL import Image
+
+    from app.module3.document_reference import HEADING
+    from app.module3.ocr_refinement import refine_blocks
+
+    config = (
+        Path(__file__).resolve().parents[2]
+        / "config/module3/model-artifact-manifest.json"
+    )
+    models = json.loads(config.read_text(encoding="utf-8"))
+    rec = next(
+        m for m in models if m["repository"] == "PaddlePaddle/PP-OCRv5_server_rec"
+    )
+    recognizer = None
+    current = False
+    mode = None
+    for page in pages:
+        if page["source_kind"] not in {
+            "answer_explanation",
+            "transcript",
+        } or not page.get("blocks"):
+            continue
+        selections = []
+        for index, block in enumerate(page["blocks"]):
+            text = block["text"].strip()
+            if HEADING.match(text):
+                current, mode = True, None
+            elif "听力原文" in text:
+                mode = "body"
+            elif "答案详解" in text:
+                mode = "questions"
+            elif current and (
+                (
+                    mode == "body"
+                    and re.search(r"[A-Za-z]", text)
+                    and not re.search(r"[\u4e00-\u9fff]", text)
+                )
+                or (mode == "questions" and re.match(r"^\d+\s*[.．]\s*[A-Za-z]", text))
+            ):
+                selections.append(index)
+        if not selections:
+            continue
+        if recognizer is None:
+            recognizer = TextRecognition(
+                model_name="PP-OCRv5_server_rec",
+                model_dir=str(model_directory(model_root, rec)),
+                device="cpu",
+                enable_mkldnn=False,
+                cpu_threads=4,
+            )
+        with Image.open(output_dir / page["page_image"]) as image:
+            print(
+                f"reference refinement page={page['page']} lines={len(selections)}",
+                flush=True,
+            )
+            refined = refine_blocks(
+                image, [page["blocks"][i] for i in selections], recognizer
+            )
+        replacements = dict(zip(selections, refined, strict=True))
+        page["reference_blocks"] = [
+            replacements.get(i, b) for i, b in enumerate(page["blocks"])
+        ]
+        atomic_json(
+            output_dir,
+            f"reference-pages/{page['material_id']}-{page['page']}.json",
+            page,
+        )
 
 
 def derive_scan(source, target):

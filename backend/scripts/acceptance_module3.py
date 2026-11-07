@@ -59,7 +59,8 @@ def main():
                 password = os.getenv(f"M3_{role.upper()}_PASSWORD")
                 if not username or not password:
                     raise RuntimeError(
-                        f"Controlled credentials missing: M3_{role.upper()}_USERNAME/PASSWORD"
+                        "Controlled credentials missing: "
+                        f"M3_{role.upper()}_USERNAME/PASSWORD"
                     )
                 response = client.post(
                     "/api/v1/login", json={"username": username, "password": password}
@@ -184,7 +185,8 @@ def main():
                 return 1
             if not args.reviews_file:
                 report["issues"] = [
-                    "Actual per-question, full-audio and annotation review records required"
+                    "Actual per-question, full-audio and annotation "
+                    "review records required"
                 ]
                 return 2
             reviews = json.loads(args.reviews_file.read_text(encoding="utf-8"))
@@ -250,7 +252,8 @@ def main():
                 raise RuntimeError("Canceled paper remains accessible")
             report["status"] = "PARTIAL"
             report["issues"] = [
-                "This run verifies one real document path; full A01-A36 matrix, decoder and quality report remain separate"
+                "This run verifies one real document path; full A01-A36 matrix, "
+                "decoder and quality report remain separate"
             ]
             return 3
     except Exception as exc:
