@@ -1,7 +1,7 @@
-import { HomeOutlined } from '@ant-design/icons'
+import { BookOutlined, HomeOutlined } from '@ant-design/icons'
 import { Layout, Menu, Typography } from 'antd'
 import type { MenuProps } from 'antd'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../constants/routes'
 import UserActions from '../ui/UserActions'
 
@@ -9,11 +9,21 @@ const { Header, Sider, Content } = Layout
 
 const ADMIN_ITEMS: MenuProps['items'] = [
   { key: ROUTES.ADMIN_HOME, icon: <HomeOutlined />, label: '首页' },
+  { key: ROUTES.ADMIN_LISTENING_PAPERS, icon: <BookOutlined />, label: '题库管理' },
 ]
+
+/** 当前路由属于哪个菜单项：详情页也高亮「题库管理」。 */
+function resolveSelectedKey(pathname: string): string {
+  if (pathname.startsWith(ROUTES.ADMIN_LISTENING_PAPERS)) {
+    return ROUTES.ADMIN_LISTENING_PAPERS
+  }
+  return ROUTES.ADMIN_HOME
+}
 
 /** 管理端布局：左侧菜单 + 顶部用户区 + 内容区。 */
 export default function AdminLayout() {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     navigate(key)
@@ -32,7 +42,7 @@ export default function AdminLayout() {
         </div>
         <Menu
           mode="inline"
-          selectedKeys={[ROUTES.ADMIN_HOME]}
+          selectedKeys={[resolveSelectedKey(location.pathname)]}
           items={ADMIN_ITEMS}
           onClick={handleMenuClick}
           style={{ borderInlineEnd: 'none' }}
