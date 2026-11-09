@@ -146,13 +146,20 @@ export default function AdminListeningPaperDetailPage() {
   const checkPassed = check ? check.isPassed : (companion?.checkPassed ?? false)
   const accessible = Boolean(companion?.isCurrent && checkPassed && isVisible)
 
+  /**
+   * 确认开放不再用检查结论做禁用条件：
+   * 后端 confirm 动作本身会执行一次最低内容检查（服务层 run_check），
+   * 若前端以"尚未检查/检查未通过"禁用按钮，新导入的试卷将永远无法产生第一条检查记录，
+   * 数据修好后也会被旧的失败记录卡死。
+   */
   const confirmDisabledReason = !hasBatch
     ? '暂无当前批次，无法操作'
     : isVisible
       ? '该试卷已确认开放'
-      : !checkPassed
-        ? '检查未通过或尚未检查，不能确认开放'
-        : ''
+      : ''
+
+  /** 检查未通过或尚未检查时，提示"确认会重新检查"，避免误解为直接放行。 */
+  const showCheckOnConfirmHint = hasBatch && !isVisible && !checkPassed
 
   const openActionModal = (action: VisibilityAction) => {
     setReason('')
@@ -219,8 +226,8 @@ export default function AdminListeningPaperDetailPage() {
     : check?.isPassed
       ? '检查通过，可确认开放。'
       : check && check.issues.length > 0
-        ? '检查未通过。请先处理下列问题；处理完成后需由导入/检查流程重新生成检查记录。'
-        : '尚未检查。本页只能读取检查记录，不能重新执行检查。'
+        ? '检查未通过。修正数据后可点击「确认开放」重新检查；仍不通过会在下方返回新的问题清单。'
+        : '尚未检查。点击「确认开放」会先执行一次检查：通过则开放，未通过会在此显示具体问题。'
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -276,6 +283,15 @@ export default function AdminListeningPaperDetailPage() {
             </Button>
           </Space>
         </div>
+
+        {showCheckOnConfirmHint && (
+          <Alert
+            style={{ marginTop: 8 }}
+            type="info"
+            showIcon
+            message="当前检查未通过或尚未检查：点击「确认开放」会先重新执行最低内容检查，未通过将返回具体问题。"
+          />
+        )}
 
         <Descriptions
           size="small"
@@ -535,7 +551,7 @@ export default function AdminListeningPaperDetailPage() {
           )}
 
           <Typography.Text type="secondary" className="small-text">
-            刷新只会重新读取最近一次检查记录；重新检查需要由导入/检查流程触发。
+            「刷新」只重新读取最近一次检查记录；需要重新检查时，点击「确认开放」即会先执行一次检查。
           </Typography.Text>
         </Space>
       </Drawer>
@@ -553,7 +569,7 @@ export default function AdminListeningPaperDetailPage() {
         <Space direction="vertical" size={10} style={{ width: '100%' }}>
           <Typography.Text>
             {modalAction === 'confirm'
-              ? '确认后，满足当前批次与检查通过的条件时，学生即可在列表中看到该试卷。'
+              ? '确认时会先执行一次最低内容检查：通过后学生即可在列表中看到该试卷，未通过会返回具体问题。'
               : '取消后，学生重新打开列表将不再看到该试卷，详情与音频请求也会被拒绝。已打开的页面与已下载的音频不会被追回。'}
           </Typography.Text>
           <TextArea

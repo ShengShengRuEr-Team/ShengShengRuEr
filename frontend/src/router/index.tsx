@@ -34,7 +34,7 @@ function HomeRedirect() {
 }
 
 /**
- * 模块一路由表：
+ * 路由表：模块一页面框架 + 模块二题库业务页面。
  * - 管理端 `/admin`：RequireAuth + RequireRole(admin)
  * - 学生端 `/student`：RequireAuth + RequireRole(student)
  * - 守卫只决定「能不能看到页面」，越权请求最终由后端 403 兜底
