@@ -3,7 +3,7 @@
 - 日期：2026-11-09
 - 依据：《验收报告_模块二前端_F01-F18_20261109》——16 PASS / 1 PARTIAL（F07）/ 1 FAIL（F14），另有 3 项环境与交付缺口
 - 整改范围：仅前端代码与文档；**未改后端、未改数据库结构、未新增依赖**
-- 整改提交：本次提交（见分支 `feature/m2-frontend-listening-papers` 最新 commit）
+- 整改提交：`630371e`（分支 `feature/m2-frontend-listening-papers`，已推送；修复前为 `247328a`）
 
 ## 一、逐项处理
 
@@ -11,7 +11,7 @@
 | --- | --- | --- | --- |
 | 1 | **[高] 新导入试卷无法确认开放（F07 PARTIAL）** | 确认按钮不再以检查结论禁用，只在「无当前批次」「已开放」时禁用；并新增页头提示与文案，说明确认会先执行检查 | `ListeningPaperDetailPage.tsx` 的 `confirmDisabledReason` 去掉 `!checkPassed`；新增 `showCheckOnConfirmHint` 与 `Alert`；需求文档升 V0.4（§4.2、§4.3、D11、F07） |
 | 2 | **[中] README 未同步、验收基线缺失（F14 FAIL）** | 全量重写 README；把需求 V0.4、原型 HTML、实现记录、交接说明、验收报告、16 张截图纳入仓库，并更新三处文档索引 | `frontend/README.md`；`docs/requirements/module-2/frontend-requirements.md`、`frontend-prototype.html`；`docs/acceptance/module-2/` 下 4 份文档与 `screenshots/` |
-| 3 | **[中] 后端环境未达 V1.2 基线** | 不属前端改动，登记为环境待办（见第四节） | — |
+| 3 | **[中] 后端环境未达 V1.2 基线** | 不属前端改动，登记为环境待办（见第四节）。补充：开发者本机 venv 为 Python 3.14.10，同样不是 3.13.16，两侧都需按锁文件重建 | 本机 `python -V` = 3.14.10 |
 | 4 | **[中] 开发库为空、样例不可复现** | 交接文档已补「无数据时先迁移→seed→导入」；样例仍按仓库规范不入库，改为给出受控资料包位置与复现命令 | `docs/acceptance/module-2/frontend-handoff.md` §二；本文第二节 |
 | 5 | **[低] 路由注释仍写"模块一"** | 已改为「路由表：模块一页面框架 + 模块二题库业务页面」 | `frontend/src/router/index.tsx:37` |
 
@@ -54,7 +54,8 @@
 
 | 事项 | 说明 | 建议责任人 |
 | --- | --- | --- |
-| 后端环境重建 | Python 3.12.10 → 3.13.16、Starlette 1.10.0 → 1.7.0，按锁文件重建后重跑 `pytest` 与导入 | 后端/环境负责人 |
+| 后端环境重建 | 两侧都不达标：验收机 Python 3.12.10 / Starlette 1.10.0，开发机 Python 3.14.10。需统一按锁文件重建 3.13.16 / Starlette 1.7.0，再重跑 `pytest` 与导入 | 后端/环境负责人 |
+| 本地库迁移 | 本次复验发现开发库缺 `0004_expected_count_source` 迁移（`exam_papers.expected_count_source` 不存在导致 companion 500）；已执行 `alembic upgrade head` 修复。接手环境请先确认迁移到 head | 环境使用人 |
 | 真实样例规模复验 | 在有 25 题样例的环境补 F04/F10/F15/F16 | 验收人 + 资料持有人 |
 | PR | 复验通过后再创建，目标 `develop`，merge commit | 开发者 |
 
