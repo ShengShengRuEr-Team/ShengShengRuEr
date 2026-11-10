@@ -83,3 +83,5 @@ temp/
 *.gguf
 
 # Dependency lockfiles and database migrations must stay tracked.
+
+.pytemp/
