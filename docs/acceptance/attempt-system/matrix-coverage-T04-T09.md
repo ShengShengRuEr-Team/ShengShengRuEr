@@ -7,16 +7,18 @@
 - 说明：本表是**自动化覆盖台账**，不替代验收人签署；`PASS（自动）` 仅代表对应用例在该环境通过；
   `BLOCKED` 表示口径/冻结/数据前置未满足，**不得记为 PASS**。
 
-## 1. T04–T09 独立验收结论（2026-11-10）
+## 1. T04–T09 开发自测状态（待验收人复核，不代表验收结论）
 
-| 任务 | 结论 | 说明 |
+> 本节由开发人填写，只记录自动化自测状态，**不构成验收结论**；最终判定由验收人按第 6 节回填。
+
+| 任务 | 开发自测状态（待验收） | 说明 |
 |---|---|---|
-| T04 准入判定与内容版本校验 | PASS | 仓储级 25 条用例；A1–A10/A2b 全绿 |
-| T05 判分、快照与 249 分练习估分 | PASS | 表驱动 27 条用例；A1–A8 全绿 |
-| T06 提交编排与 API-1 | PARTIAL → 本轮回修 | 回修项：6a 空 `loaded_question_ids` 前置判空、flush/commit 分支日志注入、完整键不落日志 |
-| T07 权限、错误顺序与既有接口回归 | PASS | 8 条回归用例 |
-| T08 自动化测试补全与全量回归 | PARTIAL → 本轮回修 | 回修项：矩阵覆盖表落库、M‑24 HTTP 集成用例、6.3a 自测记录 |
-| T09 端到端验收脚本 | PARTIAL/BLOCKED → 本轮回修 | 回修项：`--base-url` 必填、退出码 0/1/2/3、所有退路打印写入说明、可见性恢复与旧键断言、首提交未知原键重试、markers 预检、删除不存在的 V‑E7 |
+| T04 准入判定与内容版本校验 | 开发自测通过（待验收） | 仓储级 25 条用例；A1–A10/A2b 全绿 |
+| T05 判分、快照与 249 分练习估分 | 开发自测通过（待验收） | 表驱动 27 条用例；A1–A8 全绿 |
+| T06 提交编排与 API-1 | 回修后待复核（待验收） | 回修项：6a 空 `loaded_question_ids` 前置判空、flush/commit 分支日志注入、完整键不落日志 |
+| T07 权限、错误顺序与既有接口回归 | 开发自测通过（待验收） | 8 条回归用例 |
+| T08 自动化测试补全与全量回归 | 回修后待复核（待验收） | 回修项：矩阵覆盖表落库、M‑24 HTTP 集成用例、6.3a 自测记录 |
+| T09 端到端验收脚本 | 回修后待复核；真实样例仍 BLOCKED（待验收） | 回修项：预期/运行期 BLOCKED 区分、退出码 0/1/2/3、顶层 try/finally、5xx 原键重试、恢复失败定位信息、inject 参数约束 |
 
 ## 2. 矩阵覆盖（M 编号 → 用例 → 结果）
 
@@ -32,7 +34,7 @@
 | M‑02 | V‑02/AS‑02 | `api::test_a2_partial_and_empty_answers`（独立试卷：部分作答、空 answers；分母 25；NULL 可区分） | PASS（自动） |
 | M‑03a | V‑03/AS‑03 | `api::test_m03a_reordered_options_grade_in_paper_space`（原卷字母判分 + 库内快照） + `grading::test_a4_*` | PASS（自动） |
 | M‑03b | V‑03 回显 | 无 API‑2，本轮不可观测 | **BLOCKED（FZ1/FZ2）** |
-| M‑04 | V‑04/BR‑16/16a | `api::test_a1_full_submission`（25/25→100/249）、`api::test_a2_*`（0/25→0）、`api::test_m04_practice_unavailable_reasons`（24→235；1 题/题型缺失/类型数量不符→available=false、value=null、reason） + `grading` 全套 | PASS（自动） |
+| M‑04 | V‑04/BR‑16/16a | `api::test_a1_full_submission`（25/25→100/249）、`api::test_a2_*`（0/25→0）、`api::test_m01_24_of_25_lecture_wrong_exact_values`（24/25→96/235）、`api::test_m04_practice_unavailable_reasons`（1 题/题型缺失/类型数量不符→available=false、value=null、reason） + `grading` 全套 | PASS（自动） |
 | M‑05 | V‑06/AS‑06 | `api::test_a3_same_key_replay_returns_same_attempt` | PASS（自动） |
 | M‑06 | V‑07a/EX‑09a | `api::test_m06_new_batch_loaded_before_submit`（双批次，按新批提交 200、`import_batch_id`=新批） | PASS（自动） |
 | M‑07 | V‑12 读取部分/AS‑12 | 无 API‑2 路由 | **BLOCKED（P1/FZ1）** |
@@ -40,7 +42,7 @@
 | M‑09 | V‑17/AS‑17 | `reg::test_a1_api1_role_matrix`、`reg::test_a2_*`（管理员 403 不 404） | PASS（自动） |
 | M‑10 | V‑18/AS‑18 | `reg::test_a3_student_detail_unchanged_before_and_after_attempt` | PASS（自动） |
 | M‑11 | V‑19a/AS‑19a | `api::test_m11_annotation_state_change_does_not_affect_access` | PASS（自动） |
-| M‑12 | V‑20a/AS‑20a | `api::test_a6_*`（响应后立即查库：记录存在、不级联删除） | PASS（自动，SQL 核验） |
+| M‑12 | V‑20a/AS‑20a | `api::test_m12_records_survive_visibility_cancel`（先成功提交→再取消可见→只读 SQL 断言 attempts/attempt_answers 仍在、未被级联删除） | PASS（自动，SQL 核验） |
 | M‑12a | AS‑14/BR‑23 提交侧 | `api::test_m12a_snapshot_does_not_drift`（改题库后 `attempt_answers` 快照逐行不变） | PASS（自动，SQL 核验） |
 | M‑13 | V‑01a/D11/BR‑18a | `api::test_a5_same_paper_new_key_is_limited` | PASS（自动） |
 | M‑14 | V‑R7/BR‑27 | `api::test_m14_submitted_at_is_utc`（响应 ISO 8601 UTC、库内 UTC） | PASS（自动） |
@@ -55,7 +57,7 @@
 | M‑22 | V‑07b/EX‑09b | `api::test_a7_old_batch_writes_version_marker` | PASS（自动） |
 | M‑23 | V‑08/AS‑08 | `api::test_a9_*`（4 支）+ `api::test_m34_pre_commit_failure_retry_succeeds` | PASS（自动） |
 | M‑23a | R7‑05/2.7.3 | `api::test_a15_*`（flush/rollback/re读）、`api::test_t06_a15_commit_failure_logs_are_safe`（commit）、`reg::test_a7_db_error_keeps_shell_and_logs_are_safe` | PASS（自动） |
-| M‑24 | EX‑16/AS‑01 | `api::test_a12_path_range_and_body_types`、`api::test_a12_body_contract_errors`、`api::test_m24_http_validation_matrix`（路径 0/-1/2^63→422；JSON "1"/1.0/true→422；缺 answers→422） | PASS（自动） |
+| M‑24 | EX‑16/AS‑01 | `api::test_a12_path_range_and_body_types`、`api::test_a12_body_contract_errors`、`api::test_m24_http_validation_matrix`（路径 0/-1/2^63→422；JSON "1"/1.0/true→422；缺 answers→422；`selected_option="E"/"a"`→422；同一 Idempotency-Key 修正后重试→200 且首次 422 不落库） | PASS（自动） |
 | M‑25 | EX‑17/5.5a | `api::test_m25_identity_variants`（不存在/重复 loaded→400 E07 无标记）、`api::test_a13_foreign_identity_400_without_marker` | PASS（自动） |
 | M‑26 | EX‑18 | `api::test_a12_body_contract_errors`（缺 answers→422） | PASS（自动） |
 | M‑27 | EX‑19 | `api::test_m27_duplicate_answer_question_id`（400 E07） | PASS（自动） |
@@ -78,7 +80,12 @@
 | M‑42 | V‑E2/E3/E5b | 结果读取/管理员读取 | **BLOCKED（P1/P6，FZ1）** |
 | M‑43 | V‑09–V‑15a | 结果读取相关 | **BLOCKED（P1/P6，FZ1）** |
 | M‑44 | V‑15b/BR‑08/T11 | 解析正文检测 | **BLOCKED（T11/FZ4）** |
-| M‑45–M‑48 | V‑19b/V‑20b/EX‑27–32 | 读取侧/快照读取/数据防御 | **BLOCKED（P1/FZ1）** |
+| M‑45 | V‑19b | 标注审核变化不影响读取（读取侧） | **BLOCKED（P1/FZ1）** |
+| M‑46 | V‑20b | 下线期间读结果 404（读取侧） | **BLOCKED（P1/FZ1）** |
+| M‑47 | V‑05 完整口径 / V‑E4 多条部分 | P1 生效后的多次作答 | **BLOCKED（P1 + D‑14）** |
+| M‑47a | M‑32 / V‑21 / EX‑23 | 不同键并发“两条独立记录”与 BR‑18a 冲突 | **BLOCKED（D‑14 需求冲突未修订）** |
+| M‑47b | M‑41 / V‑E4 多条部分 | 同卷再次作答产生两条记录 | **BLOCKED（D‑14 需求冲突未修订）** |
+| M‑48 | EX‑27、EX‑29–EX‑32 | 读取侧快照/换批/外部删除/字段缺失 | **BLOCKED（P1/FZ1）** |
 
 ## 3. T06‑A14 实现自测（§6.3a，单列，不计矩阵通过率）
 
@@ -103,13 +110,18 @@
 ## 5. 本轮回修记录（T06/T08/T09）
 
 1. **T06**：`_first_submit` 在 6b 准入前判空 `loaded_question_ids` → 400 E07（无标记）；
-   新增“不可见/不存在 + 空集合”“可访问 + 空集合”用例；A15 补 commit 分支 SECRET 注入，
-   flush/commit 均断言完整 `Idempotency-Key` 不落日志。
+   新增“不可见/不存在 + 空集合”“可访问 + 空集合”用例；A15 日志注入**两条分支均已覆盖**：
+   - flush 分支：`api::test_t06_a15_flush_failure_logs_are_safe`（`Session.flush` 抛含 `SECRET_FLUSH_XYZ` 的
+     `OperationalError`，断言 500 外壳/无 SECRET/完整键不落日志/0 行/stage+error_type）；
+   - commit 分支：`api::test_t06_a15_commit_failure_logs_are_safe`（`Session.commit` 注入 `SECRET_COMMIT_XYZ`）。
 2. **T08**：本文件落库（M 编号→用例→结果→BLOCKED）；新增 `test_m24_http_validation_matrix`
-   覆盖路径/JSON 类型/缺失 answers 的 HTTP 422；6.3a 自测见第 3 节。
-3. **T09**：`--base-url` 必填；退出码 0/3/1/2；所有 return 路径打印写入资源说明；
-   恢复失败不输出“已恢复”；恢复后旧键 404/新键 200；首提交超时/连接断按 §2.6.4 原键重试一次；
-   预检 `markers>0` 视为已消耗；删除不存在的 V‑E7 编号（改用 V‑07/AS‑07）。
+   覆盖路径/JSON 类型/缺失 answers/非法字母的 HTTP 422，并验证同一 Idempotency-Key 修正后重试→200；
+   M‑12 改由 `test_m12_records_survive_visibility_cancel` 只读 SQL 覆盖；6.3a 自测见第 3 节。
+3. **T09**：区分“预期冻结 BLOCKED”（仅 `[EXPECTED-BLOCKED]` 打印、不计数）与“运行期 BLOCKED”
+   （exit 3）；正常收尾 exit 0；`--base-url` 必填；顶层 try/finally 保证任何未捕获异常也打印写入资源
+   说明；DB 连接异常按前置失败 exit 2；首提交超时/连接断/5xx 均按 §2.6.4 原键重试一次并打印掩码键；
+   可见性取消/恢复、拒绝标记与恢复后新键 attempt 计入 WRITES；恢复失败输出 paper_id/原状态/当前遗留
+   状态与人工恢复提示；`--inject-*` 必须与 `--check-visibility` 同时提供。
 
 ## 6. 复现命令
 

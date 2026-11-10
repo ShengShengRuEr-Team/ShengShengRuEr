@@ -11,9 +11,9 @@
     ... --inject-restore-failure    # 模拟恢复本身失败，脚本必须明确 FAIL
 
 退出码：
-    0 = 无 FAIL 且无 BLOCKED
-    3 = 存在 BLOCKED 但无 FAIL
-    1 = 存在 FAIL（含可见性恢复失败）
+    0 = 无 FAIL 且无运行期 BLOCKED（预期冻结项以 [EXPECTED-BLOCKED] 打印，不计数）
+    3 = 存在运行期 BLOCKED 但无 FAIL（如未提供 --database-url 的行数核验）
+    1 = 存在 FAIL（含可见性恢复失败/未捕获异常）
     2 = 参数/服务/数据前置不满足
 
 边界：
@@ -40,6 +40,7 @@ PASSWORD_ENV_ADMIN = "ATTEMPT_ACCEPT_ADMIN_PASSWORD"
 
 RESULTS: list[tuple[str, str, str]] = []
 WRITES: list[str] = []
+_NOTICE_PRINTED = False
 
 
 # --------------------------------------------------------------------------- #
@@ -58,10 +59,21 @@ def _fail(name: str, detail: str = "") -> None:
 
 
 def _blocked(name: str, detail: str = "") -> None:
+    """运行期 BLOCKED（计入退出码 3）。"""
+
     _record("BLOCKED", name, detail)
 
 
-def _print_resource_notice() -> None:
+def _expected_blocked(name: str, detail: str = "") -> None:
+    """预期冻结/口径未决项；打印但不计入 BLOCKED 计数，不影响退出码。"""
+
+    _record("EXPECTED-BLOCKED", name, detail)
+
+
+def _print_resource_notice(force: bool = False) -> None:
+    global _NOTICE_PRINTED
+    if _NOTICE_PRINTED and not force:
+        return
     print("本次写入资源（脚本不会删除，也不宣称撤销永久记录）：")
     if WRITES:
         for item in WRITES:
@@ -69,6 +81,7 @@ def _print_resource_notice() -> None:
     else:
         print("  - （无成功提交写入 attempts；可见性操作按 finally 处理）")
     print("说明：本次运行可能已消耗提交机会并写入永久 attempt/拒绝标记；永久记录不撤销。")
+    _NOTICE_PRINTED = True
 
 
 def _print_summary() -> int:
@@ -78,15 +91,21 @@ def _print_summary() -> int:
     passed = sum(1 for status, _, _ in RESULTS if status == "PASS")
     failed = sum(1 for status, _, _ in RESULTS if status == "FAIL")
     blocked = sum(1 for status, _, _ in RESULTS if status == "BLOCKED")
-    print(f"\n汇总：PASS={passed} FAIL={failed} BLOCKED={blocked}")
+    expected = sum(
+        1 for status, _, _ in RESULTS if status == "EXPECTED-BLOCKED"
+    )
+    print(
+        f"\n汇总：PASS={passed} FAIL={failed} "
+        f"运行期BLOCKED={blocked} 预期冻结BLOCKED={expected}"
+    )
     _print_resource_notice()
     if failed:
         print("退出码：1（存在 FAIL）")
         return 1
     if blocked:
-        print("退出码：3（存在 BLOCKED，无 FAIL）")
+        print("退出码：3（存在运行期 BLOCKED，无 FAIL）")
         return 3
-    print("退出码：0（无 FAIL 且无 BLOCKED）")
+    print("退出码：0（无 FAIL 且无运行期 BLOCKED；预期冻结项仅打印）")
     return 0
 
 
@@ -149,24 +168,38 @@ def _submit_first_with_recovery(
     student_token: str,
     attempt_key: str,
 ) -> httpx.Response | None:
-    """首提交结果未知（超时/连接断）时按 2.6.4 用原键重试一次；两次均未知 → FAIL。"""
+    """首提交结果未知（超时/连接断/5xx）时按 2.6.4 用原键重试一次；两次均未知 → FAIL。"""
 
     headers = _submit_headers(student_token, attempt_key)
+    masked_key = _mask(attempt_key)
     for attempt in (1, 2):
         try:
-            return _submit(client, paper_id, payload, headers)
+            response = _submit(client, paper_id, payload, headers)
         except (httpx.TimeoutException, httpx.HTTPError) as exc:
             if attempt == 1:
                 _pass(
                     "首提交结果未知，按 2.6.4 原键重试",
-                    f"{type(exc).__name__} -> 同键重试一次（不改键）",
+                    f"{type(exc).__name__} key={masked_key} -> 同键重试一次（不改键）",
                 )
                 continue
             _fail(
                 "首提交结果未知且原键重试仍失败",
-                f"{type(exc).__name__}；保留原键供人工恢复",
+                f"{type(exc).__name__} key={masked_key}；保留原键供人工恢复",
             )
             return None
+        if response.status_code >= 500:
+            if attempt == 1:
+                _pass(
+                    "首提交 5xx 视为结果未知，按 2.6.4 原键重试",
+                    f"HTTP {response.status_code} key={masked_key} -> 同键重试一次（不改键）",
+                )
+                continue
+            _fail(
+                "首提交 5xx 且原键重试仍 5xx",
+                f"HTTP {response.status_code} key={masked_key}；保留原键供人工恢复",
+            )
+            return None
+        return response
     return None
 
 
@@ -302,12 +335,14 @@ class _InjectedInterrupt(RuntimeError):
 # --------------------------------------------------------------------------- #
 # 主流程
 # --------------------------------------------------------------------------- #
-def main(argv: list[str] | None = None) -> int:
+def _execute(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="API-1 端到端验收（T09）",
         epilog=(
-            "--base-url 必填。退出码：0=无 FAIL 且无 BLOCKED；3=有 BLOCKED 无 FAIL；"
-            "1=有 FAIL；2=前置不满足。"
+            "--base-url 必填。退出码：0=无 FAIL 且无运行期 BLOCKED；"
+            "3=有运行期 BLOCKED 无 FAIL；1=有 FAIL；2=前置不满足。"
+            "预期冻结项（V-E4/V-E5b/V-E2/E3/人工抽查/T10）仅以 "
+            "[EXPECTED-BLOCKED] 打印、不计数。"
         ),
     )
     parser.add_argument(
@@ -336,6 +371,8 @@ def main(argv: list[str] | None = None) -> int:
     ]
     if args.check_visibility and not args.visibility_paper_id:
         missing.append("--visibility-paper-id（启用 --check-visibility 时必填）")
+    if (args.inject_interrupt or args.inject_restore_failure) and not args.check_visibility:
+        missing.append("--check-visibility（使用 --inject-* 时必填）")
     if missing:
         return _abort(
             2, f"缺少目标参数：{', '.join(missing)}；本脚本不自动挑选共享试卷"
@@ -345,7 +382,10 @@ def main(argv: list[str] | None = None) -> int:
 
     connection = None
     if args.database_url:
-        connection = _open_readonly_connection(args.database_url)
+        try:
+            connection = _open_readonly_connection(args.database_url)
+        except Exception as exc:  # noqa: BLE001 - DB 连接异常按前置失败
+            return _abort(2, f"数据库连接失败：{type(exc).__name__}")
         if connection is None:
             return _abort(2, "数据库前置不满足（拒绝/无法连接）")
     else:
@@ -587,6 +627,9 @@ def main(argv: list[str] | None = None) -> int:
                     _fail("可见性场景：取消可见", "admin 取消失败")
                 else:
                     _pass("可见性场景：取消可见", f"paper_id={visibility_paper}")
+                    WRITES.append(
+                        f"visibility(paper={visibility_paper}, action=cancel)"
+                    )
                     if args.inject_interrupt:
                         interrupted = True
                         raise _InjectedInterrupt("T09 受控中断（已取消可见）")
@@ -606,6 +649,10 @@ def main(argv: list[str] | None = None) -> int:
                         _pass(
                             "V-07 取消可见后提交 → 404",
                             f"HTTP 404 msg={rejected_msg}",
+                        )
+                        WRITES.append(
+                            f"rejection(paper={visibility_paper}, "
+                            f"kind=paper_not_accessible, key={_mask(rejected_key)})"
                         )
                     else:
                         _fail(
@@ -646,7 +693,9 @@ def main(argv: list[str] | None = None) -> int:
                 if args.inject_restore_failure:
                     _fail(
                         "可见性恢复（模拟失败）",
-                        "脚本明确 FAIL、保留定位证据、不显示整体通过",
+                        f"paper_id={visibility_paper} original={original} "
+                        "current=False；需人工确认并恢复可见性，"
+                        "脚本明确 FAIL、不显示整体通过",
                     )
                 else:
                     restored_ok = _set_visibility(
@@ -654,8 +703,19 @@ def main(argv: list[str] | None = None) -> int:
                     )
                     if restored_ok:
                         _pass("可见性 finally 恢复原状态", f"is_visible={original}")
+                        WRITES.append(
+                            f"visibility(paper={visibility_paper}, "
+                            f"action={'confirm' if original else 'cancel'})"
+                        )
                     else:
-                        _fail("可见性 finally 恢复原状态", "恢复请求失败")
+                        current = _read_visibility(
+                            client, admin_headers, visibility_paper
+                        )
+                        _fail(
+                            "可见性 finally 恢复原状态",
+                            f"paper_id={visibility_paper} original={original} "
+                            f"current={current}；需人工确认并恢复可见性",
+                        )
                     if interrupted and restored_ok:
                         _pass("受控中断后 finally 已恢复", "中断不掩盖恢复结果")
 
@@ -693,20 +753,27 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 if fresh.status_code == 200:
                     _pass("恢复可见后新键可提交", "HTTP 200")
+                    fresh_code = _json(fresh).get("data", {}).get("attempt_code")
+                    WRITES.append(
+                        f"attempt(paper={visibility_paper}, code={fresh_code}, "
+                        f"key={_mask(fresh_key)})"
+                    )
                 else:
                     _fail(
                         "恢复可见后新键可提交",
                         f"HTTP {fresh.status_code} {fresh.text[:160]}",
                     )
 
-    # 冻结/口径未决项：打印 BLOCKED，不判 PASS
-    _blocked(
+    # 冻结/口径未决项：预期 BLOCKED，打印但不计入运行期 BLOCKED 计数
+    _expected_blocked(
         "V-E4 同卷再次作答完整口径",
         "P1/D-14 未决；本轮按 BR-18a 限 1 次，见 E08 检查",
     )
-    _blocked("V-E5b 管理员读取学生结果", "API-2 冻结（FZ1/P1/P6）")
-    _blocked("V-E2/V-E3 结果读取与取消可见后读取", "API-2 冻结（FZ1）")
-    _blocked(
+    _expected_blocked("V-E5b 管理员读取学生结果", "API-2 冻结（FZ1/P1/P6）")
+    _expected_blocked(
+        "V-E2/V-E3 结果读取与取消可见后读取", "API-2 冻结（FZ1）"
+    )
+    _expected_blocked(
         "V-E1 判分正确性人工抽查",
         "脚本只验证契约/行数；逐题判分抽查须 T10/验收人用专用样例完成",
     )
@@ -715,6 +782,20 @@ def main(argv: list[str] | None = None) -> int:
     if connection is not None:
         connection.close()
     return code
+
+
+def main(argv: list[str] | None = None) -> int:
+    """顶层保护：任何未捕获异常都打印写入资源清单与永久记录说明。"""
+
+    try:
+        return _execute(argv)
+    except SystemExit:
+        raise
+    except BaseException as exc:  # noqa: BLE001 - 顶层兜底必须保证资源说明
+        print(f"[FAIL] 未捕获异常：{type(exc).__name__}")
+        _print_resource_notice()
+        print("退出码：1（未捕获异常）")
+        return 1
 
 
 if __name__ == "__main__":

@@ -1907,3 +1907,116 @@ def test_m24_http_validation_matrix(client, student_token, api_data):
     assert response.status_code == 422, response.text
     assert response.json()["msg"] == "请求参数校验失败"
     assert _db_counts(content.paper_id) == (0, 0, 0)
+
+    # selected_option 只接受大写 A–D：E/a → 422，且 422 不落库
+    retry_key = _key()
+    for bad_letter in ("E", "a"):
+        bad_payload = {
+            "loaded_question_ids": content.question_ids,
+            "answers": [
+                {
+                    "question_id": content.question_ids[0],
+                    "selected_option": bad_letter,
+                }
+            ],
+        }
+        bad_response = _post(
+            client,
+            content.paper_id,
+            bad_payload,
+            key=retry_key,
+            token=student_token,
+        )
+        assert bad_response.status_code == 422, (bad_letter, bad_response.text)
+        assert bad_response.json()["msg"] == "请求参数校验失败"
+    assert _db_counts(content.paper_id) == (0, 0, 0)
+
+    # 修正请求后用同一 Idempotency-Key 重试 → 200（422 未进入业务、未落库）
+    fixed_response = _post(
+        client,
+        content.paper_id,
+        valid_payload,
+        key=retry_key,
+        token=student_token,
+    )
+    assert fixed_response.status_code == 200, fixed_response.text
+    assert _db_counts(content.paper_id) == (1, 25, 0)
+
+
+# --------------------------------------------------------------------------- #
+# T06 复审回修：Session.flush 分支日志注入（仓储 insert 内部 flush 失败）
+# --------------------------------------------------------------------------- #
+def test_t06_a15_flush_failure_logs_are_safe(
+    client, student_token, api_data, monkeypatch, caplog
+):
+    from sqlalchemy.orm import Session
+
+    content = api_data.build_paper()
+    attempt_key = _key()
+    secret = "SECRET_FLUSH_XYZ"
+    real_flush = Session.flush
+
+    def _leaky_flush(self, *args, **kwargs):
+        raise OperationalError(
+            f"FLUSH {secret}", {}, Exception(f"DETAIL {secret}")
+        )
+
+    monkeypatch.setattr(Session, "flush", _leaky_flush)
+    with caplog.at_level("WARNING"):
+        response = _post(
+            client,
+            content.paper_id,
+            _payload(content.question_ids),
+            key=attempt_key,
+            token=student_token,
+        )
+    monkeypatch.setattr(Session, "flush", real_flush)
+
+    assert response.status_code == 500, response.text
+    assert response.json() == {
+        "code": 500,
+        "msg": "服务器内部错误",
+        "data": None,
+    }
+    assert secret not in response.text
+    assert secret not in caplog.text
+    assert attempt_key not in response.text
+    assert attempt_key not in caplog.text
+    assert "stage=" in caplog.text
+    assert "error_type=" in caplog.text
+    assert _db_counts(content.paper_id) == (0, 0, 0)
+
+
+# --------------------------------------------------------------------------- #
+# T08 复审回修：M-12 提交成功后取消可见，只读 SQL 断言记录仍在
+# --------------------------------------------------------------------------- #
+def test_m12_records_survive_visibility_cancel(client, student_token, api_data):
+    content = api_data.build_paper()
+    payload = _payload(content.question_ids)
+
+    submitted = _post(
+        client, content.paper_id, payload, key=_key(), token=student_token
+    )
+    assert submitted.status_code == 200, submitted.text
+    attempt_code = submitted.json()["data"]["attempt_code"]
+    assert _db_counts(content.paper_id) == (1, 25, 0)
+
+    _set_visible(content.paper_id, content.batch_id, False)
+
+    attempts = _db_scalar(
+        "SELECT count(*) FROM attempts WHERE exam_paper_id = :paper",
+        {"paper": content.paper_id},
+    )
+    answers = _db_scalar(
+        "SELECT count(*) FROM attempt_answers a "
+        "JOIN attempts t ON t.id = a.attempt_id "
+        "WHERE t.exam_paper_id = :paper",
+        {"paper": content.paper_id},
+    )
+    stored_code = _db_scalar(
+        "SELECT attempt_code FROM attempts WHERE exam_paper_id = :paper",
+        {"paper": content.paper_id},
+    )
+    assert attempts == 1
+    assert answers == 25
+    assert stored_code == attempt_code
