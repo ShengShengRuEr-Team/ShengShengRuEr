@@ -14,7 +14,11 @@ import RequireRole from './RequireRole'
 const LoginPage = lazy(() => import('../pages/LoginPage'))
 const ForbiddenPage = lazy(() => import('../pages/ForbiddenPage'))
 const AdminHomePage = lazy(() => import('../pages/admin/HomePage'))
+const AdminListeningPaperListPage = lazy(() => import('../pages/admin/ListeningPaperListPage'))
+const AdminListeningPaperDetailPage = lazy(() => import('../pages/admin/ListeningPaperDetailPage'))
 const StudentHomePage = lazy(() => import('../pages/student/HomePage'))
+const StudentListeningPaperListPage = lazy(() => import('../pages/student/ListeningPaperListPage'))
+const StudentListeningPaperPage = lazy(() => import('../pages/student/ListeningPaperPage'))
 
 /** `/`：按登录态与角色分流；未登录去登录页。 */
 function HomeRedirect() {
@@ -30,7 +34,7 @@ function HomeRedirect() {
 }
 
 /**
- * 模块一路由表：
+ * 路由表：模块一页面框架 + 模块二题库业务页面。
  * - 管理端 `/admin`：RequireAuth + RequireRole(admin)
  * - 学生端 `/student`：RequireAuth + RequireRole(student)
  * - 守卫只决定「能不能看到页面」，越权请求最终由后端 403 兜底
@@ -54,6 +58,14 @@ export default function AppRouter() {
           }
         >
           <Route index element={<AdminHomePage />} />
+          <Route
+            path={ROUTES.ADMIN_LISTENING_PAPERS}
+            element={<AdminListeningPaperListPage />}
+          />
+          <Route
+            path={ROUTES.ADMIN_LISTENING_PAPER_DETAIL}
+            element={<AdminListeningPaperDetailPage />}
+          />
         </Route>
 
         <Route
@@ -67,6 +79,14 @@ export default function AppRouter() {
           }
         >
           <Route index element={<StudentHomePage />} />
+          <Route
+            path={ROUTES.STUDENT_LISTENING_PAPERS}
+            element={<StudentListeningPaperListPage />}
+          />
+          <Route
+            path={ROUTES.STUDENT_LISTENING_PAPER_DETAIL}
+            element={<StudentListeningPaperPage />}
+          />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
