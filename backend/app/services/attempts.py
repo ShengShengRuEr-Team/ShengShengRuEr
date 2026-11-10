@@ -210,6 +210,10 @@ def _first_submit(
     payload: AttemptSubmitIn,
     settings: Settings,
 ) -> AttemptSubmitData:
+    # 6a 前置判空：整卷题目集合为空直接 400 E07，先于准入，不写永久标记。
+    if not payload.loaded_question_ids:
+        raise bad_request(msg_e07("整卷题目集合不能为空"))
+
     # 6a 答案结构（重复/集合外；此时尚未准入，current 用 loaded 自校验）
     validation = validate_answers(
         list(payload.loaded_question_ids),

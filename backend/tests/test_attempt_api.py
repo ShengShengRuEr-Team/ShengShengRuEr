@@ -1070,6 +1070,7 @@ def test_a15_logs_and_response_do_not_leak_sensitive_markers(
     secret = "SECRET_ANSWER_XYZ"
     explanation = "SECRET_EXPLANATION_XYZ"
     body = "SECRET_BODY_XYZ"
+    attempt_key = _key()
 
     def _leaky(*args, **kwargs):
         raise OperationalError(
@@ -1084,7 +1085,7 @@ def test_a15_logs_and_response_do_not_leak_sensitive_markers(
             client,
             content.paper_id,
             _payload(content.question_ids),
-            key=_key(),
+            key=attempt_key,
             token=student_token,
         )
 
@@ -1098,6 +1099,8 @@ def test_a15_logs_and_response_do_not_leak_sensitive_markers(
     assert "stage=" in caplog.text
     assert "student_id=" in caplog.text
     assert "error_type=" in caplog.text
+    assert attempt_key not in caplog.text
+    assert attempt_key not in response.text
     assert _db_counts(content.paper_id) == (0, 0, 0)
 
 
@@ -1764,3 +1767,143 @@ def test_t08_a8_no_cross_table_same_key(client, student_token, api_data):
         )
         == 0
     )
+
+
+# --------------------------------------------------------------------------- #
+# T06 回修：6a 空 loaded 前置判空（先于 6b 准入，不写永久标记）
+# --------------------------------------------------------------------------- #
+def test_t06_empty_loaded_inaccessible_returns_e07_without_marker(
+    client, student_token, api_data
+):
+    invisible = api_data.build_paper(visible=False)
+    empty_payload = {"loaded_question_ids": [], "answers": []}
+    invisible_key = _key()
+    nonexistent_key = _key()
+
+    invisible_response = _post(
+        client,
+        invisible.paper_id,
+        empty_payload,
+        key=invisible_key,
+        token=student_token,
+    )
+    nonexistent_response = _post(
+        client, 2**62, empty_payload, key=nonexistent_key, token=student_token
+    )
+
+    for response in (invisible_response, nonexistent_response):
+        assert response.status_code == 400, response.text
+        assert response.json()["msg"] == "提交内容不合法：整卷题目集合不能为空"
+    assert _db_counts(invisible.paper_id) == (0, 0, 0)
+    for attempt_key in (invisible_key, nonexistent_key):
+        assert (
+            _db_scalar(
+                "SELECT count(*) FROM attempt_rejections WHERE attempt_key = :key",
+                {"key": attempt_key},
+            )
+            == 0
+        )
+        assert (
+            _db_scalar(
+                "SELECT count(*) FROM attempts WHERE attempt_key = :key",
+                {"key": attempt_key},
+            )
+            == 0
+        )
+
+
+def test_t06_empty_loaded_accessible_returns_e07_without_marker(
+    client, student_token, api_data
+):
+    content = api_data.build_paper()
+
+    response = _post(
+        client,
+        content.paper_id,
+        {"loaded_question_ids": [], "answers": []},
+        key=_key(),
+        token=student_token,
+    )
+
+    assert response.status_code == 400, response.text
+    assert response.json()["msg"] == "提交内容不合法：整卷题目集合不能为空"
+    assert _db_counts(content.paper_id) == (0, 0, 0)
+
+
+# --------------------------------------------------------------------------- #
+# T06-A15 回修：commit 分支注入 SECRET 标记；完整 Idempotency-Key 不落日志
+# --------------------------------------------------------------------------- #
+def test_t06_a15_commit_failure_logs_are_safe(
+    client, student_token, api_data, monkeypatch, caplog
+):
+    from sqlalchemy.orm import Session
+
+    content = api_data.build_paper()
+    attempt_key = _key()
+    secret = "SECRET_COMMIT_XYZ"
+    real_commit = Session.commit
+
+    def _leaky_commit(self):
+        raise OperationalError(
+            f"COMMIT {secret}", {}, Exception(f"DETAIL {secret}")
+        )
+
+    monkeypatch.setattr(Session, "commit", _leaky_commit)
+    with caplog.at_level("WARNING"):
+        response = _post(
+            client,
+            content.paper_id,
+            _payload(content.question_ids),
+            key=attempt_key,
+            token=student_token,
+        )
+    monkeypatch.setattr(Session, "commit", real_commit)
+
+    assert response.status_code == 500, response.text
+    assert response.json()["msg"] == "服务器内部错误"
+    assert secret not in response.text
+    assert secret not in caplog.text
+    assert attempt_key not in response.text
+    assert attempt_key not in caplog.text
+    assert "stage=" in caplog.text
+    assert "error_type=" in caplog.text
+    assert _db_counts(content.paper_id) == (0, 0, 0)
+
+
+# --------------------------------------------------------------------------- #
+# T08 回修：M-24 HTTP 集成矩阵（路径/JSON 类型/缺失 answers → 422）
+# --------------------------------------------------------------------------- #
+def test_m24_http_validation_matrix(client, student_token, api_data):
+    content = api_data.build_paper()
+    valid_payload = _payload(content.question_ids)
+
+    for bad_path in (0, -1, 2**63):
+        response = _post(
+            client, bad_path, valid_payload, key=_key(), token=student_token
+        )
+        assert response.status_code == 422, (bad_path, response.text)
+        assert response.json()["msg"] == "请求参数校验失败"
+
+    for bad_json_id in ("1", 1.0, True):
+        payload = {"loaded_question_ids": [bad_json_id], "answers": []}
+        response = _post(
+            client,
+            content.paper_id,
+            payload,
+            key=_key(),
+            token=student_token,
+        )
+        assert response.status_code == 422, (bad_json_id, response.text)
+        assert response.json()["msg"] == "请求参数校验失败"
+
+    missing_answers = {"loaded_question_ids": content.question_ids}
+    response = _post(
+        client,
+        content.paper_id,
+        missing_answers,
+        key=_key(),
+        token=student_token,
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["msg"] == "请求参数校验失败"
+    assert _db_counts(content.paper_id) == (0, 0, 0)
