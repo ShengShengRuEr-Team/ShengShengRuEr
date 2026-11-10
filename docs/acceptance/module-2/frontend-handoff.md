@@ -2,8 +2,8 @@
 
 - 交接日期：2026-11-08
 - 交给人：前端验收人（由组内指定）
-- 依据：`模块二前端需求文档_20261107.md` V0.3（验收项 F01–F18）
-- 原型：`前端/原型/模块二前端原型_20261107.html`（示意稿，非实施依据的视觉标准）
+- 依据：`docs/requirements/module-2/frontend-requirements.md` V0.4（验收项 F01–F18；本文为 2026-11-08 历史交接原文，确认规则调整见整改说明）
+- 原型：`docs/requirements/module-2/frontend-prototype.html`（示意稿，非实施依据的视觉标准）
 
 ## 一、代码在哪
 

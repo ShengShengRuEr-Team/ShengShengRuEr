@@ -545,7 +545,9 @@ export default function AdminListeningPaperDetailPage() {
           ) : (
             <Empty
               description={
-                check?.checkedAt ? '本次检查未发现问题' : '尚未检查：本页没有执行检查的能力'
+                check?.checkedAt
+                  ? '本次检查未发现问题'
+                  : '尚未检查。点击「确认开放」会先执行一次检查，通过则开放，未通过会在此列出问题。'
               }
             />
           )}

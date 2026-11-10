@@ -10,10 +10,12 @@
 | # | 报告问题 | 处理 | 证据 |
 | --- | --- | --- | --- |
 | 1 | **[高] 新导入试卷无法确认开放（F07 PARTIAL）** | 确认按钮不再以检查结论禁用，只在「无当前批次」「已开放」时禁用；并新增页头提示与文案，说明确认会先执行检查 | `ListeningPaperDetailPage.tsx` 的 `confirmDisabledReason` 去掉 `!checkPassed`；新增 `showCheckOnConfirmHint` 与 `Alert`；需求文档升 V0.4（§4.2、§4.3、D11、F07） |
-| 2 | **[中] README 未同步、验收基线缺失（F14 FAIL）** | 全量重写 README；把需求 V0.4、原型 HTML、实现记录、交接说明、验收报告、16 张截图纳入仓库，并更新三处文档索引 | `frontend/README.md`；`docs/requirements/module-2/frontend-requirements.md`、`frontend-prototype.html`；`docs/acceptance/module-2/` 下 4 份文档与 `screenshots/` |
+| 2 | **[中] README 未同步、验收基线缺失（F14 FAIL）** | 全量重写 README；把需求 V0.4、原型 HTML、实现记录、交接说明、验收报告、截图（现 18 张）纳入仓库，并更新三处文档索引 | `frontend/README.md`；`docs/requirements/module-2/frontend-requirements.md`、`frontend-prototype.html`；`docs/acceptance/module-2/` 下 4 份文档与 `screenshots/` |
 | 3 | **[中] 后端环境未达 V1.2 基线** | 不属前端改动，登记为环境待办（见第四节）。补充：开发者本机 venv 为 Python 3.14.10，同样不是 3.13.16，两侧都需按锁文件重建 | 本机 `python -V` = 3.14.10 |
 | 4 | **[中] 开发库为空、样例不可复现** | 交接文档已补「无数据时先迁移→seed→导入」；样例仍按仓库规范不入库，改为给出受控资料包位置与复现命令 | `docs/acceptance/module-2/frontend-handoff.md` §二；本文第二节 |
 | 5 | **[低] 路由注释仍写"模块一"** | 已改为「路由表：模块一页面框架 + 模块二题库业务页面」 | `frontend/src/router/index.tsx:37` |
+| 6 | **[中] 尚未检查抽屉仍写"本页没有执行检查的能力"（复验新增）** | 空态文案改为「尚未检查。点击「确认开放」会先执行一次检查，通过则开放，未通过会在此列出问题。」，与页头提示一致 | `ListeningPaperDetailPage.tsx` 抽屉 `Empty`；`shot_f06_none.png` 已按整改后构建重生成（2026-11-10） |
+| 7 | **[中] 首验报告 19 张截图断链、数量写错（复验新增）** | 首验截图在验收人受控目录、未入库，无法代为复制；已在报告顶部加"整理说明"，新增 `screenshots/README.md`；本目录更正为 18 张，补入 `shot_404.png` 与 `20_f07_unchecked_can_confirm.png` | `screenshots/README.md` |
 
 ### 1 的详细说明（为什么这样改）
 
@@ -50,7 +52,11 @@
 5. 学生端刷新列表：应能看到该卷
 6. 回归：已开放的卷，确认按钮仍禁用；无当前批次的卷，两个按钮都禁用
 
-## 四、遗留事项（不属前端代码，需对应负责人）
+## 四、真实环境复验（针对复验报告问题 1）
+
+复验机缺 `.env`、`psycopg`、PostgreSQL 与 venv，导致 34 项 pytest 全部 setup error、F07 真实链路与 F13 无法验证。操作步骤已写入 [真实环境复验手册](frontend-e2e-runbook.md)：建 3.13 venv → 装 requirements → `.env` → `alembic upgrade head` → `app.seed` → `pytest` 34 passed → 导入样例 → 两条 E2E（新卷确认、取消后 404）。
+
+## 五、遗留事项（不属前端代码，需对应负责人）
 
 | 事项 | 说明 | 建议责任人 |
 | --- | --- | --- |
@@ -59,7 +65,7 @@
 | 真实样例规模复验 | 在有 25 题样例的环境补 F04/F10/F15/F16 | 验收人 + 资料持有人 |
 | PR | 复验通过后再创建，目标 `develop`，merge commit | 开发者 |
 
-## 五、变更清单
+## 六、变更清单
 
 - `frontend/src/pages/admin/ListeningPaperDetailPage.tsx`：确认按钮规则、提示语与文案
 - `frontend/src/router/index.tsx`：注释
