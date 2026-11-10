@@ -1,10 +1,10 @@
 # 基础作答系统开发文档（A/C/D 组 · 接口层）
 
-> **文档版本**：v0.12（**v0.11 + 2026-11-10 T01–T03 验收回改**；需求 v0.20、D10/D11、T2/T3 已确认，D-14 已在需求 v0.21 修订；**A/C/D 组 T01–T10 可开工**）　**初编日期**：2026-11-08　**修订日期**：2026-11-10
+> **文档版本**：v0.13（**v0.12 + 2026-11-10 T04–T09 验收与回修**；需求 v0.20、D10/D11、T2/T3 已确认，D-14 已在需求 v0.21 修订；**A/C/D 组 T01–T10 可开工**）　**初编日期**：2026-11-08　**修订日期**：2026-11-10
 >
 > **当前状态（务必先读）**：① **需求 v0.19（2026-11-08）与 v0.20 编修性补充、D10/D11、T2/T3 已于 2026-11-10 经负责人确认（书面件待补）**；② **T2=attempt-system、T3=3.14.x 已定**；③ **A/C/D 组 T01–T10 可开工**；R 组/API-2/结果页仍冻结至 P1 回写 + P6 满足；T10 与 V-E 系列在验收数据就位前记 BLOCKED。决策记录见附录 E.12。
 >
-> **版本与审查状态统一（v0.12，2026-11-10）**：本文件为唯一权威版本，覆盖工作区旧 v0.9（2026-11-08），旧版归档为 `development_v0.9_20261108.md`；v0.8 内容依据《v0.7 终版审查报告》修订，**v0.12 本身尚无独立复审结论**，不得宣称 PASS；审查报告引用已改为仓库相对路径说明（待归档，见附录 E.9）。
+> **版本与审查状态统一（v0.13，2026-11-10）**：本文件为唯一权威版本，覆盖工作区旧 v0.9（2026-11-08），旧版归档为 `development_v0.9_20261108.md`；v0.8 内容依据《v0.7 终版审查报告》修订，**v0.13 本身尚无独立复审结论**，不得宣称 PASS；审查报告引用已改为仓库相对路径说明（待归档，见附录 E.9）。
 >
 > **本版修订摘要**：在 v0.7 基础上分离 JSON 与路径 ID 校验；按持久化状态恢复未知提交；统一异常级别与验收结论；拆分代码回退/数据库降级；明确异常及异常链脱敏；将端到端脚本明确为有写入流程；新增不同键并发限次实现自测；同步约束命名、舍入边界与 HTTP 验收责任。详见 E.9。**这些是文档设计修订，未实施代码、迁移或运行验收；v0.20 未签认前仍为草案。**
 >
@@ -802,6 +802,8 @@ v1|<exam_paper_id>|<loaded ids 升序逗号连接>|<answers 按 question_id 升�
 | 6d | 同卷限次（1.5 例外生效前） | 已有成功 → 400 E08 | 否 |
 | 7 | 判分 + 快照 + 单事务写入 | 成功 200 | 是（attempt + answers） |
 
+> **6a 判空先于 6b（2026-11-10 验收回改）**：`loaded_question_ids` 为空时，无论试卷是否可访问，一律返回 400 E07 且**不写永久标记**；避免“不可访问试卷 + 空集合”被写成 `paper_not_accessible` 标记（实现见 `services/attempts.py` 的 6a 前置判空）。
+
 > **顺序不可交换**：
 > - 短路（5a/5c）必须先于内容核对、准入与身份分类，否则“成功后下线再同键重试”会变成 404 而非原结果（BR-19a/AS-07 回归）。
 > - **结构校验（6a）→ 准入（6b）→ 数据/音频完整性（6b2）→ 身份/版本（6c）→ 限次（6d）**：准入先于身份分类，保证“提交到不可访问试卷”一律按 AS-07 处理（含加载后下线、换批后新批不可见、试卷不存在），不因请求体内容不同而改变 404 语义（D-15）；数据异常按 D-20 建议**只 404 不写永久标记**，避免运营故障把键永久作废；身份分类只在可访问且完整性通过后区分 E04/E07，且**版本判断先于集合完整性**，避免 EX-09b 退化为 E07。
@@ -1209,9 +1211,9 @@ python -m scripts.acceptance_attempt --base-url http://127.0.0.1:8000 --paper-id
 | T01 | 数据模型与 `0005` 迁移 | G1、G7、BR-26、DC-2/6/7/8、7.1–7.3 | P0 | 无 | 1 | `backend/app/db/models_attempt.py`、`backend/alembic/versions/0005_attempt_system.py`、`backend/alembic/env.py` |
 | T02 | 请求/响应契约与 schema | AS-01/02、EX-16/18/19/20、BR-19、8.4 | P0 | T01 | 2 | `backend/app/schemas_attempts.py`（模型层） |
 | T03 | 幂等仓储、短路与拒绝标记 | L-G8、BR-19a–d/20、AS-06/07、7.3 | P0 | T01、T02 | 3 | `backend/app/repositories/attempt_keys.py` |
-| T04 | 准入判定与内容版本校验 | AS-07、AS-19a、5.5a、7.4、EX-07/08/09a/09b/12a/13a/28 | P0 | T01、T02 | 3 | `backend/app/repositories/attempt_content.py`、`backend/app/repositories/listening.py`（新增严格包装，不改旧函数） |
+| T04 | 准入判定与内容版本校验 | AS-07、AS-19a、5.5a、7.4、EX-07/08/09a/09b/12a/13a/28 | P0 | T01、T02 | 3 | `backend/app/repositories/attempt_content.py`、`backend/app/repositories/listening.py`（新增严格包装，不改旧函数）、`backend/tests/test_attempt_content.py` |
 | T05 | 判分、快照与练习估分 | AS-01–04、BR-13–17、7.2、D4 | P0 | T02（可与 T03/T04 并行） | 3 | `backend/app/services/grading.py`、`backend/tests/test_attempt_grading.py` |
-| T06 | 提交编排与 API-1 | IN1/IN2、AS-01/05/06/08、BR-18/18a/21/22、API-1 | P0 | T03、T04、T05 | 4 | `backend/app/services/attempts.py`、`backend/app/api/attempts.py`、`backend/app/api/deps.py`、`backend/app/main.py` |
+| T06 | 提交编排与 API-1 | IN1/IN2、AS-01/05/06/08、BR-18/18a/21/22、API-1 | P0 | T03、T04、T05 | 4 | `backend/app/services/attempts.py`、`backend/app/api/attempts.py`、`backend/app/api/deps.py`、`backend/app/main.py`、`backend/tests/test_attempt_api.py` |
 | T07 | 权限、错误顺序与既有接口回归 | AS-16/17/18、BR-09–12、V-R1–R4 | P1 | T06 | 5 | `backend/tests/test_attempt_regression.py`、必要时 `deps.py` 注释 |
 | T08 | 自动化测试补全与全量回归 | V-01–V-08、V-16–V-23、V-R1–R7 | P1 | T06、T07 | 6 | `backend/tests/test_attempt_api.py`、`test_attempt_regression.py` |
 | T09 | 端到端验收脚本 | V-E1、V-E5a、V-E4 可自动部分、11.6 | P1 | T06 | 6 | `backend/scripts/acceptance_attempt.py` |
@@ -1559,7 +1561,7 @@ T03/T04/T05 可并行开发，但 T06 必须等三者接口稳定；T07/T08/T09 
 
 | 项 | 填写内容 |
 |---|---|
-| 文档版本 | `development.md` **v0.12**（或实际被测版本；不得回填旧版 v0.11/v0.10.1/v0.10） |
+| 文档版本 | `development.md` **v0.13**（或实际被测版本；不得回填旧版 v0.12/v0.11/v0.10.1） |
 | 需求基线 | **v0.19（负责人确认，书面件待补）** + **v0.20 编修性补充（待负责人确认）** |
 | 代码提交 | `<commit sha>`（被测分支，不是 `develop` 口头描述） |
 | 后端 Python | `<python --version>` |
@@ -1637,7 +1639,7 @@ T03/T04/T05 可并行开发，但 T06 必须等三者接口稳定；T07/T08/T09 
 
 | 自测项 | 依据与口径状态 | 命令/实际技术结果 | 数据库及响应证据 | 决策/验收边界 |
 |---|---|---|---|---|
-| T06-A14 / T08-A10 不同键同卷并发限次 | 默认 D11=A、BR-18a；D11/D-14 当前仍未确认 | 未执行；门禁解除后如实填写技术结果 | 两独立会话/同步点、200 与 E08、仅一条完整 attempt、无标记；移除锁对照记录 | 不计 49 行通过率；M-32/M-41 保持 BLOCKED，负责人确认后再映射正式验收 |
+| T06-A14 / T08-A10 不同键同卷并发限次 | 默认 D11=A、BR-18a；D11/D-14 当前仍未确认 | **已执行（2026-11-10）**：两独立数据库会话 + 同步钩子竞争限次 → 响应为 200 与 400 E08，仅 1 条 attempt（25 条逐题、无标记）；负向对照“移除限次锁” → 出现 2 条 attempt（用例 `test_a14_limit_race_single_attempt`、`test_a14_without_limit_lock_race_can_duplicate`） | 200+E08、1 条完整 attempt、无标记；对照可复现竞态 | 不计 49 行通过率；M-32/M-41 保持 BLOCKED，负责人确认后再映射正式验收 |
 
 > 技术自测结果只说明默认策略实现表现；不能据此填写“需求已签认”或宣称 V-21/V-E4 已通过。
 
@@ -1847,18 +1849,18 @@ T03/T04/T05 可并行开发，但 T06 必须等三者接口稳定；T07/T08/T09 
 
 | 文件 | 作用 | 任务 | 状态 |
 |---|---|---|---|
-| `backend/app/db/models_attempt.py` | 3 张表 ORM | T01 | 待实现 |
-| `backend/alembic/versions/0005_attempt_system.py` | 迁移 | T01 | 待实现 |
-| `backend/app/schemas_attempts.py` | 请求/响应模型 | T02 | 待实现 |
-| `backend/app/repositories/attempt_keys.py` | 幂等/标记/限次/两把锁 | T03/T06 | 待实现 |
-| `backend/app/repositories/attempt_content.py` | 整卷读取/严格映射/身份分类/答案校验 | T04 | 待实现 |
-| `backend/app/services/grading.py` | 判分/快照/估分纯函数 | T05 | 待实现 |
-| `backend/app/services/attempts.py` | 提交编排、未知提交恢复及异常安全记录/转换 | T06 | 待实现 |
-| `backend/app/api/attempts.py` | API-1 路由 | T06 | 待实现 |
-| `backend/tests/test_attempt_grading.py` | 纯函数测试 | T05/T08 | 待实现 |
-| `backend/tests/test_attempt_api.py` | API/集成测试 | T06/T08 | 待实现 |
-| `backend/tests/test_attempt_regression.py` | 权限/回归 | T07/T08 | 待实现 |
-| `backend/scripts/acceptance_attempt.py` | 端到端脚本 | T09 | 待实现 |
+| `backend/app/db/models_attempt.py` | 3 张表 ORM | T01 | 已实现（代码已提交；验收记录见 `docs/acceptance/attempt-system/`） |
+| `backend/alembic/versions/0005_attempt_system.py` | 迁移 | T01 | 已实现（代码已提交；验收记录见 `docs/acceptance/attempt-system/`） |
+| `backend/app/schemas_attempts.py` | 请求/响应模型 | T02 | 已实现（代码已提交；验收记录见 `docs/acceptance/attempt-system/`） |
+| `backend/app/repositories/attempt_keys.py` | 幂等/标记/限次/两把锁 | T03/T06 | 已实现（代码已提交；验收记录见 `docs/acceptance/attempt-system/`） |
+| `backend/app/repositories/attempt_content.py` | 整卷读取/严格映射/身份分类/答案校验 | T04 | 已实现（代码已提交；验收记录见 `docs/acceptance/attempt-system/`） |
+| `backend/app/services/grading.py` | 判分/快照/估分纯函数 | T05 | 已实现（代码已提交；验收记录见 `docs/acceptance/attempt-system/`） |
+| `backend/app/services/attempts.py` | 提交编排、未知提交恢复及异常安全记录/转换 | T06 | 已实现（代码已提交；验收记录见 `docs/acceptance/attempt-system/`） |
+| `backend/app/api/attempts.py` | API-1 路由 | T06 | 已实现（代码已提交；验收记录见 `docs/acceptance/attempt-system/`） |
+| `backend/tests/test_attempt_grading.py` | 纯函数测试 | T05/T08 | 已实现（代码已提交；验收记录见 `docs/acceptance/attempt-system/`） |
+| `backend/tests/test_attempt_api.py` | API/集成测试 | T06/T08 | 已实现（代码已提交；验收记录见 `docs/acceptance/attempt-system/`） |
+| `backend/tests/test_attempt_regression.py` | 权限/回归 | T07/T08 | 已实现（代码已提交；验收记录见 `docs/acceptance/attempt-system/`） |
+| `backend/scripts/acceptance_attempt.py` | 端到端脚本 | T09 | 已实现（代码已提交；验收记录见 `docs/acceptance/attempt-system/`） |
 
 ---
 
@@ -2047,7 +2049,7 @@ Get-ChildItem -Path D:\guochuangxiangmu,D:\ShengShengRuEr\ShengShengRuEr -Recurs
 
 | 编号 | 本版文档修改 | 实施/验收落点 | 当前状态 |
 |---|---|---|---|
-| R7-01 | JSON 使用 JsonId，普通路径使用允许转换且受限的 PathId | 2.4.2、T02、T06-A12 | 设计已修订，实际路由集成待实现/复验 |
+| R7-01 | JSON 使用 JsonId，普通路径使用允许转换且受限的 PathId | 2.4.2、T02、T06-A12 | 已实现（T02/T06）；路由集成需复验 |
 | R7-02 | 未知提交按成功/标记/两表无记录/读取失败恢复，修正 E11 与 M-34 前提 | 2.6.4、2.7.1、T06-A9、M-23/M-34 | 设计已修订，真实库故障验证待执行 |
 | R7-03 | 原分级表及矩阵引言统一；正确处理可 PASS，REVIEW 未决 BLOCKED | 2.7.0、第 5 节、回填规则 | 开发文档已统一；需求 v0.20 对应解释待负责人确认/同步 |
 | R7-04 | 代码回退与数据库降级分支明确，默认保留表和 0005 | 2.8.3、T01/T08 迁移证据 | 文档已修订，未执行回退或迁移 |
@@ -2104,7 +2106,19 @@ Get-ChildItem -Path D:\guochuangxiangmu,D:\ShengShengRuEr\ShengShengRuEr -Recurs
 | 代码 | 未改任何代码；仅补文档口径，保持文档与 T01–T03 实现一致 |
 | 结论 | v0.12 作为 PR1 的文档基线 |
 
+### E.14 v0.13 T04–T09 验收与回修（2026-11-10）
+
+| 项 | 内容 |
+|---|---|
+| 依据 | T04–T09 独立验收报告（2026-11-10）：T04/T05/T07 PASS；T06/T08 PARTIAL（回修后待复审）；T09 PARTIAL/BLOCKED（A2/A5 依赖 T10 真实样例） |
+| 实现回修 | T06：6a `loaded_question_ids` 空集合前置 400 E07（不写标记），A15 补 flush/commit 分支日志注入与完整键不落日志断言；T09：`--base-url` 必填、退出码 0/3/1/2、所有退路打印写入说明、恢复失败不输出成功文案、恢复后旧键 404/新键 200、首提交未知原键重试、markers>0 预检、移除不存在的 V-E7 编号 |
+| 文档回改 | §2.6.2 补 6a 判空先于 6b 口径；§3.1 T04/T06 行补测试文件；§6.3a 回填 T06-A14 自测结果；附录 B 实现状态由“待实现”改为“已实现” |
+| 交付物 | 新增 `docs/acceptance/attempt-system/matrix-coverage-T04-T09.md`（M 矩阵覆盖台账）、`backend/scripts/acceptance_attempt.py`（T09 端到端脚本） |
+| 代码 | 全量 pytest 250 passed（回修后 252 passed）；开发库保持 0004、无 attempt 表；T10 真实数据验收仍 BLOCKED |
+| 已知限制 | P2：`IntegrityError` 恢复会重跑整链并再次尝试插入（唯一约束防重复），与 §2.6.4 伪代码“不盲目再次插入”字面不一致，按已知实现口径登记，后续按需调整；T09-A2/A5 与 T10 保持 BLOCKED（缺受控真实样例） |
+| 结论 | v0.13 作为 PR2（T04–T09）的文档基线；两轮回修后复审：T06/T08 转 PASS，T09 PARTIAL（A2/A5 与 T10 保持 BLOCKED） |
+
 ---
 
-> **文档结束**。当前为 **v0.12** 开发文档草案；修订后的方案与任务可供评审，**未实施项目开发、数据库迁移或业务运行验收**。开工仍受 1.3.4 门禁约束，实际结果须由真实验收人按第 6 节回填。
+> **文档结束**。当前为 **v0.13** 开发文档草案；T01–T09 代码、迁移与自动化测试已实施（验收记录见 `docs/acceptance/attempt-system/`，全量 pytest 250 passed）；T10 真实数据验收、API-2 读取侧与结果页仍冻结/BLOCKED。实际结果须由真实验收人按第 6 节回填。
 
