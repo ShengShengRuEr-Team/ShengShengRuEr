@@ -1,4 +1,4 @@
-"""模块三作答系统模型：attempts / attempt_answers / attempt_rejections。
+"""作答系统模型（模块编号待定）：attempts / attempt_answers / attempt_rejections。
 
 范围与口径（开发文档 2.3）：
 - ``attempts`` 一次成功提交一行；``attempt_answers`` 保存逐题事实与判分快照；
