@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ReloadOutlined } from '@ant-design/icons'
 import { Alert, Button, Card, Empty, Select, Skeleton, Space, Table, Tag, Typography } from 'antd'
 import type { TableProps } from 'antd'
@@ -38,6 +38,15 @@ export default function AdminListeningPaperListPage() {
   const [error, setError] = useState<string | null>(null)
   const [statusMap, setStatusMap] = useState<Record<number, RowStatus>>({})
   const [reloadKey, setReloadKey] = useState(0)
+  const retryControllersRef = useRef<Set<AbortController>>(new Set())
+
+  useEffect(() => {
+    const controllers = retryControllersRef.current
+    return () => {
+      controllers.forEach((controller) => controller.abort())
+      controllers.clear()
+    }
+  }, [])
 
   // 筛选条件放在 URL 上：从详情返回、浏览器前进后退都能保留。
   const level = searchParams.get('level') ?? 'all'
@@ -52,6 +61,16 @@ export default function AdminListeningPaperListPage() {
     }
     setSearchParams(next, { replace: true })
   }
+
+  // §7.8：从详情返回保留筛选，浏览器刷新后清空——刷新时移除 URL 上的筛选参数。
+  useEffect(() => {
+    const entry = performance.getEntriesByType('navigation')[0] as
+      | PerformanceNavigationTiming
+      | undefined
+    if (entry?.type === 'reload' && searchParams.toString()) {
+      setSearchParams(new URLSearchParams(), { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const openDetail = (paperId: number) => {
     navigate(adminListeningPaperPath(paperId), {
@@ -87,36 +106,46 @@ export default function AdminListeningPaperListPage() {
         )
 
         void mapWithConcurrency(list, STATUS_CONCURRENCY, async (paper) => {
-          try {
-            const [companion, check] = await Promise.all([
-              getAdminCompanion(paper.examPaperId, {
-                signal: controller.signal,
-                timeout: STATUS_TIMEOUT_MS,
-              }),
-              getContentCheck(paper.examPaperId, {
-                signal: controller.signal,
-                timeout: STATUS_TIMEOUT_MS,
-              }),
-            ])
-            if (cancelled) {
-              return
-            }
-            setStatusMap((prev) => ({
-              ...prev,
-              [paper.examPaperId]: { loading: false, companion, check },
-            }))
-          } catch (rowError) {
-            if (cancelled || isAbortError(rowError)) {
-              return
-            }
+          // 用 allSettled 而不是 all：Promise.all 在 checks 先失败时会立刻返回，
+          // 但同组的 companion 仍在飞，worker 会提前取下一套，导致并发上限失效。
+          const [companionResult, checkResult] = await Promise.allSettled([
+            getAdminCompanion(paper.examPaperId, {
+              signal: controller.signal,
+              timeout: STATUS_TIMEOUT_MS,
+            }),
+            getContentCheck(paper.examPaperId, {
+              signal: controller.signal,
+              timeout: STATUS_TIMEOUT_MS,
+            }),
+          ])
+          if (cancelled) {
+            return
+          }
+          if (companionResult.status === 'fulfilled' && checkResult.status === 'fulfilled') {
             setStatusMap((prev) => ({
               ...prev,
               [paper.examPaperId]: {
                 loading: false,
-                error: rowError instanceof Error ? rowError.message : '状态获取失败',
+                companion: companionResult.value,
+                check: checkResult.value,
               },
             }))
+            return
           }
+          const reason =
+            companionResult.status === 'rejected'
+              ? companionResult.reason
+              : (checkResult as PromiseRejectedResult).reason
+          if (isAbortError(reason)) {
+            return
+          }
+          setStatusMap((prev) => ({
+            ...prev,
+            [paper.examPaperId]: {
+              loading: false,
+              error: reason instanceof Error ? reason.message : '状态获取失败',
+            },
+          }))
         })
       })
       .catch((listError: unknown) => {
@@ -134,17 +163,32 @@ export default function AdminListeningPaperListPage() {
   }, [reloadKey])
 
   const reloadRow = useCallback(async (paper: Row) => {
+    // 行级重试也要受页面生命周期约束：离开列表时取消，避免请求在后台空跑。
+    const retryController = new AbortController()
+    retryControllersRef.current.add(retryController)
     setStatusMap((prev) => ({ ...prev, [paper.examPaperId]: { loading: true } }))
     try {
       const [companion, check] = await Promise.all([
-        getAdminCompanion(paper.examPaperId, { timeout: STATUS_TIMEOUT_MS }),
-        getContentCheck(paper.examPaperId, { timeout: STATUS_TIMEOUT_MS }),
+        getAdminCompanion(paper.examPaperId, {
+          signal: retryController.signal,
+          timeout: STATUS_TIMEOUT_MS,
+        }),
+        getContentCheck(paper.examPaperId, {
+          signal: retryController.signal,
+          timeout: STATUS_TIMEOUT_MS,
+        }),
       ])
+      if (retryController.signal.aborted) {
+        return
+      }
       setStatusMap((prev) => ({
         ...prev,
         [paper.examPaperId]: { loading: false, companion, check },
       }))
     } catch (rowError) {
+      if (retryController.signal.aborted || isAbortError(rowError)) {
+        return
+      }
       setStatusMap((prev) => ({
         ...prev,
         [paper.examPaperId]: {
@@ -152,6 +196,8 @@ export default function AdminListeningPaperListPage() {
           error: rowError instanceof Error ? rowError.message : '状态获取失败',
         },
       }))
+    } finally {
+      retryControllersRef.current.delete(retryController)
     }
   }, [])
 

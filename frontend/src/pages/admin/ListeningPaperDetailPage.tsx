@@ -481,15 +481,17 @@ export default function AdminListeningPaperDetailPage() {
                       <div className="answer-line">
                         <span className="answer-key">答案</span>
                         <span className="answer-value">{question.correctOption || '—'}</span>
-                        {reordered ? (
-                          <Tag color="gold">已按本套选项重排 · 题库原答案 {question.correctOptionBase}</Tag>
-                        ) : (
-                          question.correctOptionBase && (
+                        {question.correctOptionBase ? (
+                          reordered ? (
+                            <Tag color="gold">
+                              已按本套选项重排 · 题库原答案 {question.correctOptionBase}
+                            </Tag>
+                          ) : (
                             <Typography.Text type="secondary" className="small-text">
-                              答案字母一致
+                              题库原答案 {question.correctOptionBase}（答案字母一致）
                             </Typography.Text>
                           )
-                        )}
+                        ) : null}
                       </div>
                       <div className="answer-line">
                         <span className="answer-key">解析</span>

@@ -47,8 +47,8 @@
 | 环节 | 文件 | 状态 |
 | --- | --- | --- |
 | 原始需求 | `docs/requirements/module-2/requirements.md`（V1.5） | 基线 |
-| 前端需求 + 验收卡 | [frontend-requirements.md](../requirements/module-2/frontend-requirements.md)（V0.4） | 已确认，含 F01–F18 |
-| 页面原型 | [frontend-prototype.html](../requirements/module-2/frontend-prototype.html) | 线框示意稿（非视觉标准） |
+| 前端需求 + 验收卡 | [frontend-requirements.md](../../requirements/module-2/frontend-requirements.md)（V0.4） | 已确认，含 F01–F18 |
+| 页面原型 | [frontend-prototype.html](../../requirements/module-2/frontend-prototype.html) | 线框示意稿（非视觉标准） |
 | 实现与自查 | [frontend-implementation.md](frontend-implementation.md) | 2026-11-08 |
 | 交接说明 | [frontend-handoff.md](frontend-handoff.md) | 历史原文 |
 | 首验报告 | [frontend-acceptance-20261109.md](frontend-acceptance-20261109.md) | 16 PASS / 1 PARTIAL / 1 FAIL |
