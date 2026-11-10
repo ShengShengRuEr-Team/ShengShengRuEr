@@ -592,3 +592,20 @@ def test_a7_db_error_keeps_shell_and_logs_are_safe(
     assert "error_type=" in caplog.text
     assert not any("未处理异常" in record.message for record in caplog.records)
     assert _attempt_rows(content.paper_id) == (0, 0)
+
+
+# --------------------------------------------------------------------------- #
+# T08 补测：M-18 / V-R3 越界 Range → 416
+# --------------------------------------------------------------------------- #
+def test_m18_audio_range_out_of_bounds_416(client, student_token, t07_data):
+    content = t07_data.visible
+    audio_url = f"/api/v1/listening-papers/{content.paper_id}/audio"
+
+    response = client.get(
+        audio_url,
+        headers={**auth_headers(student_token), "Range": "bytes=999999-"},
+    )
+
+    assert response.status_code == 416, response.text
+    assert response.headers["Content-Range"] == f"bytes */{len(AUDIO_BYTES)}"
+    assert response.headers["Accept-Ranges"] == "bytes"

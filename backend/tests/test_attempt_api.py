@@ -155,6 +155,7 @@ def api_data():
         visible=True,
         check_passed=True,
         mapping=None,
+        correct_base="A",
     ):
         batch = ImportBatch(
             exam_paper_id=paper.id,
@@ -199,7 +200,7 @@ def api_data():
                     option_b=f"q{index} B",
                     option_c=f"q{index} C",
                     option_d=f"q{index} D",
-                    correct_option="A",
+                    correct_option=correct_base,
                     explanation_text="",
                 )
                 session.add(question)
@@ -241,6 +242,7 @@ def api_data():
         visible=True,
         check_passed=True,
         mapping=None,
+        correct_base="A",
         write_audio=True,
     ):
         tag = uuid.uuid4().hex[:12]
@@ -267,6 +269,7 @@ def api_data():
                 visible=visible,
                 check_passed=check_passed,
                 mapping=mapping,
+                correct_base=correct_base,
             )
             session.commit()
             paper_id = paper.id
@@ -1227,3 +1230,537 @@ def test_a15_reread_failure_logs_safely(
     assert "reread_failure" in caplog.text
     assert "error_type=" in caplog.text
     assert _db_counts(content.paper_id) == (0, 0, 0)
+
+
+# --------------------------------------------------------------------------- #
+# T08 矩阵补全用例（M-01/M-03a/M-04/M-06/M-11/M-12a/M-14/M-25/M-27/M-29/
+# M-29c/M-33/M-34/M-37/M-38/T08-A8）
+# --------------------------------------------------------------------------- #
+def _db_scalar(query, params=None):
+    from app.db.base import SessionLocal
+
+    with SessionLocal() as session:
+        return session.execute(text(query), params or {}).scalar()
+
+
+def _db_all(query, params):
+    from app.db.base import SessionLocal
+
+    with SessionLocal() as session:
+        return session.execute(text(query), params).all()
+
+
+def _update_sql(query, params):
+    from app.db.base import SessionLocal
+
+    with SessionLocal() as session:
+        session.execute(text(query), params)
+        session.commit()
+
+
+# M-01 / V-01：24/25、错题在听力篇章 → 96 / 235 / breakdown 7/8/10
+def test_m01_24_of_25_lecture_wrong_exact_values(client, student_token, api_data):
+    content = api_data.build_paper()
+    answers = [
+        {
+            "question_id": qid,
+            "selected_option": "B" if index == 24 else "A",
+        }
+        for index, qid in enumerate(content.question_ids)
+    ]
+    payload = {
+        "loaded_question_ids": content.question_ids,
+        "answers": answers,
+    }
+
+    response = _post(
+        client, content.paper_id, payload, key=_key(), token=student_token
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["question_count"] == 25
+    assert data["correct_count"] == 24
+    assert data["correct_rate"] == 96
+    assert data["practice_score"]["available"] is True
+    assert data["practice_score"]["value"] == 235
+    assert "非官方成绩" in data["practice_score"]["label"]
+
+    breakdown = _db_scalar(
+        "SELECT score_breakdown FROM attempts WHERE exam_paper_id = :paper",
+        {"paper": content.paper_id},
+    )
+    groups = {group["passage_type"]: group for group in breakdown["groups"]}
+    assert groups["短篇新闻"]["question_count"] == 7
+    assert groups["长对话"]["question_count"] == 8
+    assert groups["听力篇章"]["question_count"] == 10
+    assert groups["听力篇章"]["correct_count"] == 9
+    assert breakdown["rule"] == "cet-listening-249-v1"
+    assert _db_counts(content.paper_id) == (1, 25, 0)
+
+
+# M-03a / V-03：重排题按原卷字母判分，库内快照也是原卷字母
+def test_m03a_reordered_options_grade_in_paper_space(client, student_token, api_data):
+    mapping = {"A": "B", "B": "A", "C": "C", "D": "D"}
+    right = api_data.build_paper(mapping=mapping, correct_base="B")
+    wrong = api_data.build_paper(mapping=mapping, correct_base="B")
+
+    right_response = _post(
+        client,
+        right.paper_id,
+        _payload(right.question_ids),
+        key=_key(),
+        token=student_token,
+    )
+    wrong_payload = {
+        "loaded_question_ids": wrong.question_ids,
+        "answers": [
+            {"question_id": qid, "selected_option": "B"}
+            for qid in wrong.question_ids
+        ],
+    }
+    wrong_response = _post(
+        client,
+        wrong.paper_id,
+        wrong_payload,
+        key=_key(),
+        token=student_token,
+    )
+
+    assert right_response.status_code == 200, right_response.text
+    assert right_response.json()["data"]["correct_count"] == 25
+    # 题库答案 B 在映射 A<-B 下对应原卷字母 A
+    row = _db_all(
+        "SELECT a.correct_option, a.selected_option FROM attempt_answers a "
+        "JOIN attempts t ON t.id = a.attempt_id "
+        "WHERE t.exam_paper_id = :paper LIMIT 1",
+        {"paper": right.paper_id},
+    )[0]
+    assert tuple(row) == ("A", "A")
+
+    assert wrong_response.status_code == 200, wrong_response.text
+    assert wrong_response.json()["data"]["correct_count"] == 0
+    row = _db_all(
+        "SELECT a.correct_option, a.selected_option FROM attempt_answers a "
+        "JOIN attempts t ON t.id = a.attempt_id "
+        "WHERE t.exam_paper_id = :paper LIMIT 1",
+        {"paper": wrong.paper_id},
+    )[0]
+    assert tuple(row) == ("A", "B")
+
+
+# M-04 / V-04：非标准卷/题型缺失/类型数量不符 → available=false、value=null
+def test_m04_practice_unavailable_reasons(client, student_token, api_data):
+    small = api_data.build_paper(expected=1, count=1)
+    missing = api_data.build_paper()
+    mismatched = api_data.build_paper()
+    _update_sql(
+        "UPDATE passages SET passage_type = '' WHERE batch_id = :batch",
+        {"batch": missing.batch_id},
+    )
+    _update_sql(
+        "UPDATE passages SET passage_type = '短篇新闻' WHERE batch_id = :batch",
+        {"batch": mismatched.batch_id},
+    )
+
+    cases = (
+        (small, "not_standard_25"),
+        (missing, "question_type_missing"),
+        (mismatched, "type_count_mismatch"),
+    )
+    for content, reason in cases:
+        response = _post(
+            client,
+            content.paper_id,
+            _payload(content.question_ids),
+            key=_key(),
+            token=student_token,
+        )
+        assert response.status_code == 200, response.text
+        practice = response.json()["data"]["practice_score"]
+        assert practice["available"] is False
+        assert practice["value"] is None
+        assert practice["reason"] == reason
+        assert practice["max"] == 249
+        assert "非官方成绩" in practice["label"]
+
+
+# M-06 / V-07a：换批发生在加载前 → 按新批提交成功，落库 import_batch_id 为新批
+def test_m06_new_batch_loaded_before_submit(client, student_token, api_data):
+    content = api_data.build_paper_with_old_batch()
+
+    response = _post(
+        client,
+        content.paper_id,
+        _payload(content.new_question_ids),
+        key=_key(),
+        token=student_token,
+    )
+
+    assert response.status_code == 200, response.text
+    assert _db_counts(content.paper_id) == (1, 25, 0)
+    batch_id = _db_scalar(
+        "SELECT import_batch_id FROM attempts WHERE exam_paper_id = :paper",
+        {"paper": content.paper_id},
+    )
+    assert batch_id == content.batch_id
+
+
+# M-11/M-30：标注审核/内容完整度状态变化不影响提交准入
+def test_m11_annotation_state_change_does_not_affect_access(
+    client, student_token, api_data
+):
+    content = api_data.build_paper()
+    _update_sql(
+        "UPDATE questions SET review_status = '待审核', content_state = '停用' "
+        "WHERE batch_id = :batch",
+        {"batch": content.batch_id},
+    )
+    _update_sql(
+        "UPDATE passages SET review_status = '需修改' WHERE batch_id = :batch",
+        {"batch": content.batch_id},
+    )
+
+    response = _post(
+        client,
+        content.paper_id,
+        _payload(content.question_ids),
+        key=_key(),
+        token=student_token,
+    )
+
+    assert response.status_code == 200, response.text
+    assert _db_counts(content.paper_id) == (1, 25, 0)
+
+
+# M-12a / T08-A6：提交后改题库，attempt_answers 快照不漂移
+def test_m12a_snapshot_does_not_drift(client, student_token, api_data):
+    content = api_data.build_paper()
+    response = _post(
+        client,
+        content.paper_id,
+        _payload(content.question_ids),
+        key=_key(),
+        token=student_token,
+    )
+    assert response.status_code == 200, response.text
+
+    snapshot_query = (
+        "SELECT a.question_no, a.question_text, a.option_a, a.correct_option, "
+        "a.explanation_text, a.selected_option, a.is_correct "
+        "FROM attempt_answers a JOIN attempts t ON t.id = a.attempt_id "
+        "WHERE t.exam_paper_id = :paper ORDER BY a.question_no"
+    )
+    before = _db_all(snapshot_query, {"paper": content.paper_id})
+
+    _update_sql(
+        "UPDATE questions SET question_text = 'CHANGED', option_a = 'CHANGED', "
+        "correct_option = 'D', explanation_text = 'CHANGED' "
+        "WHERE batch_id = :batch",
+        {"batch": content.batch_id},
+    )
+    _update_sql(
+        "UPDATE presentations SET option_letter_mapping = "
+        "'{\"A\":\"B\",\"B\":\"A\",\"C\":\"C\",\"D\":\"D\"}'::jsonb "
+        "WHERE batch_id = :batch",
+        {"batch": content.batch_id},
+    )
+
+    after = _db_all(snapshot_query, {"paper": content.paper_id})
+    assert after == before
+    assert _db_counts(content.paper_id) == (1, 25, 0)
+
+
+# M-14 / V-R7：提交时间库内为 UTC，接口返回 ISO 8601 UTC
+def test_m14_submitted_at_is_utc(client, student_token, api_data):
+    from datetime import datetime, timedelta
+
+    content = api_data.build_paper()
+    response = _post(
+        client,
+        content.paper_id,
+        _payload(content.question_ids),
+        key=_key(),
+        token=student_token,
+    )
+    assert response.status_code == 200, response.text
+    raw = response.json()["data"]["submitted_at"]
+    parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    assert parsed.utcoffset() == timedelta(0)
+
+    stored = _db_scalar(
+        "SELECT submitted_at FROM attempts WHERE exam_paper_id = :paper",
+        {"paper": content.paper_id},
+    )
+    assert stored.tzinfo is not None
+    assert stored.utcoffset() == timedelta(0)
+    assert abs((stored - parsed).total_seconds()) < 5
+
+
+# M-25：不存在/重复题目身份 → 400 E07，不落库、无标记
+def test_m25_identity_variants(client, student_token, api_data):
+    content = api_data.build_paper()
+
+    nonexistent = _post(
+        client,
+        content.paper_id,
+        _payload(
+            [*content.question_ids[:-1], 2**62], answered=[]
+        ),
+        key=_key(),
+        token=student_token,
+    )
+    duplicated = _post(
+        client,
+        content.paper_id,
+        _payload([*content.question_ids, content.question_ids[0]], answered=[]),
+        key=_key(),
+        token=student_token,
+    )
+
+    for response in (nonexistent, duplicated):
+        assert response.status_code == 400, response.text
+        assert response.json()["msg"].startswith("提交内容不合法：")
+    assert _db_counts(content.paper_id) == (0, 0, 0)
+
+
+# M-27：answers 内同一 question_id 重复 → 400 E07
+def test_m27_duplicate_answer_question_id(client, student_token, api_data):
+    content = api_data.build_paper()
+    payload = {
+        "loaded_question_ids": content.question_ids,
+        "answers": [
+            {"question_id": content.question_ids[0], "selected_option": "A"},
+            {"question_id": content.question_ids[0], "selected_option": "B"},
+        ],
+    }
+
+    response = _post(
+        client, content.paper_id, payload, key=_key(), token=student_token
+    )
+
+    assert response.status_code == 400, response.text
+    assert response.json()["msg"].startswith("提交内容不合法：")
+    assert _db_counts(content.paper_id) == (0, 0, 0)
+
+
+# M-29：内容检查未通过 → 404 + access 标记
+def test_m29_content_check_not_passed(client, student_token, api_data):
+    content = api_data.build_paper(visible=True, check_passed=False)
+
+    response = _post(
+        client,
+        content.paper_id,
+        _payload(content.question_ids),
+        key=_key(),
+        token=student_token,
+    )
+
+    assert response.status_code == 404, response.text
+    assert _db_counts(content.paper_id) == (0, 0, 1)
+    assert _marker_kinds(content.paper_id) == ["paper_not_accessible"]
+
+
+# M-29c：应有 25 题但删除第 25 题及映射、历史检查仍通过 → 404 E14 无标记
+def test_m29c_deleted_last_question_api(client, student_token, api_data):
+    content = api_data.build_paper(expected=25, count=24)
+
+    response = _post(
+        client,
+        content.paper_id,
+        _payload(content.question_ids),
+        key=_key(),
+        token=student_token,
+    )
+
+    assert response.status_code == 404, response.text
+    assert response.json()["msg"] == "资源不存在"
+    assert _db_counts(content.paper_id) == (0, 0, 0)
+
+
+# M-33 / V-23：提交先于下线 → 成功落库（Event 钩子固定时序）
+def test_m33_submit_before_visibility_change_succeeds(
+    client, student_token, api_data, monkeypatch
+):
+    import app.services.attempts as service
+
+    content = api_data.build_paper()
+    entered = threading.Event()
+    release = threading.Event()
+    real_lock = service.lock_student_paper
+    result = {}
+
+    def _hooked_lock(db, student_id, paper_id):
+        entered.set()
+        assert release.wait(timeout=10)
+        return real_lock(db, student_id, paper_id)
+
+    monkeypatch.setattr(service, "lock_student_paper", _hooked_lock)
+
+    def worker():
+        result["response"] = _post(
+            client,
+            content.paper_id,
+            _payload(content.question_ids),
+            key=_key(),
+            token=student_token,
+        )
+
+    thread = threading.Thread(target=worker)
+    thread.start()
+    assert entered.wait(timeout=10)
+    _set_visible(content.paper_id, content.batch_id, False)
+    release.set()
+    thread.join(timeout=30)
+
+    assert result["response"].status_code == 200, result["response"].text
+    assert _db_counts(content.paper_id) == (1, 25, 0)
+
+
+# M-33 / V-23：下线先于准入 → 404 + access 标记，无 attempt
+def test_m33_visibility_change_before_submit_rejects(
+    client, student_token, api_data, monkeypatch
+):
+    import app.services.attempts as service
+
+    content = api_data.build_paper()
+    entered = threading.Event()
+    release = threading.Event()
+    real_access = service.check_submit_access
+    result = {}
+
+    def _hooked_access(db, paper_id):
+        entered.set()
+        assert release.wait(timeout=10)
+        return real_access(db, paper_id)
+
+    monkeypatch.setattr(service, "check_submit_access", _hooked_access)
+
+    def worker():
+        result["response"] = _post(
+            client,
+            content.paper_id,
+            _payload(content.question_ids),
+            key=_key(),
+            token=student_token,
+        )
+
+    thread = threading.Thread(target=worker)
+    thread.start()
+    assert entered.wait(timeout=10)
+    _set_visible(content.paper_id, content.batch_id, False)
+    release.set()
+    thread.join(timeout=30)
+
+    assert result["response"].status_code == 404, result["response"].text
+    assert _db_counts(content.paper_id) == (0, 0, 1)
+
+
+# M-34 / V-08：提交前故障不落半成品；同键重试可成功且仅一条、无标记
+def test_m34_pre_commit_failure_retry_succeeds(
+    client, student_token, api_data, monkeypatch
+):
+    import app.services.attempts as service
+
+    content = api_data.build_paper()
+    payload = _payload(content.question_ids)
+    key = _key()
+    real_insert = service.insert_attempt_with_answers
+    state = {"calls": 0}
+
+    def _flaky_insert(db, attempt, answers):
+        state["calls"] += 1
+        if state["calls"] <= 2:  # 首次请求 + 服务内一次恢复重试均失败
+            raise OperationalError("insert failed", {}, Exception("boom"))
+        return real_insert(db, attempt, answers)
+
+    monkeypatch.setattr(service, "insert_attempt_with_answers", _flaky_insert)
+    first = _post(client, content.paper_id, payload, key=key, token=student_token)
+    assert first.status_code == 500, first.text
+    assert _db_counts(content.paper_id) == (0, 0, 0)
+
+    second = _post(client, content.paper_id, payload, key=key, token=student_token)
+    assert second.status_code == 200, second.text
+    assert _db_counts(content.paper_id) == (1, 25, 0)
+
+
+# M-37 / V-05：loaded 为当前批次真子集 → 400 E07
+def test_m37_subset_loaded_incomplete(client, student_token, api_data):
+    content = api_data.build_paper()
+
+    response = _post(
+        client,
+        content.paper_id,
+        _payload(content.question_ids[:-1], answered=[]),
+        key=_key(),
+        token=student_token,
+    )
+
+    assert response.status_code == 400, response.text
+    assert response.json()["msg"].startswith("提交内容不合法：")
+    assert _db_counts(content.paper_id) == (0, 0, 0)
+
+
+# M-38：loaded 顺序打乱但集合一致 → 允许
+def test_m38_shuffled_loaded_allowed(client, student_token, api_data):
+    content = api_data.build_paper()
+
+    response = _post(
+        client,
+        content.paper_id,
+        _payload(list(reversed(content.question_ids))),
+        key=_key(),
+        token=student_token,
+    )
+
+    assert response.status_code == 200, response.text
+    assert _db_counts(content.paper_id) == (1, 25, 0)
+
+
+# T08-A8：attempts 与 attempt_rejections 不得存在同一 (student,key)
+def test_t08_a8_no_cross_table_same_key(client, student_token, api_data):
+    success_paper = api_data.build_paper()
+    rejected_paper = api_data.build_paper()
+    success_key = _key()
+    rejected_key = _key()
+
+    success = _post(
+        client,
+        success_paper.paper_id,
+        _payload(success_paper.question_ids),
+        key=success_key,
+        token=student_token,
+    )
+    assert success.status_code == 200, success.text
+
+    _set_visible(rejected_paper.paper_id, rejected_paper.batch_id, False)
+    rejected = _post(
+        client,
+        rejected_paper.paper_id,
+        _payload(rejected_paper.question_ids),
+        key=rejected_key,
+        token=student_token,
+    )
+    assert rejected.status_code == 404, rejected.text
+    assert _db_counts(rejected_paper.paper_id)[2] == 1
+
+    same_key_rows = _db_scalar(
+        "SELECT count(*) FROM attempts a "
+        "JOIN attempt_rejections r ON r.student_id = a.student_id "
+        "AND r.attempt_key = a.attempt_key"
+    )
+    assert same_key_rows == 0
+    assert (
+        _db_scalar(
+            "SELECT count(*) FROM attempt_rejections WHERE attempt_key = :key",
+            {"key": success_key},
+        )
+        == 0
+    )
+    assert (
+        _db_scalar(
+            "SELECT count(*) FROM attempts WHERE attempt_key = :key",
+            {"key": rejected_key},
+        )
+        == 0
+    )
