@@ -4,6 +4,7 @@
 | --- | --- |
 | 模块一 | [回归方法与证据入口](module-1/README.md) |
 | 模块二 | [验收指南](module-2/guide.md) · [首轮报告](module-2/report.md) · [扩展复验报告](module-2/recheck-20261104.md) · [内容核对模板](module-2/content-check-record.md) |
+| 模块三 | [PR #8 后续开发与技术复验](module-3/pr8-followup-20261110.md) · [测试与 CI 指南](../development/module-3/testing-guide.md) |
 
 每份报告保留自己的提交、范围和执行结果。首轮报告按其声明不纳入 B12/B16；扩展复验报告使用完整需求口径，两者分别归档。自动化检查不能替代真实人员的验收或核听记录。
 

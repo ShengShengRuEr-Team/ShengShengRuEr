@@ -1,0 +1,67 @@
+{
+  "version": "7.1.1",
+  "distribution": "GyanD full_build-shared Windows x64",
+  "url": "https://github.com/GyanD/codexffmpeg/releases/download/7.1.1/ffmpeg-7.1.1-full_build-shared.zip",
+  "archive_filename": "ffmpeg-7.1.1-full_build-shared.zip",
+  "size": 71806900,
+  "sha256": "9f28727e8b472a04c1d2e520aaa425dca82721b995139b35710091130ea6e699",
+  "downloaded": true,
+  "executed": false,
+  "bin_artifacts": [
+    {
+      "path": "ffmpeg-7.1.1-full_build-shared/bin/avcodec-61.dll",
+      "size": 89117184,
+      "sha256": "0209f3620970037bbade73939e53bd51f4422b3a79f290b130c2eb1224087cf7"
+    },
+    {
+      "path": "ffmpeg-7.1.1-full_build-shared/bin/avdevice-61.dll",
+      "size": 4514816,
+      "sha256": "53144e6fc84c0e2d977cdd10c347d35ca886e30b6eb72f339abaa3c570262661"
+    },
+    {
+      "path": "ffmpeg-7.1.1-full_build-shared/bin/avfilter-10.dll",
+      "size": 41882624,
+      "sha256": "910321e4a32329dcd8057ce189a003f4be3c631a645daa34c9dcc344a0aa767e"
+    },
+    {
+      "path": "ffmpeg-7.1.1-full_build-shared/bin/avformat-61.dll",
+      "size": 18723328,
+      "sha256": "233cd46f0f5860c032d65d7bd124ae945470883b85e1d1bc248991fe8115a28e"
+    },
+    {
+      "path": "ffmpeg-7.1.1-full_build-shared/bin/avutil-59.dll",
+      "size": 2840576,
+      "sha256": "2e6cd0a65a892c3af3d0cc1b6588e2ed8304c0e22e7488b7629e2b3e98cd8573"
+    },
+    {
+      "path": "ffmpeg-7.1.1-full_build-shared/bin/ffmpeg.exe",
+      "size": 431616,
+      "sha256": "82813a6b5e4c3590c6fc36553d74e1812f51dd48d2a46cd0f966785fde9609eb"
+    },
+    {
+      "path": "ffmpeg-7.1.1-full_build-shared/bin/ffplay.exe",
+      "size": 15461888,
+      "sha256": "799badf6f33cde85eef28995f2bad1252bc3871b1c5505d4754661e6b735cc47"
+    },
+    {
+      "path": "ffmpeg-7.1.1-full_build-shared/bin/ffprobe.exe",
+      "size": 221184,
+      "sha256": "21757b5df8f2247a2c7176e279cdc4f80039e07a19288d374c164f7bef00468e"
+    },
+    {
+      "path": "ffmpeg-7.1.1-full_build-shared/bin/postproc-58.dll",
+      "size": 87552,
+      "sha256": "079d7da925d44d399daac6d4f0503154e4ff655cf4cb026246cf56fb3f4a3246"
+    },
+    {
+      "path": "ffmpeg-7.1.1-full_build-shared/bin/swresample-5.dll",
+      "size": 438784,
+      "sha256": "d0294107447a14168ce4343fc54105886d2b595efd5d52f51fe04177fbd230ca"
+    },
+    {
+      "path": "ffmpeg-7.1.1-full_build-shared/bin/swscale-8.dll",
+      "size": 707584,
+      "sha256": "c01dd5d2995ec445315b9e67ad444e349d3186b5c0efd31ea599b48594b51250"
+    }
+  ]
+}
