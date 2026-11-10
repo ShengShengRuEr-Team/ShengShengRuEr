@@ -13,7 +13,7 @@
 | 分支 | `feature/m2-frontend-listening-papers`（已推送） |
 | 提交 | `247328a`（基于 `develop` @ `b965a0f`） |
 | 改动范围 | 仅 `frontend/src/`，17 个文件、+2472 行；**未改后端、未改数据库结构、未新增 npm 依赖** |
-| PR | **尚未创建**（按流程：开发自查 + 验收通过后再提 PR）——请勿把本分支合并或直接推送 `develop` |
+| PR | 已创建 [PR #12](https://github.com/ShengShengRuEr-Team/ShengShengRuEr/pull/12)（base `develop`）——真实 E2E 通过前请勿合并。本文其余内容为 2026-11-08 历史交接原文 |
 
 拉取：
 

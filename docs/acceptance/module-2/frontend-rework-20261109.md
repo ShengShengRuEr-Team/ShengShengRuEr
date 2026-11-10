@@ -65,7 +65,11 @@
 | 真实样例规模复验 | 在有 25 题样例的环境补 F04/F10/F15/F16 | 验收人 + 资料持有人 |
 | PR | 复验通过后再创建，目标 `develop`，merge commit | 开发者 |
 
-## 六、变更清单
+## 六、PR
+
+[PR #12](https://github.com/ShengShengRuEr-Team/ShengShengRuEr/pull/12)：base `develop`，非 Draft；合并前置条件为真实环境 E2E 两条链路通过。
+
+## 七、变更清单
 
 - `frontend/src/pages/admin/ListeningPaperDetailPage.tsx`：确认按钮规则、提示语与文案
 - `frontend/src/router/index.tsx`：注释
