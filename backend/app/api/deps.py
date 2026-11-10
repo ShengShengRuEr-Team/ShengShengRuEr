@@ -2,6 +2,7 @@
 
 - `get_current_user`：解析 token，任一环节失败返回 401
 - `require_admin`：在 401 判定通过后判断角色，不含管理员则返回 403
+- `require_student`：在 401 判定通过后判断角色；管理员优先 403，无学生角色 403
 """
 
 from dataclasses import dataclass
@@ -14,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.errors import forbidden, unauthorized
-from app.core.permissions import ROLE_ADMIN
+from app.core.permissions import ROLE_ADMIN, ROLE_STUDENT
 from app.core.security import (
     TokenClaims,
     TokenValidationError,
@@ -103,4 +104,16 @@ def require_admin(
 
     if not current_user.is_admin:
         raise forbidden("管理员")
+    return current_user
+
+
+def require_student(
+    current_user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """先完成 401 判定，再判定角色：管理员优先 403，无学生角色 403。"""
+
+    if current_user.is_admin:
+        raise forbidden("学生")
+    if ROLE_STUDENT not in current_user.roles:
+        raise forbidden("学生")
     return current_user
