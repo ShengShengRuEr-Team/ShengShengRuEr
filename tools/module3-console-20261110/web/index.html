@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>声声入耳 · 处理工作台</title><link rel="stylesheet" href="/app.css"></head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+  <a class="brand" href="/" aria-label="声声入耳工作台首页"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 9v6m4-10v14m4-12v10m4-13v16m4-11v6" stroke-linecap="round"/></svg></span><span>声声入耳<small>听力材料处理工作台</small></span></a>
+  <button class="nav-item active" id="new-task"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>新建处理</button>
+  <div class="sidebar-section"><h2>处理记录</h2><button id="refresh-jobs" class="text-button">刷新</button></div>
+  <div id="job-list" class="job-list"><p class="muted small">登录后查看你的处理记录</p></div>
+  <div class="sidebar-section" id="examples-heading" hidden><h2>已验收示例</h2></div>
+  <button class="sample-link" hidden data-example="text">四级第1套 · 文本卷 <span>只读</span></button>
+  <button class="sample-link" hidden data-example="scan">四级第1套 · 扫描卷 <span>只读</span></button>
+  <div class="sidebar-bottom"><a href="/docs" target="_blank" rel="noopener">接口文档 ↗</a></div>
+</aside>
+<main>
+  <header class="topbar"><span>模块三 / 自动处理与入库</span><div><button id="mobile-history" class="text-button" aria-expanded="false">处理记录</button><span id="service-status" class="status-dot">本地服务</span><button id="logout" class="text-button" hidden>退出登录</button></div></header>
+  <div class="content">
+  <section id="login-panel" class="login-panel">
+    <div><h1>管理员登录</h1><p class="muted">登录后上传材料、处理并查看结果。</p></div>
+    <form id="login-form"><label>管理员账号<input id="username" autocomplete="username" value="admin" required></label><label>密码<input id="password" autocomplete="current-password" type="password" required placeholder="本地开发默认：admin123"></label><button type="submit" class="primary">登录工作台</button><p id="login-error" class="error-text" role="alert"></p></form>
+  </section>
+  <section id="upload-view">
+    <div class="page-heading"><div><h1>材料处理</h1><p class="muted">上传试卷、答案解析和音频，开始自动处理。</p></div></div>
+    <form id="upload-form">
+      <section class="paper-form"><h2>试卷信息</h2><div class="fields"><label>考试类型<select id="exam-level"><option>CET4</option><option>CET6</option></select></label><label>年份<input type="number" id="exam-year" min="1980" max="2200" value="2025" required></label><label>月份<select id="exam-month"><option value="6">6 月</option><option value="12">12 月</option></select></label><label>套别<input type="number" id="paper-set" min="1" value="1" required></label></div>
+      <details class="material-settings"><summary>材料格式与页码设置</summary><div class="fields two"><label>原卷格式<select id="document-mode"><option value="text">文本 PDF（可选中文字）</option><option value="scan">扫描 PDF（图片）</option></select></label><label>答案解析中的听力页码 <span class="optional">选填</span><input id="answer-pages" placeholder="如 2-9；留空处理全部页面"></label></div></details></section>
+      <section class="uploads"><h2>上传原始材料</h2><p class="muted small">答案解析须包含听力原文、提问、答案与解析。每份文件最大 512 MB。</p><div class="upload-grid">
+        <label class="dropzone" data-drop="paper"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H6V3h1zm7 0v5h5M9 12h6m-6 4h6"/></svg><strong>原始试卷</strong><span class="file-caption" id="paper-caption">选择或拖入 PDF</span><input type="file" id="paper-file" accept="application/pdf,.pdf" required><small>题号、题组与选项来源</small></label>
+        <label class="dropzone" data-drop="answer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H6V3h1zm7 0v5h5M9 13l2 2 4-4"/></svg><strong>答案与解析</strong><span class="file-caption" id="answer-caption">选择或拖入 PDF</span><input type="file" id="answer-file" accept="application/pdf,.pdf" required><small>原文、提问、答案与解析来源</small></label>
+        <label class="dropzone" data-drop="audio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4m4-8v12m4-15v18m4-15v12m4-8v4" stroke-linecap="round"/></svg><strong>听力音频</strong><span class="file-caption" id="audio-caption">选择或拖入音频</span><input type="file" id="audio-file" accept=".m4a,.mp3,.wav,.flac,.ogg" required><small>M4A / MP3 / WAV / FLAC / OGG</small></label>
+      </div><div id="upload-progress" hidden><label id="upload-label">正在上传</label><button class="text-button danger" id="stop-upload" type="button" hidden>停止本次上传</button><progress id="upload-bar" max="100" value="0"></progress></div></section>
+      <div class="form-footer"><p>先自动对齐，核听确认后再组装和标注。<br><span class="muted small">目前已验收固定样例版式，新资料需实际检查。</span></p><button class="primary" id="upload-submit" type="submit">上传并开始处理</button></div>
+    </form>
+  </section>
+  <section id="task-view" hidden>
+    <div class="page-heading"><div><h1 id="task-title">处理结果</h1><p class="muted" id="task-subtitle"></p></div><div class="task-tools"><button id="stop-task" class="secondary danger" hidden>停止本次处理</button><button id="export-result" class="secondary" hidden>导出 JSON</button></div></div>
+    <ol id="pipeline" class="pipeline" aria-label="处理阶段"></ol>
+    <section id="stage-progress" class="stage-progress" aria-label="各流程进度" hidden></section>
+    <div id="task-message" class="notice" role="status"></div>
+    <div id="task-issues" class="issues" hidden></div>
+    <div id="source-links" class="source-links" hidden><span>来源材料</span><button class="text-button" data-source="paper">查看原卷 ↗</button><button class="text-button" data-source="answer">查看答案解析 ↗</button></div>
+    <div id="audio-area" hidden><audio id="audio-player" controls preload="metadata"></audio><p class="muted small">点击片段播放对应时间。完成核听后，再提交你的确认记录。</p></div>
+    <div id="alignment-view" hidden></div>
+    <div id="result-view" hidden><div class="result-bar"><h2>题目与技能标注</h2><span id="result-count" class="muted small"></span></div><div class="result-layout"><nav id="question-nav" class="question-nav" aria-label="题目导航"></nav><div id="question-detail" class="question-detail"></div></div></div>
+    <section id="action-panel" class="action-panel" hidden></section>
+  </section>
+  <div id="global-message" class="global-message" role="alert" hidden></div>
+  <dialog id="stop-dialog" aria-labelledby="stop-dialog-title"><h2 id="stop-dialog-title">停止本次处理？</h2><p>会停止当前任务及其识别子进程，保留上传材料和已有结果。</p><p class="muted small">已发出的模型请求可能已经计费。停止后可填写原因，重新处理当前阶段。</p><div class="action-buttons"><button class="secondary" id="keep-processing">继续处理</button><button class="primary danger-fill" id="confirm-stop">确认停止</button></div><p id="stop-error" class="error-text" role="alert"></p></dialog>
+  </div>
+</main>
+</div>
+<script src="/app.js" defer></script>
+<script src="/progress.js" defer></script>
+<script src="/alignment.js" defer></script>
+<script src="/draft.js" defer></script>
+</body></html>

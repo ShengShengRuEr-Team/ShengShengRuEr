@@ -65,6 +65,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run isolated technical verification
         run: python -m scripts.verify_module3 --suite api --output var/ci-evidence
+      - name: Check standalone console and review stopping points
+        run: |
+          python -m ruff check ../tools/module3-console-20261110
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python ../tools/module3-console-20261110/verify_checkout.py 2>&1 |
+            Tee-Object -FilePath var/ci-evidence/console-checkout.log
+          exit $LASTEXITCODE
       - name: Upload technical evidence even on failure
         if: always()
         uses: actions/upload-artifact@v7

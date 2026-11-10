@@ -1,6 +1,6 @@
 # 项目开发约定
 
-- 模块三需求以 `docs/requirements/module-3/requirements.md` 为准；本期范围为后端、独立 Worker、数据库和模块二接口。
+- 模块三需求以 `docs/requirements/module-3/requirements.md` 为准；本体范围为后端、独立 Worker、数据库和模块二接口。用户后续授权的独立工作台位于 `tools/module3-console-20261110/`，启停与隔离验证见该目录 README；不要将本地工作台数据或历史材料作为源码提交。
 - 统一技术版本见 `docs/development/module-3/technical-version.md`。API、ASR、OCR 使用各自的 Python 3.13.16 环境与带哈希锁文件，不混装或静默降级。
 - 从 `backend/` 运行检查。模块三技术复验入口为 `python -m scripts.verify_module3 --suite api`，完整本机复验使用 `--suite all`。
 - 验证必须使用新建隔离库及独立媒体目录。pytest 会重建测试库的 public schema，禁止将业务库指定为测试库。
