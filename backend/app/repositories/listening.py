@@ -23,6 +23,22 @@ from app.db.models_listening import (
 
 BASE_OPTIONS = ("A", "B", "C", "D")
 
+# --------------------------------------------------------------------------- #
+# 作答提交侧严格映射（开发文档 2.2.2 / 2.5.2）：只新增，不改变既有函数行为。
+# 模块二既有调用点继续使用带兜底的 ``_options_for`` / ``_paper_correct_option``；
+# 作答侧调用这里的严格版，映射缺失/非法时必须失败而不是静默兜底。
+# --------------------------------------------------------------------------- #
+PAPER_UNAVAILABLE_OPTION_MAPPING_INVALID = "option_mapping_invalid"
+
+
+class PaperUnavailable(Exception):
+    """提交时数据/音频完整性问题（非 HTTP、非永久拒绝，由 T06 映射 404 E14）。"""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 
 # --------------------------------------------------------------------------- #
 # 基础查询
@@ -170,6 +186,46 @@ def _paper_correct_option(
             return paper_letter, base_letter
     # 映射非法时原样返回，由最低内容检查报 option_mapping_invalid。
     return base_letter, base_letter
+
+
+def _validate_presentation_mapping(
+    question: Question, presentation: Presentation | None
+) -> dict:
+    """严格校验映射：键/值均为 A–D 排列，且题库答案能唯一反查到原卷字母。"""
+
+    mapping = presentation.option_letter_mapping if presentation else None
+    if not isinstance(mapping, dict):
+        raise PaperUnavailable(PAPER_UNAVAILABLE_OPTION_MAPPING_INVALID)
+    if set(mapping) != set(BASE_OPTIONS):
+        raise PaperUnavailable(PAPER_UNAVAILABLE_OPTION_MAPPING_INVALID)
+    values = [mapping[letter] for letter in BASE_OPTIONS]
+    if any(not isinstance(value, str) for value in values):
+        raise PaperUnavailable(PAPER_UNAVAILABLE_OPTION_MAPPING_INVALID)
+    if sorted(values) != list(BASE_OPTIONS):
+        raise PaperUnavailable(PAPER_UNAVAILABLE_OPTION_MAPPING_INVALID)
+    if question.correct_option not in BASE_OPTIONS:
+        raise PaperUnavailable(PAPER_UNAVAILABLE_OPTION_MAPPING_INVALID)
+    if not any(mapping[letter] == question.correct_option for letter in BASE_OPTIONS):
+        raise PaperUnavailable(PAPER_UNAVAILABLE_OPTION_MAPPING_INVALID)
+    return mapping
+
+
+def paper_letter_for(question: Question, presentation: Presentation) -> str:
+    """严格版：原卷答案字母；映射缺失/非法/无法唯一反查 → ``PaperUnavailable``。"""
+
+    _validate_presentation_mapping(question, presentation)
+    paper_letter, _base_letter = _paper_correct_option(question, presentation)
+    return paper_letter
+
+
+def paper_options_for(
+    question: Question, presentation: Presentation
+) -> tuple[str, str, str, str]:
+    """严格版：按原卷 A–D 顺序返回选项文本；映射非法 → ``PaperUnavailable``。"""
+
+    _validate_presentation_mapping(question, presentation)
+    rows = _options_for(question, presentation)
+    return (rows[0]["text"], rows[1]["text"], rows[2]["text"], rows[3]["text"])
 
 
 def assemble_student_detail(db: Session, paper: ExamPaper, batch: ImportBatch) -> dict:
