@@ -44,9 +44,9 @@
 | M‑11 | V‑19a/AS‑19a | `api::test_m11_annotation_state_change_does_not_affect_access` | PASS（自动） |
 | M‑12 | V‑20a/AS‑20a | `api::test_m12_records_survive_visibility_cancel`（先成功提交→再取消可见→只读 SQL 断言 attempts/attempt_answers 仍在、未被级联删除） | PASS（自动，SQL 核验） |
 | M‑12a | AS‑14/BR‑23 提交侧 | `api::test_m12a_snapshot_does_not_drift`（改题库后 `attempt_answers` 快照逐行不变） | PASS（自动，SQL 核验） |
-| M‑13 | V‑01a/D11/BR‑18a | `api::test_a5_same_paper_new_key_is_limited` | PASS（自动） |
+| M‑13 | V‑01a/D11/BR‑18a | `api::test_a5_same_paper_new_key_is_limited` | PASS（自动）；**用例仅断言 attempt 数，markers==0 未断言（WARN）** |
 | M‑14 | V‑R7/BR‑27 | `api::test_m14_submitted_at_is_utc`（响应 ISO 8601 UTC、库内 UTC） | PASS（自动） |
-| M‑15 | V‑R6/BR‑26 | 独立临时库 `upgrade head → downgrade 0004 → upgrade head` + `alembic check`（命令证据） | PASS（命令） |
+| M‑15 | V‑R6/BR‑26 | 独立临时库 `upgrade head → downgrade 0004 → upgrade head` + `alembic check`（命令证据：见本次验收回执“迁移往返命令输出”；临时库 `shengshengruer_t01_verify` 已删除） | PASS（命令） |
 | M‑16 | V‑R1/BR‑11 | `reg::test_a2_auth_order_before_resource_lookup` | PASS（自动） |
 | M‑17 | V‑R2/BR‑04/06 | `reg::test_a3_student_detail_unchanged_*`（字段/全文断言） | PASS（自动） |
 | M‑18 | V‑R3 | `reg::test_a4_audio_range_and_unavailable`（200/206/404）+ `reg::test_m18_audio_range_out_of_bounds_416`（416） | PASS（自动） |
@@ -99,11 +99,11 @@
 |---|---|---|
 | A1 | `--base-url` 必填；缺参数/服务不可达/样例已消耗→exit 2；不自动挑卷 | PASS（脚本实现；本轮局部命令验证） |
 | A2 | 真实服务提交 200、契约校验、只读 DB attempts/answers 行数 | 受控测试库已跑通；真实专用样例 **BLOCKED（T10）** |
-| A3 | 同键回放同一 code；不同键 E08；库内不新增 | PASS（受控自测） |
-| A4 | 管理员 403、未认证 401 | PASS（受控自测） |
-| A5 | 独立样例；已消耗（attempts/markers>0）→exit 2 | PASS（实现；真实样例 BLOCKED‑T10） |
+| A3 | 同键回放同一 code；不同键 E08；库内不新增 | 实现完成，待 T10 真实执行（不判 PASS） |
+| A4 | 管理员 403、未认证 401 | 实现完成，待 T10 真实执行（不判 PASS） |
+| A5 | 独立样例；已消耗（attempts/markers>0）→exit 2 | **BLOCKED**（实现完成，待 T10 真实样例执行；不得写 PASS） |
 | A6 | 每项证据 + 写入资源清单；键掩码 | PASS（实现） |
-| A7 | 可见性场景 finally 恢复；恢复失败明确 FAIL；中断注入 | PASS（受控自测；恢复失败场景 exit=1） |
+| A7 | 可见性场景 finally 恢复；恢复失败明确 FAIL；中断注入 | 实现完成，待 T10 真实执行（受控自测仅证明脚本行为，不判 PASS） |
 | A8 | 输出永久记录不删除说明；所有退出路径均打印资源清单 | PASS（实现） |
 | BLOCKED | V‑E4、V‑E5b、V‑E2/E3、人工判分抽查、T10 真实样例 | **BLOCKED** |
 
