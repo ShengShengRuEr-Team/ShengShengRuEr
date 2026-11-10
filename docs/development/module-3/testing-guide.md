@@ -150,6 +150,28 @@ $env:TEST_DATABASE_NAME = 'm3_acceptance_test_local'
 .\.venv-ocr\Scripts\python.exe -m unittest tests.module3.test_printed_ocr -q
 ```
 
-已完成的开发检查：159项API、10项处理、7项OCR通过，去除3项重叠为173个不同用例；两路均完成真实TCP接口、独立worker、PostgreSQL、25题/100选项/165句回读、Range 206/416、重复导入、撤销恢复和重启持久性。音频是用户明确确认通过，未声称独立人工毫秒测量。适用范围为本套实际版式，接收方独立验收另行记录。
+历史开发检查：159项API、10项处理、7项OCR通过，去除3项重叠为173个不同用例；两路均完成真实TCP接口、独立worker、PostgreSQL、25题/100选项/165句回读、Range 206/416、重复导入、撤销恢复和重启持久性。音频是用户明确确认通过，未声称独立人工毫秒测量。适用范围为本套实际版式，接收方独立验收另行记录。
 
 历史`review_module3_*`脚本含开发机路径和数据库名，用于保留实跑记录；另一台机器完整测试以本指南接口流程为入口。详细历史报告见[独立验收交接](independent-acceptance.md)，需求见[模块三V2.3](../../requirements/module-3/requirements.md)。
+
+## 7. PR #8 后续技术复验与 CI
+
+新增复验入口自动创建两个随机命名的隔离数据库，不接受已有业务库作为测试目标。它仅从受控 `DATABASE_URL` 取得连接凭据；账号须能创建和删除数据库。请使用专用本地验收 PostgreSQL 18.6 服务。输出目录必须尚不存在，避免覆盖旧证据。
+
+在 `backend/` 执行：
+
+```powershell
+# API、迁移、真实 TCP 权限及空闲 Worker 启动检查
+.\.venv-api\Scripts\python.exe -m scripts.verify_module3 --suite api
+# 再运行 ASR 与 OCR 环境中的 CPU 单元测试
+.\.venv-api\Scripts\python.exe -m scripts.verify_module3 --suite all
+# 如环境不在默认目录，可传 --asr-python 和 --ocr-python 的绝对路径。
+```
+
+执行内容包括空库 `upgrade head → downgrade base`、模块二 `0004` 合成数据准备、升级至 head、回退至 `0004`、再升级；逐表比对原有列的行数与 SHA-256。模块三新增列不参与旧列比对。临时库在退出时清理；证据目录与合成音频保留在 `backend/var/verification/`。报告记录时间、提交及工作区状态、源码/锁文件哈希、依赖版本、每步退出码、原始日志、JUnit 结果和证据文件哈希。
+
+API 环境的 pytest 会跳过依赖 torch/cv2 的用例；`--suite all` 随后在对应环境补跑。专用 unittest 入口遇到跳过、零用例、失败或解释器版本不符均返回非零，防止把缺失环境当作通过。
+
+`.github/workflows/module3.yml` 对 develop/main 的 PR 及 develop/模块三功能分支推送执行 Windows API 检查，使用 Python 3.13.16、带哈希 API 锁文件和带哈希校验的 PostgreSQL 18.6 二进制包。ASR/OCR 完整锁文件体积较大，通过手动运行工作流并勾选 `processing_tests` 启用；不要求 GPU，不运行真实模型或付费调用。Actions 与 Windows 镜像能力依据 [GitHub 官方 Action 文档](https://github.com/actions/setup-python) 和 [Windows 镜像清单](https://github.com/actions/runner-images/blob/main/images/windows/Windows2025-Readme.md) 配置。
+
+CI 会保存日志/JSON/JUnit 为 artifact；工作流文件存在不等于远端运行已通过，应以对应提交的实际 Check Run 和 artifact 为准。`PASS_TECHNICAL` 只表示声明范围内的技术检查通过；TCP 检查验证登录权限，Worker 检查验证空队列独立进程启动，不代表真实材料端到端推理。真实文本/扫描件逐题质量、标注语义和整套人工核听继续按第 3—6 节单独执行。本次开发复验也不冒充接收方独立验收。

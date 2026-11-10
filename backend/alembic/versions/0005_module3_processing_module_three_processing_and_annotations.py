@@ -1184,6 +1184,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Module-two passages survive this rollback and still reference the new
+    # dictionary table. Detach that foreign key before dropping its target.
+    op.drop_constraint(
+        op.f("fk_passages_genre_id_classification_dicts"),
+        "passages",
+        type_="foreignkey",
+    )
     op.drop_index(
         "uq_skill_question_relations_current",
         table_name="skill_question_relations",
@@ -1254,11 +1261,6 @@ def downgrade() -> None:
     op.drop_column("questions", "source_paper_id")
     op.drop_column("presentations", "attributes_json")
     op.drop_column("presentations", "notes")
-    op.drop_constraint(
-        op.f("fk_passages_genre_id_classification_dicts"),
-        "passages",
-        type_="foreignkey",
-    )
     op.drop_constraint(op.f("uq_passages_id"), "passages", type_="unique")
     op.drop_constraint("uq_passages_batch_code", "passages", type_="unique")
     op.drop_column("passages", "attributes_json")
