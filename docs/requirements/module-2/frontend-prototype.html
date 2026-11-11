@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>模块二前端页面原型（线框图）· 2026-11-07</title>
+<style>
+  :root{
+    --ink:#1f2937; --sub:#6b7280; --line:#d0d5dd; --fill:#f5f6f8;
+    --fill2:#eceef1; --accent:#1677ff; --warn:#d46b08; --ok:#237804; --bad:#a8071a;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:#e9ebef; color:var(--ink);
+    font-family:"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+    font-size:13px; line-height:1.6;
+  }
+  .wrap{max-width:1240px; margin:0 auto; padding:28px 20px 60px}
+  .doc-head{background:#fff;border:1px solid var(--line);border-radius:8px;padding:20px 22px;margin-bottom:16px}
+  .doc-head h1{margin:0 0 6px;font-size:20px;letter-spacing:.5px}
+  .doc-head .meta{color:var(--sub);font-size:12px}
+  .badge{display:inline-block;padding:1px 7px;border:1px solid var(--line);border-radius:3px;font-size:11px;color:var(--sub);background:var(--fill);margin-right:6px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .tab{border:1px solid var(--line);background:#fff;border-radius:6px 6px 0 0;padding:9px 16px;cursor:pointer;font-size:13px;color:var(--sub)}
+  .tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .screen{display:none}
+  .screen.on{display:block}
+  .browser{background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  .bar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--fill);border-bottom:1px solid var(--line)}
+  .dot{width:8px;height:8px;border-radius:50%;background:#c9ced6}
+  .url{flex:1;margin-left:8px;background:#fff;border:1px solid var(--line);border-radius:4px;padding:2px 8px;color:var(--sub);font-size:11px}
+  .app{display:flex;min-height:560px}
+  .sider{width:196px;border-right:1px solid var(--line);background:#fafbfc;padding:16px 12px;flex:0 0 196px}
+  .brand{font-weight:700;font-size:14px}
+  .brand span{display:block;font-weight:400;color:var(--sub);font-size:11px}
+  .menu{margin-top:16px}
+  .menu div{padding:7px 10px;border-radius:5px;color:#374151;margin-bottom:2px}
+  .menu div.on{background:var(--fill2);font-weight:600}
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .topbar{height:48px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 18px;gap:16px;background:#fff}
+  .topbar .sp{flex:1}
+  .navitem{color:var(--sub)}
+  .navitem.on{color:var(--ink);font-weight:600;border-bottom:2px solid var(--ink);padding:13px 0}
+  .body{padding:18px;flex:1}
+  .h2{font-size:16px;font-weight:700;margin:0}
+  .crumb{color:var(--sub);font-size:12px;margin-bottom:10px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .between{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+  .card{border:1px solid var(--line);border-radius:6px;padding:14px;background:#fff}
+  .card.soft{background:var(--fill)}
+  .box{border:1px dashed #bfc5cf;border-radius:4px;background:#fbfcfd;padding:10px 12px;color:#4b5563}
+  .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:4px;padding:4px 12px;font-size:12px;color:#374151;cursor:pointer;white-space:nowrap}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn[disabled]{color:#9ca3af;background:var(--fill);cursor:not-allowed}
+  .tag{display:inline-block;border:1px solid var(--line);border-radius:3px;padding:0 6px;font-size:11px;background:var(--fill);color:#374151;white-space:nowrap}
+  .tag.ok{color:var(--ok);border-color:#b7eb8f;background:#f6ffed}
+  .tag.bad{color:var(--bad);border-color:#ffa39e;background:#fff1f0}
+  .tag.warn{color:var(--warn);border-color:#ffd591;background:#fff7e6}
+  .tag.info{color:#0958d9;border-color:#91caff;background:#e6f4ff}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{border-bottom:1px solid #eef0f3;padding:8px 10px;text-align:left;vertical-align:middle;white-space:normal}
+  td.nw{white-space:nowrap}
+  th{background:var(--fill);color:#4b5563;font-weight:600;font-size:11.5px;border-top:1px solid var(--line)}
+  tr.clickable:hover td{background:#f8fbff;cursor:pointer}
+  .muted{color:var(--sub)}
+  .tiny{font-size:11px;color:var(--sub)}
+  .split{display:grid;grid-template-columns:1.05fr 1fr;gap:14px}
+  .col{border:1px solid var(--line);border-radius:6px;display:flex;flex-direction:column;min-height:380px}
+  .col-h{padding:9px 12px;border-bottom:1px solid var(--line);background:var(--fill);font-weight:600;font-size:12px;display:flex;justify-content:space-between}
+  .col-b{padding:12px;overflow:auto;max-height:430px}
+  .seg{display:grid;grid-template-columns:26px 1fr 74px;gap:8px;padding:5px 0;border-bottom:1px dotted #e6e8ec;font-size:12px}
+  .seg .i{color:#9ca3af;font-variant-numeric:tabular-nums}
+  .seg .t{color:#374151}
+  .seg .ms{color:#9ca3af;font-size:11px;text-align:right;font-variant-numeric:tabular-nums}
+  .seg.q{background:#fcfdff}
+  .q{border:1px solid #eceef2;border-radius:5px;padding:10px 12px;margin-bottom:10px}
+  .q-h{font-weight:600;margin-bottom:4px}
+  .opt{display:flex;gap:6px;padding:2px 0;color:#374151}
+  .opt b{width:14px;color:#6b7280}
+  .ans{margin-top:8px;padding-top:8px;border-top:1px dashed #e3e6ea;font-size:12px;color:#4b5563}
+  .ans .k{color:#111827;font-weight:600}
+  .drawer{display:grid;grid-template-columns:1fr 380px;gap:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fff}
+  .drawer .under{background:var(--fill);filter:blur(.2px);opacity:.55;padding:14px;min-height:180px}
+  .drawer .panel{border-left:1px solid var(--line);background:#fff;padding:14px}
+  .issue{display:flex;gap:8px;padding:6px 0;border-bottom:1px dotted #e6e8ec;font-size:12px}
+  .issue code{font-size:11px;background:var(--fill);border:1px solid var(--line);border-radius:3px;padding:0 4px;color:#374151}
+  .player{position:sticky;top:0;border:1px solid var(--line);border-radius:6px;background:#fff;padding:10px 14px;display:flex;align-items:center;gap:12px;z-index:3}
+  .pbtn{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;background:var(--fill);font-size:13px}
+  .track{flex:1;height:5px;border-radius:3px;background:#e5e7eb;position:relative}
+  .track i{position:absolute;left:0;top:0;height:5px;width:38%;background:#9ca3af;border-radius:3px}
+  .track b{position:absolute;left:38%;top:-3px;width:11px;height:11px;border-radius:50%;background:#fff;border:2px solid #9ca3af}
+  .time{font-variant-numeric:tabular-nums;color:var(--sub);font-size:12px}
+  .pager{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .notes{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px 18px}
+  .notes h3{margin:0 0 8px;font-size:13px}
+  .notes ol{margin:0;padding-left:20px;color:#374151}
+  .notes li{margin:4px 0}
+  .pin{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;border-radius:50%;background:var(--ink);color:#fff;font-size:10px;line-height:1;padding:0 4px;vertical-align:1px;margin-right:5px;font-weight:600}
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:2px 22px;margin-top:10px}
+  .legend div{font-size:12px;color:#374151}
+  .legend .pin{background:#4b5563}
+  .caption{color:var(--sub);font-size:12px;margin:10px 0 0}
+  .kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:3px;background:#fff;padding:0 4px;font-size:11px}
+  @media (max-width:1100px){
+    .split{grid-template-columns:1fr}
+    .legend{grid-template-columns:1fr}
+    .sider{width:150px;flex:0 0 150px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="doc-head">
+    <h1>四六级听力系统一期 · 模块二前端页面原型（线框图）</h1>
+    <div class="meta">
+      <span class="badge">V1.0</span><span class="badge">2026-11-07</span>
+      <span class="badge">任务二 · 前端</span><span class="badge">待施博宇审核</span>
+    </div>
+    <div class="meta" style="margin-top:8px">
+      说明：本文件只表达<strong>信息位置、展示内容和主要操作</strong>，不代表视觉风格（配色、字体、组件规范按会议决定暂缓）。
+      灰色块为占位内容，蓝框为可点击入口。共 4 个页面，与《模块二前端需求文档_20261107》V0.2 一一对应。
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" data-t="s1">① 管理端 · 试卷列表</button>
+    <button class="tab" data-t="s2">② 管理端 · 试卷详情</button>
+    <button class="tab" data-t="s3">③ 学生端 · 试卷列表</button>
+    <button class="tab" data-t="s4">④ 学生端 · 整卷听力页</button>
+  </div>
+
+  <!-- ================= ① 管理端 试卷列表 ================= -->
+  <section class="screen on" data-screen="s1">
+    <div class="browser">
+      <div class="bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="url">/admin/listening-papers</div></div>
+      <div class="app">
+        <aside class="sider">
+          <div class="brand">声声入耳<span>管理端</span></div>
+          <div class="menu">
+            <div>首页</div>
+            <div class="on"><span class="pin">1</span>题库管理</div>
+          </div>
+        </aside>
+        <div class="main">
+          <div class="topbar"><div class="sp"></div><div class="muted">管理员 · 张老师</div><button class="btn">退出登录</button></div>
+          <div class="body">
+            <div class="between" style="margin-bottom:14px">
+              <div>
+                <h2 class="h2"><span class="pin">2</span>题库管理 · 听力试卷</h2>
+                <div class="tiny">学生能否看到某套卷，取决于「当前批次 + 检查通过 + 已确认可见」三项同时满足。</div>
+              </div>
+              <div class="row">
+                <div class="box" style="padding:4px 10px"><span class="pin">3</span>级别：全部 ▾</div>
+                <div class="box" style="padding:4px 10px">年份：全部 ▾</div>
+                <button class="btn">刷新</button>
+              </div>
+            </div>
+
+            <div class="card" style="padding:0;overflow:hidden">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:170px">试卷</th><th style="width:56px">级别</th><th style="width:126px">年月 / 套别</th>
+                    <th style="width:70px">时长</th><th style="width:88px"><span class="pin">4</span>当前批次</th>
+                    <th style="width:88px">内容检查</th><th style="width:88px">学生可见</th>
+                    <th style="width:80px">审核状态</th><th style="width:120px">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="clickable" onclick="go('s2')">
+                    <td><strong>CET4-2025-06-1</strong><div class="tiny">听力部分 · 全 25 题</div></td>
+                    <td>CET4</td><td class="nw">2025-06 / 第 1 套</td><td>24:36</td>
+                    <td><span class="tag info">当前批次</span></td>
+                    <td><span class="tag ok">检查通过</span></td>
+                    <td><span class="tag ok">学生可见</span></td>
+                    <td><span class="tag">待审核</span></td>
+                    <td><button class="btn" onclick="event.stopPropagation();go('s2')">查看详情</button></td>
+                  </tr>
+                  <tr>
+                    <td class="muted">CET6-2025-06-2<div class="tiny">示例：未导入完整音频</div></td>
+                    <td>CET6</td><td class="nw">2025-06 / 第 2 套</td><td>—</td>
+                    <td><span class="tag">非当前批次</span></td>
+                    <td><span class="tag bad">检查未通过</span></td>
+                    <td><span class="tag">学生不可见</span></td>
+                    <td><span class="tag">待审核</span></td>
+                    <td><button class="btn" style="color:#9ca3af">查看详情</button></td>
+                  </tr>
+                  <tr>
+                    <td class="muted">CET4-2024-12-1</td><td>CET4</td><td class="nw">2024-12 / 第 1 套</td><td>—</td>
+                    <td colspan="3" class="tiny"><span class="pin">5</span>状态获取失败 · <a href="#" onclick="return false">重试</a></td>
+                    <td><span class="tag">—</span></td>
+                    <td><button class="btn">查看详情</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="caption">列表底部的空态 / 加载态：<span class="kbd">暂无试卷，请先导入题库数据</span>（空态，不报错）｜骨架屏（加载中）｜错误提示 + 重试按钮（接口 500，不回退假数据）。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <h3>本页说明</h3>
+      <div class="legend">
+        <div><span class="pin">1</span>左侧菜单新增「题库管理」，入口位置与现有「首页」并列。</div>
+        <div><span class="pin">2</span>页面标题下方一句话解释三项条件，避免把「检查通过」误读成「已开放」。</div>
+        <div><span class="pin">3</span>仅前端本地筛选：级别、年份两个下拉；接口暂无筛选参数（决议 D7）。</div>
+        <div><span class="pin">4</span>「当前批次 / 检查结果 / 学生可见」分三列独立展示，不合并为一个「完成」状态（决议 D3）。</div>
+        <div><span class="pin">5</span>状态列由逐卷补调「配套内容 + 检查结果」汇总；单卷失败只降级该行，不拖垮整张表。</div>
+        <div><span class="pin">6</span>点击整行或「查看详情」进入 ②；本页不提供直接开放/撤回按钮，避免误操作。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ② 管理端 试卷详情 ================= -->
+  <section class="screen" data-screen="s2">
+    <div class="browser">
+      <div class="bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="url">/admin/listening-papers/1</div></div>
+      <div class="app">
+        <aside class="sider">
+          <div class="brand">声声入耳<span>管理端</span></div>
+          <div class="menu"><div>首页</div><div class="on">题库管理</div></div>
+        </aside>
+        <div class="main">
+          <div class="topbar"><div class="sp"></div><div class="muted">管理员 · 张老师</div><button class="btn">退出登录</button></div>
+          <div class="body">
+            <div class="crumb"><span class="pin">1</span>← 返回题库管理</div>
+
+            <div class="card" style="margin-bottom:14px">
+              <div class="between">
+                <div>
+                  <div class="row" style="gap:8px">
+                    <h2 class="h2">CET4-2025-06-1 · 听力部分</h2>
+                    <span class="tag info"><span class="pin">2</span>当前批次</span>
+                    <span class="tag ok">检查通过</span>
+                    <span class="tag ok">学生可见</span>
+                    <span class="tag">待审核</span>
+                  </div>
+                  <div class="tiny" style="margin-top:6px">
+                    批次 3f2a9c1d8b7e4a60 ｜ 映射来源：原卷题号映射（恒等） ｜ 音频 24:36 ｜ 25 题 / 8 篇章
+                  </div>
+                  <div class="tiny" style="margin-top:2px">
+                    学生可访问 = 当前批次 ∧ 检查通过 ∧ 已确认可见（三项同时满足）
+                  </div>
+                </div>
+                <div class="row">
+                  <button class="btn" disabled title="当前已确认可见">确认可见</button>
+                  <button class="btn primary" onclick="event.stopPropagation();document.getElementById('drawerWrap').scrollIntoView({behavior:'smooth'})">取消可见</button>
+                  <button class="btn" onclick="document.getElementById('drawerWrap').scrollIntoView({behavior:'smooth'})"><span class="pin">3</span>查看检查结果</button>
+                  <button class="btn">▶ 试听音频</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="split">
+              <!-- 左：原文 -->
+              <div class="col">
+                <div class="col-h"><span><span class="pin">4</span>篇章原文</span><span class="tiny">8 篇 · 165 片段</span></div>
+                <div class="col-b">
+                  <div class="row" style="margin-bottom:8px">
+                    <div class="box" style="padding:3px 8px">第 1 篇 · 短篇新闻 ▾</div>
+                    <span class="tiny">scene：News report｜口音：未判定｜00:00–00:58</span>
+                  </div>
+                  <div class="seg"><span class="i">1</span><span class="t">News report 1. A fire broke out ...</span><span class="ms">00:00–00:03</span></div>
+                  <div class="seg"><span class="i">2</span><span class="t">Officials said the cause was still under investigation ...</span><span class="ms">00:03–00:09</span></div>
+                  <div class="seg"><span class="i">3</span><span class="t">No casualties have been reported so far ...</span><span class="ms">00:09–00:15</span></div>
+                  <div class="seg"><span class="i">4</span><span class="t">（灰色占位：其余片段按序号排列，可滚动查看）</span><span class="ms">…</span></div>
+                  <div class="seg q"><span class="i">Q</span><span class="t"><strong>[录音问题片段]</strong> What is the news report mainly about?</span><span class="ms">00:42–00:48</span></div>
+                  <p class="caption">片段类型区分 <code>body</code>（听力正文）与 <code>question</code>（录音问题），后者高亮底色。</p>
+                </div>
+              </div>
+
+              <!-- 右：题目与答案解析 -->
+              <div class="col">
+                <div class="col-h"><span><span class="pin">5</span>题目 · 答案 · 解析</span><span class="tiny">第 1–3 题</span></div>
+                <div class="col-b">
+                  <div class="q">
+                    <div class="q-h"><span class="pin">6</span>第 1 题 <span class="tiny">（来源卷第 1 题）</span> <span class="tag ok">可用</span> <span class="tag">待审核</span></div>
+                    <div style="margin:2px 0 6px">What is the news report mainly about?</div>
+                    <div class="opt"><b>A</b><span>...</span></div>
+                    <div class="opt"><b>B</b><span>...</span></div>
+                    <div class="opt"><b>C</b><span>...</span></div>
+                    <div class="opt"><b>D</b><span>...</span></div>
+                    <div class="ans">
+                      <div><span class="k">答案：</span>B <span class="tiny">（题库原答案 B，本套未重排）</span></div>
+                      <div><span class="k">解析：</span>新闻开篇即说明火灾原因仍在调查中……</div>
+                      <div class="tiny">来源：答案解析 PDF 第 2 页</div>
+                    </div>
+                  </div>
+                  <div class="q">
+                    <div class="q-h">第 2 题 <span class="tag ok">可用</span> <span class="tag">待审核</span></div>
+                    <div style="margin:2px 0 6px">What do we learn about the casualties?</div>
+                    <div class="opt"><b>A</b><span>...</span></div><div class="opt"><b>B</b><span>...</span></div>
+                    <div class="opt"><b>C</b><span>...</span></div><div class="opt"><b>D</b><span>...</span></div>
+                    <div class="ans">
+                      <div><span class="k">答案：</span>C <span class="tiny">（题库原答案 A → 本套展示 C，已按选项重排换算）</span></div>
+                      <div><span class="k">解析：</span>……</div>
+                      <div class="tiny">来源：答案解析 PDF 第 2 页</div>
+                    </div>
+                  </div>
+                  <div class="q">
+                    <div class="q-h">第 3 题 <span class="tag bad">待补齐</span> <span class="tag warn">需修改</span></div>
+                    <div class="tiny">该题内容不可用时，整卷无法确认可见 — 高亮提示。</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="drawerWrap" style="margin-top:16px">
+              <p class="caption" style="margin-bottom:8px"><span class="pin">7</span>点击「查看检查结果」后，从右侧滑出抽屉（覆盖页面的 40%，下方为展开态示意）：</p>
+              <div class="drawer">
+                <div class="under">
+                  <div class="tiny">（页面内容透出，被半透明遮罩覆盖）</div>
+                </div>
+                <div class="panel">
+                  <div class="between" style="margin-bottom:8px">
+                    <strong>最低内容检查</strong><button class="btn">关闭</button>
+                  </div>
+                  <div class="row" style="margin-bottom:6px"><span class="tag bad">未通过</span><span class="tiny">检查时间 2026-11-03 14:20</span></div>
+                  <div class="issue"><span>·</span><div><code>content_state_not_usable</code><div class="tiny">第 3 题内容完整度不是「可用」</div></div></div>
+                  <div class="issue"><span>·</span><div><code>option_display_empty</code><div class="tiny">第 12 题按本套映射组装后存在空选项</div></div></div>
+                  <div class="issue"><span>·</span><div><code>audio_missing</code><div class="tiny">音频文件不存在</div></div></div>
+                  <p class="caption">检查未通过时「确认可见」按钮禁用，并在按钮旁说明原因；「取消可见」不受此限制。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <h3>本页说明</h3>
+      <div class="legend">
+        <div><span class="pin">1</span>返回列表时保留筛选条件；页面为独立路由，可直接分享链接。</div>
+        <div><span class="pin">2</span>四项状态并列展示：当前批次 / 检查结果 / 学生可见 / 审核状态，互不替代。</div>
+        <div><span class="pin">3</span>检查结果走抽屉，不新增路由；与「确认可见」按钮禁用状态联动（决议 D2）。</div>
+        <div><span class="pin">4</span>左侧为原文：篇章切换、片段序号、类型、说话人、时间范围。</div>
+        <div><span class="pin">5</span>右侧为题目与答案解析：同屏对照，避免逐题核对时来回切页（决议 D4）。</div>
+        <div><span class="pin">6</span>答案区必须区分「本套展示答案」与「题库原答案」，两者不同即为选项重排。</div>
+        <div><span class="pin">7</span>检查未通过时确认禁用；取消可见需二次确认弹窗（理由选填，≤255 字）。</div>
+        <div><span class="pin">8</span>窄屏（&lt;1280px）时左右分栏自动改为上下排列。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ③ 学生端 试卷列表 ================= -->
+  <section class="screen" data-screen="s3">
+    <div class="browser">
+      <div class="bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="url">/student/listening-papers</div></div>
+      <div class="app" style="min-height:400px">
+        <div class="main">
+          <div class="topbar">
+            <strong>声声入耳</strong>
+            <div class="navitem">首页</div>
+            <div class="navitem on"><span class="pin">1</span>听力练习</div>
+            <div class="sp"></div>
+            <div class="muted">学生 · 梁同学</div><button class="btn">退出登录</button>
+          </div>
+          <div class="body">
+            <h2 class="h2" style="margin-bottom:4px"><span class="pin">2</span>可练习的听力试卷</h2>
+            <div class="tiny" style="margin-bottom:14px">仅显示老师已开放的整套听力试卷。</div>
+
+            <div class="card" style="padding:0;overflow:hidden">
+              <table>
+                <thead><tr><th>试卷</th><th style="width:70px">级别</th><th style="width:120px">年月 / 套别</th><th style="width:80px">时长</th><th style="width:136px">操作</th></tr></thead>
+                <tbody>
+                  <tr class="clickable" onclick="go('s4')">
+                    <td><strong>2025 年 6 月 · 第 1 套</strong><div class="tiny">听力部分</div></td>
+                    <td>四级</td><td class="nw">2025-06 / 第 1 套</td><td>24:36</td>
+                    <td><button class="btn primary" onclick="event.stopPropagation();go('s4')"><span class="pin">3</span>开始练习</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="row" style="margin-top:16px;gap:14px">
+              <div class="box" style="flex:1"><span class="pin">4</span><strong>空态</strong>：暂无可练习的试卷，请联系老师开放。<div class="tiny">（不出现「无权限」「未开放」等猜测性文案，也不出现任何后台状态词）</div></div>
+              <div class="box" style="flex:1"><span class="pin">5</span><strong>加载态</strong>：骨架屏占位，与空态可区分。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>本页说明</h3>
+      <div class="legend">
+        <div><span class="pin">1</span>学生端顶部导航新增「听力练习」，与现有「首页」并列；不出现任何管理入口。</div>
+        <div><span class="pin">2</span>只显示接口已过滤的可访问试卷；页面不做二次过滤，也不显示「待审核」「批次」等后台词。</div>
+        <div><span class="pin">3</span>点击进入整卷页；整行可点，减少小屏误触。</div>
+        <div><span class="pin">4</span>空列表是正常结果（无可见试卷），不是错误，不弹红色提示。</div>
+        <div><span class="pin">5</span>加载态用骨架屏，避免「暂无试卷」闪一下再出数据。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ④ 学生端 整卷页 ================= -->
+  <section class="screen" data-screen="s4">
+    <div class="browser">
+      <div class="bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="url">/student/listening-papers/1</div></div>
+      <div class="app" style="min-height:600px">
+        <div class="main">
+          <div class="topbar">
+            <strong>声声入耳</strong>
+            <div class="navitem on">听力练习</div>
+            <div class="sp"></div>
+            <div class="muted">学生 · 梁同学</div><button class="btn">退出登录</button>
+          </div>
+          <div class="body">
+            <div class="between" style="margin-bottom:12px">
+              <div>
+                <div class="crumb" style="margin:0">← 返回试卷列表</div>
+                <h2 class="h2">2025 年 6 月 · 第 1 套 · 听力</h2>
+              </div>
+              <div class="tiny">第 <strong>2</strong> / 8 篇</div>
+            </div>
+
+            <!-- 播放器：页面级常驻 -->
+            <div class="player">
+              <div class="pbtn">▶</div>
+              <div class="time">09:12</div>
+              <div class="track"><i></i><b></b></div>
+              <div class="time">24:36</div>
+              <div class="pbtn">🔊</div>
+            </div>
+            <p class="caption" style="margin-top:6px"><span class="pin">1</span>播放器吸顶常驻，翻篇不重新加载、不回到 0 秒；只做播放/暂停、进度拖动、音量。</p>
+
+            <div class="card" style="margin-top:12px">
+              <div class="row" style="margin-bottom:10px">
+                <span class="tag info">短篇新闻</span>
+                <strong>News report 2</strong>
+                <span class="tiny">第 2 篇</span>
+              </div>
+
+              <div class="q">
+                <div class="q-h"><span class="pin">2</span>第 3 题</div>
+                <div style="margin:2px 0 6px">What does the speaker say about the new policy?</div>
+                <div class="opt"><b>A</b><span>...</span></div>
+                <div class="opt"><b>B</b><span>...</span></div>
+                <div class="opt"><b>C</b><span>...</span></div>
+                <div class="opt"><b>D</b><span>...</span></div>
+              </div>
+              <div class="q">
+                <div class="q-h">第 4 题</div>
+                <div style="margin:2px 0 6px">Why does the speaker mention the survey?</div>
+                <div class="opt"><b>A</b><span>...</span></div><div class="opt"><b>B</b><span>...</span></div>
+                <div class="opt"><b>C</b><span>...</span></div><div class="opt"><b>D</b><span>...</span></div>
+              </div>
+
+              <div class="box" style="margin-top:8px">
+                <span class="pin">3</span>题目<strong>只读</strong>：选项不可点选，页面没有「提交 / 交卷」按钮 —— 作答功能属任务三，不在本轮。
+              </div>
+
+              <div class="pager">
+                <button class="btn">← 上一篇</button>
+                <span class="tiny">第 2 篇 / 共 8 篇</span>
+                <button class="btn primary">下一篇 →</button>
+              </div>
+            </div>
+
+            <div class="row" style="margin-top:14px;gap:14px">
+              <div class="box" style="flex:1"><span class="pin">4</span><strong>音频加载失败</strong>：提示「音频加载失败，请稍后重试」，题目仍可正常阅读，不整页报错。</div>
+              <div class="box" style="flex:1"><span class="pin">5</span><strong>篇章不可用</strong>：非当前批次 / 未开放时返回「试卷不存在或暂不可用」，不提示该卷是否存在。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <h3>本页说明</h3>
+      <div class="legend">
+        <div><span class="pin">1</span>播放器挂在页面级，篇章只切换题目内容；翻篇不打断播放（决议 D6）。</div>
+        <div><span class="pin">2</span>题号为原卷题号（2–4 题属第 2 篇），不按数组下标重新编号。</div>
+        <div><span class="pin">3</span>只读约束：避免学生误以为能作答；交卷、判分、解析属任务三。</div>
+        <div><span class="pin">4</span>音频失败可降级为「纯阅读题目」，不让整页崩掉。</div>
+        <div><span class="pin">5</span>学生端不展示答案、解析、听力正文；接口本就不返回，页面也不得调管理端接口。</div>
+        <div><span class="pin">6</span>专题：首篇「上一篇」禁用、末篇「下一篇」禁用；不做页码跳转。</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="notes" style="margin-top:22px">
+    <h3>随本原型一起提交的确认项（已定，供审核对照）</h3>
+    <ol>
+      <li>范围：本轮只做模块二 4 个页面；模块三处理台、作答系统原型另立一轮。</li>
+      <li>管理端详情：左右分栏（左原文 / 右题目与答案解析）。</li>
+      <li>学生端整卷：按篇章分页，上一篇 / 下一篇，播放器页面级常驻。</li>
+      <li>管理端列表：逐卷补调接口汇总「当前批次 / 检查结果 / 学生可见」，单卷失败只降级该行。</li>
+      <li>音频鉴权：前端带 Bearer 取 blob 后播放，本期不改后端；首次加载耗时需实测。</li>
+    </ol>
+  </div>
+
+</div>
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const screens = document.querySelectorAll('.screen');
+  function show(id){
+    tabs.forEach(t => t.classList.toggle('on', t.dataset.t === id));
+    screens.forEach(s => s.classList.toggle('on', s.dataset.screen === id));
+    if (location.hash.slice(1) !== id) { history.replaceState(null, '', '#' + id); }
+    window.scrollTo(0, 0);
+  }
+  tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.t)));
+  function go(id){ show(id); }
+  // 支持直接以 #s2 / #s3 / #s4 打开某一屏，便于评审时逐屏发链接。
+  const initial = location.hash.slice(1);
+  if (['s1','s2','s3','s4'].includes(initial)) {
+    show(initial);
+    requestAnimationFrame(() => window.scrollTo(0, 0));
+  }
+</script>
+</body>
+</html>

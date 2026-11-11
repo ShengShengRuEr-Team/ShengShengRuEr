@@ -6,7 +6,9 @@
 
 ## 当前状态
 
-仓库目前完成目录和协作规范初始化，尚未包含可运行的前端、后端或 AI 服务。技术框架、依赖版本和部署平台待团队确认；各模块选型后，补充自己的安装、启动和测试说明。
+模块一登录与两端页面框架已实现；模块二后端题库、整卷查询、权限、可见性及受控音频已实现，正在按验收报告整改。模块二业务前端、模块三自动处理、作答判分与推荐后续实施。
+
+首次运行见 [本地启动指南](docs/development/startup-guide.md)。模块二说明见 [开发文档](docs/development/module-2/design.md) 和 [验收记录](docs/acceptance/README.md)。不同提交的测试结果分别保留，不把历史通过数字当作当前验收结论。
 
 ## 项目标识
 
@@ -30,9 +32,10 @@ ShengShengRuEr/
 │   ├── prompts/             可版本管理的提示词
 │   └── evals/               评测规则与可共享的小型样例
 ├── docs/                    需求、接口、设计决策和团队规范
-│   ├── api/                 API 契约
-│   ├── decisions/           已确认的技术决策及理由
-│   └── requirements/        需求与验收条件
+│   ├── requirements/        需求与验收条件
+│   ├── development/         开发方案、任务、接口与运行
+│   ├── acceptance/          验收方法、报告与复验记录
+│   └── decisions/           技术取舍及变更理由
 ├── deploy/                  开发、验收、正式环境的部署配置
 ├── scripts/                 可重复运行的辅助脚本
 ├── .editorconfig            编辑器格式约定
@@ -44,7 +47,7 @@ ShengShengRuEr/
 
 ## 开始参与
 
-**新成员先阅读 [团队开发流程](docs/development-guide.md)**：包含第一次下载项目、创建分支、提交 PR、处理审核和日常同步的完整步骤。
+**新成员先阅读 [团队开发流程](docs/development/development-guide.md)**：包含第一次下载项目、创建分支、提交 PR、处理审核和日常同步的完整步骤。
 
 ```bash
 git clone https://github.com/ShengShengRuEr-Team/ShengShengRuEr.git
@@ -54,21 +57,24 @@ git pull --ff-only origin develop
 git switch -c feature/23-listening-player
 ```
 
-上述流程适用于远端已经建立 `develop` 的情况。首次初始化的分支发布顺序见 [Git 工作流](docs/git-workflow.md#首次初始化)。
+上述流程适用于远端已经建立 `develop` 的情况。首次初始化的分支发布顺序见 [Git 工作流](docs/development/git-workflow.md#首次初始化)。
 
 开发完成后，推送自己的任务分支并向 `develop` 发起 PR；不要直接推送到 `main` 或 `develop`。
 
 ## 团队文档
 
-- [团队开发流程](docs/development-guide.md)：可直接分享给队友的操作指南。
+- [本地启动指南](docs/development/startup-guide.md)：Windows 首次安装、日常启动与常见问题。
+- [团队开发流程](docs/development/development-guide.md)：可直接分享给队友的操作指南。
 - [参与开发](CONTRIBUTING.md)：任务、审查和提交要求。
-- [命名规范](docs/naming-conventions.md)：目录、文件、代码、接口与环境变量的统一命名。
-- [Git 工作流](docs/git-workflow.md)：分支来源、合并方向、发布和线上修复。
+- [命名规范](docs/development/naming-conventions.md)：目录、文件、代码、接口与环境变量的统一命名。
+- [Git 工作流](docs/development/git-workflow.md)：分支来源、合并方向、发布和线上修复。
 - [文档索引](docs/README.md)：需求、接口与技术决策入口。
 
 ## 配置与数据
 
-`.env.example` 仅定义配置名称，程序尚未读取它。真实配置由各模块后续明确，保存在本地或部署平台，不提交到 Git。
+后端已读取 `backend/.env`（数据库连接、JWT 密钥等），样例见 `backend/.env.example`；
+前端本地配置使用 `frontend/.env.local` 的 `VITE_API_BASE_URL`，样例见 `frontend/.env.example`。
+真实配置保存在本地或部署平台，**不提交到 Git**。
 
 听力音频、完整题库、模型权重、用户录音和生产数据库不保存在本仓库。需要入库的样例应可公开、已脱敏且体积小；资料目录与下载的参考项目不整批导入。
 
