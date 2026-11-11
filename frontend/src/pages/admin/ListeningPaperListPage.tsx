@@ -62,16 +62,6 @@ export default function AdminListeningPaperListPage() {
     setSearchParams(next, { replace: true })
   }
 
-  // §7.8：从详情返回保留筛选，浏览器刷新后清空——刷新时移除 URL 上的筛选参数。
-  useEffect(() => {
-    const entry = performance.getEntriesByType('navigation')[0] as
-      | PerformanceNavigationTiming
-      | undefined
-    if (entry?.type === 'reload' && searchParams.toString()) {
-      setSearchParams(new URLSearchParams(), { replace: true })
-    }
-  }, [searchParams, setSearchParams])
-
   const openDetail = (paperId: number) => {
     navigate(adminListeningPaperPath(paperId), {
       state: { listSearch: location.search },
@@ -189,6 +179,9 @@ export default function AdminListeningPaperListPage() {
       if (retryController.signal.aborted || isAbortError(rowError)) {
         return
       }
+      // Promise.all 首个失败时，其余请求可能仍未结束。先取消同组请求，
+      // 再释放控制器，避免卸载时失去对未完成请求的控制。
+      retryController.abort()
       setStatusMap((prev) => ({
         ...prev,
         [paper.examPaperId]: {
