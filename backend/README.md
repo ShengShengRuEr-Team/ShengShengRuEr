@@ -6,7 +6,7 @@ Windows 首次运行请先阅读 [本地启动指南](../docs/development/startu
 
 ## 技术栈
 
-- Python 3.14.2
+- Python 3.13.16（一期统一技术版本 V1.2；历史验收使用的 3.14.x 不作为当前目标）
 - FastAPI 0.143.0 + Uvicorn 0.54.0
 - PostgreSQL 18.6 + SQLAlchemy 2.1.4 + Alembic 1.20.0
 - Pydantic 2.14.1 + pydantic-settings 2.16.2

@@ -151,6 +151,7 @@ export default function AudioPlayer({ examPaperId, fallbackDurationMs, sticky }:
 
       <Slider
         className="player-track"
+        ariaLabelForHandle="播放进度"
         min={0}
         max={Math.max(1, Math.round(durationMs / 1000))}
         step={1}
@@ -163,8 +164,8 @@ export default function AudioPlayer({ examPaperId, fallbackDurationMs, sticky }:
 
       <Typography.Text className="player-time">{formatDuration(durationMs)}</Typography.Text>
 
-      <Space size={6} className="player-volume">
-        <SoundOutlined className="player-volume-icon" />
+      <div className="player-volume">
+        <SoundOutlined className="player-volume-icon" aria-hidden="true" />
         <Slider
           min={0}
           max={1}
@@ -172,9 +173,9 @@ export default function AudioPlayer({ examPaperId, fallbackDurationMs, sticky }:
           value={volume}
           onChange={(value) => setVolume(value)}
           tooltip={{ formatter: (value) => `${Math.round((value ?? 0) * 100)}%` }}
-          aria-label="音量"
+          ariaLabelForHandle="音量"
         />
-      </Space>
+      </div>
 
       {status === 'error' && (
         <Space size={8}>

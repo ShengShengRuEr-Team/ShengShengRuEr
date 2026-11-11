@@ -7,6 +7,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import get_settings
 from app.db import models  # noqa: F401  确保所有模型注册到 metadata
+from app.db import models_attempt  # noqa: F401  作答系统模型注册到 metadata
 from app.db import models_listening  # noqa: F401  模块二业务模型注册到 metadata
 from app.db.base import Base
 

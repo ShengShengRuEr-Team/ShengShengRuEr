@@ -11,16 +11,16 @@
 | 软件 | 项目要求或原开发环境记录 | 用途 |
 | --- | --- | --- |
 | Git | 能正常拉取仓库 | 同步代码 |
-| Python | 后端 README 记录为 3.14.2；本文使用 3.14 系列 | 运行后端 |
-| Node.js | `package.json` 要求 `>=22.12.0`；前端 README 记录为 24.14.0 | 运行前端 |
-| npm | 前端 README 记录为 11.9.0；随 Node.js 安装 | 安装前端依赖 |
+| Python | 3.13.16；一期统一技术版本 V1.2 | 运行后端，见 `backend/.python-version` |
+| Node.js | 24.14.0；`package.json` 的最低兼容版本不替代验收目标 | 运行前端，见 `frontend/.node-version` |
+| npm | 11.9.0；独立检查版本，不假定随 Node.js 安装的版本一致 | 安装前端依赖 |
 | PostgreSQL | 后端 README 记录为 18.6，安装 18 系列服务端 | 保存账号与角色等数据 |
 
 检查环境：
 
 ```powershell
 git --version
-py -3.14 --version
+py -3.13 --version
 node --version
 npm.cmd --version
 ```
@@ -68,7 +68,7 @@ CREATE DATABASE shengshengruer;
 
 ```powershell
 Set-Location "C:\work\ShengShengRuEr\backend"
-py -3.14 -m venv .venv
+py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
@@ -218,7 +218,7 @@ npm.cmd run build
 
 | 现象 | 处理方式 |
 | --- | --- |
-| `py` 或 `py -3.14` 找不到 | 安装 Python 3.14 与 Python Launcher，重新打开终端；用 `py -0p` 查看可用版本。 |
+| `py` 或 `py -3.13` 找不到 | 准备 Python 3.13.16 与 Python Launcher，重新打开终端；用 `py -0p` 查看可用版本，也可用解释器绝对路径。 |
 | `.venv\Scripts\python.exe` 找不到 | 确认当前在 `backend` 目录，且已完成第 3 节创建环境的步骤。 |
 | `ModuleNotFoundError: app`、找不到 `alembic.ini` | 先进入 `backend`，再执行迁移、种子或后端启动命令。 |
 | 找不到 `npm`，或 npm 脚本被禁止执行 | 先确认 Node.js 已安装并重新打开终端；本文统一使用 `npm.cmd`。 |
