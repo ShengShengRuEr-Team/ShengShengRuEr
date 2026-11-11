@@ -4,6 +4,8 @@
 
 原因是 Ant Design Space 为子元素增加包装，音量 Slider 没有可用宽度。改用直接 flex 容器，让滑块占用图标以外的剩余宽度；保留原有130px容器及900px以下隐藏音量控件的布局。给音量与播放进度的滑块手柄补充可访问名称。
 
+![修复后音量滑轨可拖动，当前音量25%](screenshots/audio-player-volume-fixed-20261111.png)
+
 ## 本轮验证
 
 - 学生端1196 / 1440 / 901px：滑轨均为110px，真实鼠标拖动到25%，HTMLAudioElement.volume同步为0.25；手柄数值一致。
