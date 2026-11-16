@@ -555,10 +555,11 @@ body {
 }
 
 /* 底部提交栏：固定在内容流底部，不被遮挡 */
+.attempt-page {
+  padding-bottom: 84px;
+}
+
 .submit-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 15;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -569,6 +570,25 @@ body {
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.submit-bar--fixed {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  padding: 10px 24px;
+  border: none;
+  border-top: 1px solid #f0f0f0;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.98);
+}
+
+@media (max-width: 1023px) {
+  .submit-bar--fixed {
+    padding: 10px 16px;
+  }
 }
 
 /* 冻结/汇总/清除态 */

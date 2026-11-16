@@ -46,9 +46,44 @@
       "detail": "A 成功时 B 已保存草稿，B 冻结且刷新只读"
     },
     {
-      "name": "E2E-08 桌面断点",
+      "name": "E2E-09 1440x768 提交栏视口内",
       "status": "PASS",
-      "detail": "1280 / 1024 提交栏可见"
+      "detail": "bar.y=715 bar.h=53"
+    },
+    {
+      "name": "E2E-09 1280x768 提交栏视口内",
+      "status": "PASS",
+      "detail": "bar.y=715 bar.h=53"
+    },
+    {
+      "name": "E2E-09 1024x768 提交栏视口内",
+      "status": "PASS",
+      "detail": "bar.y=715 bar.h=53"
+    },
+    {
+      "name": "E2E-10 F01 损坏信封保护",
+      "status": "PASS",
+      "detail": "仅查询/强警告清除，无选项与交卷"
+    },
+    {
+      "name": "E2E-11 F02 手动查询矛盾冻结",
+      "status": "PASS",
+      "detail": "无可交互选项，交卷禁用"
+    },
+    {
+      "name": "E2E-12 F04 重新开始不复活",
+      "status": "PASS",
+      "detail": "草稿为空且刷新后无选中答案"
+    },
+    {
+      "name": "E2E-13 F05 站内离开保存",
+      "status": "PASS",
+      "detail": "返回列表再进入仍恢复最后一次选择"
+    },
+    {
+      "name": "E2E-14 F06 同题数版本提示",
+      "status": "PASS",
+      "detail": "题数相同仍展示汇总版本免责声明"
     },
     {
       "name": "E2E-06 管理员登录",
@@ -71,6 +106,22 @@
     "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
     "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
     "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
+    "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
+    "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
+    "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
+    "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
+    "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
     "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
     "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead."
   ]

@@ -167,5 +167,5 @@ frontend/
 - 页面原型（线框示意）：`docs/requirements/module-2/frontend-prototype.html`
 - 作答系统需求口径同步：`docs/requirements/attempt-system/attempt-system-sync-20261116.md`
 - 开发与实现记录：`docs/development/attempt-system/api.md`、`implementation.md`
-- 作答系统验收交接：`docs/acceptance/attempt-system/handoff.md`
+- 作答系统验收交接：`docs/acceptance/attempt-system/验收交接文档.md`（PR16 整改说明：`PR16-整改说明-20261116.md`）
 - 前端验收截图：`docs/acceptance/module-2/screenshots/`、`docs/acceptance/attempt-system/screenshots/`

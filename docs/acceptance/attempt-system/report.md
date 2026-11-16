@@ -121,41 +121,44 @@
 
 - 状态：**PASS**
 - 实际改动：重写 `pages/student/ListeningPaperPage.tsx`：详情→本机信封/草稿→API-3 门禁；五类页态（作答/pending/pending-unrecoverable/已提交/不可访问）；冲突冻结；API-3 404 不展示汇总；已提交清内存答案并中性导航
-- 测试：`ListeningPaperPage.test.tsx`（12 项）+ `ListeningPaperPage.extra.test.tsx`（6 项）；E2E
+- 测试：`ListeningPaperPage.test.tsx`（12 项）+ `ListeningPaperPage.extra.test.tsx`（6 项）+ `ListeningPaperPage.review.test.tsx`（PR16 定向回归 9 项）；E2E
 - 未覆盖：E04/401 页面级真实场景
-- 下一步：补浏览器场景（见矩阵 PARTIAL）
+- 下一步：补浏览器场景（见矩阵 BLOCKED）
+- PR16 整改：F01（损坏信封优先保护）、F02（手动查询冲突冻结）、F06（同题数版本提示）、malformed 冻结、查询入口
 
 ### FE-06 提交编排/pending/多标签/终态
 
 - 状态：**PASS**（核心路径）
 - 实际改动：确认→读/写信封→发送；内存信封 Modal；200/E08/E09/E04/明确失败/未知 400/500/401 分支；同键重试；双击防护（提交中禁用 + `inFlightRef`）；终态先写标记→取消 timer→删草稿/信封；storage 事件 + 写入前检查
-- 测试：`submit.test.ts`、P（成功/E08/E09/未知 400/存储不可用/跨标签/写入前检查/双击/E03 重建）；E2E 多标签
+- 测试：`submit.test.ts`、P（成功/E08/E09/未知 400/存储不可用/跨标签/写入前检查/双击/E03 重建）；R（F03 恢复冻结答案、F04 重新开始取消 timer）；E2E 多标签
 - 未覆盖：跨标签“后台挂起/即将关闭”两态
 - 下一步：Playwright 双页签脚本补两态
+- PR16 整改：F03（E09 false 先恢复答案）、F04（重新开始二次确认 + 取消 timer）
 
 ### FE-07 自动保存/存储降级/401
 
 - 状态：**PASS**（主路径）
 - 实际改动：300ms 防抖写草稿+索引；`visibilitychange=hidden`/`pagehide` flush；两类写入前同步检查提交标记；`storage` 事件冻结其他标签；401 交给 client 清会话
-- 测试：P（恢复/存储不可用/写入前检查/跨标签）；U storage
+- 测试：P（恢复/存储不可用/写入前检查/跨标签）；R（F05 卸载 flush）；U storage
 - 未覆盖：401 真实回跳；quota 真实浏览器场景（组件测试覆盖）
 - 下一步：补真实 401 场景
+- PR16 整改：F05（SPA 站内离开卸载时 flush 最后一次作答）
 
 ### FE-08 文案/列表/首页/响应式
 
 - 状态：**PASS**
 - 实际改动：`ListeningPaperListPage.tsx` 四态（开始/继续/待确认/已提交）+ 已答 x/y；删除“查看听力/后续开放”；`HomePage.tsx` 文案；`global.css` 两档断点；README 补“本机草稿/仅桌面/仅一次/测试命令”
-- 测试：`ListeningPaperListPage.test.tsx`；E2E 列表/1280/1024 截图
+- 测试：`ListeningPaperListPage.test.tsx`；E2E 列表/1440+1280+1024 提交栏视口截图
 - 未覆盖：`<1024` 按需求不承诺
 - 下一步：无
 
 ### QA-01 前端单元/组件测试
 
 - 状态：**PASS**
-- 测试：17 files / 117 tests
+- 测试：18 files / 126 tests（含 PR16 定向回归 9 项）
 - 证据：`evidence/frontend-test.txt`
 - 未覆盖：真实布局/音频（jsdom 限制，E2E 补主链路）
-- 下一步：持续补 PARTIAL 场景
+- 下一步：持续补 BLOCKED 场景
 
 ### QA-02 后端回归
 
@@ -167,15 +170,15 @@
 
 ### QA-03 E2E/验收/回填
 
-- 状态：**PARTIAL**
-- 证据：真实浏览器 11/11 PASS；真实 API 23/23 PASS；AC-01–AC-50、B、R、E2E 1–20 见矩阵
-- 未覆盖：矩阵中 PARTIAL 项（401/E04/真实 500/四态中的两态/空卷/换批等）
-- 下一步：验收负责人裁定接受或补测；BLOCKED 修复后重判
+- 状态：**BLOCKED（部分核心证据不足）**
+- 证据：真实浏览器 18/18 PASS；真实 API 23/23 PASS；PR16 F01–F07 已整改并回归；AC-01–AC-50、B、R、E2E 1–20 见矩阵
+- 未覆盖：AC-05/35/38、R-04、UX-01 等真实组合/人工核听/签字；F06 真实换批
+- 下一步：验收负责人复跑整改场景，补齐 BLOCKED 证据后重判整轮
 
 ### DOC-01B1 验收前文档同步
 
 - 状态：**PASS**
-- 实际改动：本报告、`acceptance-matrix.md`、`handoff.md`、`README.md`（验收指南）、`docs/development/attempt-system/api.md`、`implementation.md`、`docs/requirements/attempt-system/attempt-system-sync-20261116.md`、`frontend/README.md`、`backend/README.md`
+- 实际改动：本报告、`acceptance-matrix.md`、`验收交接文档.md`、`PR16-整改说明-20261116.md`、`README.md`（验收指南）、`docs/development/attempt-system/api.md`、`implementation.md`、`docs/requirements/attempt-system/attempt-system-sync-20261116.md`、`frontend/README.md`、`backend/README.md`
 - 未覆盖：需求主文件（工作区根目录 V1.2）与原型受控主件不在仓库内，未改动；P-01/P-03 结论以同步说明记录
 - 下一步：受控主件归档时按附录 A 同步原型版本引用
 
@@ -226,9 +229,8 @@
 
 ### 2.3 未提交差异
 
-- `git status --porcelain`：**14 modified + 68 untracked**（含文档与证据）
-- `git diff --stat`（已跟踪文件）：14 files changed, 3259 insertions(+), 156 deletions(-)
-- 未提交、未推送、未合并；未改动 API-1 契约/迁移；未读取或输出密钥明文
+- 本次整改提交（相对 `b47e901`）：**34 files changed, 1427 insertions(+), 362 deletions(-)**，含 `handoff.md` → `验收交接文档.md` 重命名、PR16 定向回归、E2E 脚本扩展、证据与截图更新。
+- 未推送至 `develop`（分支保护，须走 PR）；未改动 API-1 契约/迁移；未读取或输出密钥明文。
 
 ## 3. 测试命令与结果
 
@@ -237,11 +239,11 @@
 | `python -m pytest`（`DATABASE_URL` 端口覆盖为 5433） | **265 passed**, 1 warning | `evidence/backend-pytest.txt` |
 | `ruff check <本次新增/修改文件>` | All checks passed | `evidence/ruff-changed.txt` |
 | `ruff check .` | 178 = 基线 178（本次零新增；`services/attempts.py` 4 项为基线既有行） | `evidence/ruff-full.txt` |
-| `npm test` | **17 files / 117 tests passed** | `evidence/frontend-test.txt` |
+| `npm test` | **18 files / 126 tests passed**（含 PR16 定向回归 9 项） | `evidence/frontend-test.txt` |
 | `npm run typecheck` | 通过 | `evidence/frontend-typecheck.txt` |
 | `npm run build` | 通过（仅 chunk 体积提示） | `evidence/frontend-build.txt` |
-| 真实浏览器 E2E | **11/11 PASS** | `screenshots/e2e-results.json` |
-| 真实 API E2E | **23/23 PASS** | `e2e-api-results.json` |
+| 真实浏览器 E2E | **18/18 PASS**（含 F01/F02/F04/F05/F06/F07 视口断言） | `evidence/browser-e2e.txt`、`screenshots/e2e-results.json` |
+| 真实 API E2E | **23/23 PASS** | `evidence/api-e2e.txt`、`e2e-api-results.json` |
 
 E2E 环境：独立库 `shengshengruer_e2e`、后端 `127.0.0.1:8000`、前端 `127.0.0.1:5173`、Playwright Core 1.56.1 驱动本机 Edge（未下载额外浏览器）。
 
@@ -261,9 +263,28 @@ E2E 环境：独立库 `shengshengruer_e2e`、后端 `127.0.0.1:8000`、前端 `
 
 | 项 | 原因 | 影响 | 后续 |
 | --- | --- | --- | --- |
-| AC-35、AC-38 的剩余组合 | 缺真实“后台挂起/即将关闭”“pending+换批”页面场景 | 核心项 PARTIAL | 验收负责人接受或补测 |
-| AC-13/15/29/33、R-04、E2E 多项 | 需真实下线/换批/401/人工核听/故障注入 | 非核心 PARTIAL | 补跑或书面接受 |
+| AC-35、AC-38 的剩余组合 | 缺真实“后台挂起/即将关闭”“pending+换批”页面场景 | 核心项 BLOCKED | 验收负责人补测/书面裁定 |
+| AC-05/08/13/15/29、R-04、E2E 多项 | 需真实关闭/换批/401/人工核听/故障注入 | 非核心 BLOCKED | 补跑或书面裁定 |
 | P-03 保留期 | 未确认 | 自动重试关闭 | 确认后仅改 `KEY_RETENTION_POLICY` |
 | UX-01 签字 | 用户指示暂不处理 | 流程留痕未闭环 | 按流程补签 |
+| F06 真实换批 | 仅响应注入 | 版本提示已修，真实换批未验 | 补管理员真实换批 E2E |
 | 全仓 ruff 178 | 基线历史问题 | 低（本次零新增） | 另立技术债 |
 | `backend/.env` 端口 5432 | 与实际 5433 不符 | 本地直跑会连不上 | 不改用户配置，命令用环境变量覆盖；验收指南已注明 |
+
+## 6. PR16 独立验收整改记录
+
+> 依据《PR16 独立验收报告_20261116.md》；详见 [PR16-整改说明-20261116.md](PR16-整改说明-20261116.md)。
+
+| 问题 | 严重级 | 修复摘要 | 回归证据 |
+| --- | --- | --- | --- |
+| F01 损坏信封 + malformed 放开编辑 | P1 | boot 状态分发前增加损坏信封优先保护 | R「F01」；E2E-10 |
+| F02 手动查询矛盾仍可编辑 | P1 | 所有来源 conflict 统一 `setFrozen(true)` | R「F02」；E2E-11 |
+| F03 E09 false 丢冻结答案 | P1 | 先恢复答案/草稿并读回，成功才清信封 | R「F03」 |
+| F04 重新开始旧 timer 复活 | P2 | 二次确认 + 取消 token timer | R「F04」；E2E-12 |
+| F05 SPA 离开丢最后作答 | P2 | 卸载 flush | R「F05」；E2E-13 |
+| F06 同题数换批缺版本提示 | P2 | 有汇总即提示版本 | R「F06」；E2E-14 |
+| F07 提交栏视口不可见 | P2 | 固定底部栏 + 页面留白 + 视口断言 | E2E-09；1440/1280/1024 截图 |
+
+补充处理：冲突/冻结页查询入口、汇总不可用页查询入口、无信封 malformed 统一冻结（AC-48）、冲突文案去重。
+
+本次整改后：前端 18 files / 126 tests；浏览器 E2E 18/18；API E2E 23/23；pytest 265。仍存在核心 BLOCKED（AC-05/35/38、R-04、UX-01），不代签、不判整轮通过。

@@ -159,6 +159,7 @@ export default function StudentListeningPaperPage() {
   const [versionNotice, setVersionNotice] = useState(false)
 
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [restartOpen, setRestartOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [storageEnvelope, setStorageEnvelope] =
     useState<AttemptSubmitEnvelopeV1 | null>(null)
@@ -174,14 +175,15 @@ export default function StudentListeningPaperPage() {
   const passageRef = useRef(passageIndex)
   const modeRef = useRef(mode)
   const frozenRef = useRef(frozen)
+  const conflictRef = useRef(conflict)
   const detailRef = useRef<PaperDetail | null>(detail)
-  const totalQuestionsRef = useRef(0)
 
   answersRef.current = answers
   flaggedRef.current = flagged
   passageRef.current = passageIndex
   modeRef.current = mode
   frozenRef.current = frozen
+  conflictRef.current = conflict
   detailRef.current = detail
 
   const passages = detail?.passages ?? []
@@ -198,7 +200,6 @@ export default function StudentListeningPaperPage() {
     () => (detail ? detailQuestions(detail) : []),
     [detail],
   )
-  totalQuestionsRef.current = allQuestions.length
 
   const currentQuestion: PaperQuestion | null = useMemo(() => {
     if (currentPassage === null) {
@@ -307,10 +308,9 @@ export default function StudentListeningPaperPage() {
       setSubmittedAt(params.submittedAt)
       setAuthoritative(params.authoritative)
       setCacheOnly(params.cacheOnly)
-      setVersionNotice(
-        params.summary !== null &&
-          params.summary.questionCount !== totalQuestionsRef.current,
-      )
+      // K-06/FR-32/AC-33：无法从服务端取得可比较的批次身份时，
+      // 只要存在汇总就持续提示“汇总对应提交时版本”，不以题数相等推断内容未变。
+      setVersionNotice(params.summary !== null)
       setNotice(null)
       setBanner(null)
     },
@@ -336,10 +336,7 @@ export default function StudentListeningPaperPage() {
       setSubmittedAt(cache.submittedAt)
       setAuthoritative(false)
       setCacheOnly(options.cacheOnly)
-      setVersionNotice(
-        cache.summary !== null &&
-          cache.summary.questionCount !== totalQuestionsRef.current,
-      )
+      setVersionNotice(cache.summary !== null)
       setNotice(null)
       setBanner(null)
     },
@@ -371,8 +368,45 @@ export default function StudentListeningPaperPage() {
     }
   }, [paperId, applySubmitted])
 
+  /**
+   * F03/N04：清旧信封前，先把 frozenPayload 中兼容的答案恢复到内存与普通草稿，
+   * 并读回校验成功；返回恢复的答案数，失败/题目集合变化返回 null（保留信封）。
+   */
+  const restoreFrozenAnswers = useCallback(
+    (sourceEnvelope: AttemptSubmitEnvelopeV1): number | null => {
+      const paper = detailRef.current
+      if (paper === null) {
+        return null
+      }
+      const rebuilt = rebuildDraftFromEnvelope(sourceEnvelope, paper)
+      if (rebuilt === null) {
+        return null
+      }
+      const candidate = {
+        ...rebuilt,
+        paperLabel: formatPaperLabel(paper.year, paper.month, paper.paperSet),
+      }
+      if (writeDraftVerified(candidate).kind !== 'ok') {
+        return null
+      }
+      removeEnvelope(userId, paperId)
+      removeIndexEntry(userId, paperId)
+      setAnswers(candidate.answers)
+      setFlagged(candidate.flaggedQuestionIds)
+      setPassageIndex(candidate.currentPassageIndex)
+      setEnvelope(null)
+      setEnvelopeReason(null)
+      setMode('answering')
+      setStatusUnknown(false)
+      setConflict(false)
+      setFrozen(false)
+      return Object.keys(candidate.answers).length
+    },
+    [userId, paperId],
+  )
+
   const queryStatus = useCallback(
-    async (origin: 'manual' | 'e09') => {
+    async (origin: 'manual' | 'e09', e09Envelope?: AttemptSubmitEnvelopeV1) => {
       setBusy(true)
       try {
         const result = await getAttemptStatus(paperId)
@@ -394,26 +428,56 @@ export default function StudentListeningPaperPage() {
           })
         } else if (result.kind === 'not-submitted') {
           if (origin === 'e09') {
-            removeEnvelope(userId, paperId)
-            removeIndexEntry(userId, paperId)
-            setEnvelope(null)
-            setMode('answering')
-            setStatusUnknown(false)
-            setConflict(false)
+            const restoredCount =
+              e09Envelope === undefined ? null : restoreFrozenAnswers(e09Envelope)
+            if (restoredCount !== null) {
+              setSubmitAlert({
+                type: 'warning',
+                message: '提交结果尚未确认',
+                description: `服务端尚无成功提交记录；已从提交记录恢复 ${restoredCount} 题答案，请核对后重新提交（将生成新的提交编号）。`,
+              })
+              return
+            }
+            // 无信封或恢复失败：保留提交记录（唯一答案来源）并保持冻结，不生成新键。
+            if (e09Envelope !== undefined) {
+              setMode('pending')
+              setEnvelope(e09Envelope)
+              setStatusUnknown(true)
+              setSubmitAlert({
+                type: 'warning',
+                message: '提交结果尚未确认',
+                description:
+                  '服务端尚无成功提交记录，但本机暂存不可用或题目内容已变化；已保留提交记录与冻结答案，不会丢失。',
+              })
+            } else {
+              setMode('answering')
+              setStatusUnknown(false)
+              setConflict(false)
+              setFrozen(false)
+              setSubmitAlert({
+                type: 'warning',
+                message: '提交结果尚未确认',
+                description:
+                  '服务端尚无成功提交记录，请重新提交（将生成新的提交编号）。',
+              })
+            }
+          } else if (
+            modeRef.current === 'answering' &&
+            frozenRef.current &&
+            !conflictRef.current
+          ) {
+            // F02 兜底：malformed 保护冻结后，服务端确认未提交可解除冻结。
             setFrozen(false)
-            setSubmitAlert({
-              type: 'warning',
-              message: '提交结果尚未确认',
-              description:
-                '服务端尚无成功提交记录，请重新提交（将生成新的提交编号）。',
-            })
+            setStatusUnknown(false)
+            setNotice('服务端确认尚未提交，已解除冻结，可继续作答。')
           } else {
             setNotice('服务端尚无成功提交记录；可使用原提交编号重试。')
           }
         } else if (result.kind === 'status-conflict') {
+          // F02：任何来源的矛盾响应都必须冻结编辑/交卷，而不只是改文案。
           setConflict(true)
           setStatusUnknown(true)
-          setNotice('提交状态自相矛盾，已保护性冻结；本机记录未做任何清理。')
+          setFrozen(true)
         } else if (result.reason === 'not-accessible') {
           setNotice('当前试卷不可访问，无法确认最新状态')
         } else {
@@ -429,7 +493,7 @@ export default function StudentListeningPaperPage() {
         setBusy(false)
       }
     },
-    [paperId, applySubmitted, userId],
+    [paperId, applySubmitted, restoreFrozenAnswers],
   )
 
   const handleFlowResult = useCallback(
@@ -502,7 +566,7 @@ export default function StudentListeningPaperPage() {
           message: '提交状态未确认',
           description: result.message,
         })
-        void queryStatus('e09')
+        void queryStatus('e09', result.envelope)
         return
       }
       if (result.kind === 'needs-storage-confirmation') {
@@ -781,12 +845,14 @@ export default function StudentListeningPaperPage() {
     }
   }, [clearSaveTimer, flushDraft])
 
-  useEffect(
-    () => () => {
+  useEffect(() => () => {
+    // F05：站内路由跳转不会触发 pagehide；卸载时补一次最终保存。
+    // flushDraft 内部会再次检查终态/冻结，已提交或冻结时不会写草稿。
+    if (saveTimerRef.current !== null) {
       clearSaveTimer()
-    },
-    [clearSaveTimer],
-  )
+      flushDraft(answersRef.current, flaggedRef.current, passageRef.current)
+    }
+  }, [clearSaveTimer, flushDraft])
 
   /* ---------- 跨标签终态（N01 必需） ---------- */
   useEffect(() => {
@@ -873,6 +939,27 @@ export default function StudentListeningPaperPage() {
           return
         }
 
+        // F01：损坏信封的保护优先级高于任何查询结果（已提交一致事实除外）。
+        // 不允许因 API-3 malformed/conflict/not-submitted 把页面放回可编辑。
+        if (
+          envelopeRead.kind === 'corrupt' &&
+          status.kind !== 'submitted' &&
+          status.kind !== 'submitted-summary-unavailable'
+        ) {
+          setMode('unrecoverable')
+          setEnvelope(null)
+          setEnvelopeReason(envelopeRead.reason)
+          setConflict(status.kind === 'status-conflict')
+          setStatusUnknown(true)
+          setNotice(
+            status.kind === 'status-conflict'
+              ? '提交状态自相矛盾，且本机提交记录已损坏；已保护性冻结，仅可查询状态或强警告清除。'
+              : '本机提交记录已损坏；已进入受保护状态，不构造新信封、不自动重试，仅可查询状态或强警告清除。',
+          )
+          setBoot('ready')
+          return
+        }
+
         if (status.kind === 'submitted') {
           applySubmitted({
             summary: status.status.latestAttempt,
@@ -893,11 +980,7 @@ export default function StudentListeningPaperPage() {
           if (readSubmitted(userId, paperId).kind === 'valid') {
             removeSubmitted(userId, paperId)
           }
-          if (envelopeRead.kind === 'corrupt') {
-            setMode('unrecoverable')
-            setEnvelope(null)
-            setEnvelopeReason(envelopeRead.reason)
-          } else if (envelopeRead.kind === 'valid') {
+          if (envelopeRead.kind === 'valid') {
             setMode('pending')
             setEnvelope(envelopeRead.envelope)
             setStatusUnknown(envelopeRead.envelope.state === 'unknown')
@@ -918,24 +1001,16 @@ export default function StudentListeningPaperPage() {
             setEnvelope(envelopeRead.envelope)
             setStatusUnknown(true)
             setConflict(true)
-          } else if (envelopeRead.kind === 'corrupt') {
-            setMode('unrecoverable')
-            setEnvelopeReason(envelopeRead.reason)
-            setConflict(true)
           } else {
             setMode('answering')
             setFrozen(true)
             setConflict(true)
-            setNotice('提交状态自相矛盾，已保护性冻结；本机草稿与提交标记均保留。')
             if (draft !== null) {
               restoreDraft(draft, paper.passages.length)
             }
           }
         } else if (status.reason === 'not-accessible') {
-          if (envelopeRead.kind === 'corrupt') {
-            setMode('unrecoverable')
-            setEnvelopeReason(envelopeRead.reason)
-          } else if (envelopeRead.kind === 'valid') {
+          if (envelopeRead.kind === 'valid') {
             setMode('pending')
             setEnvelope(envelopeRead.envelope)
             setStatusUnknown(true)
@@ -954,21 +1029,23 @@ export default function StudentListeningPaperPage() {
             setNotice('当前试卷不可访问，无法确认提交状态；可继续作答，提交时再确认。')
           }
         } else if (status.reason === 'malformed') {
-          setNotice('服务端提交状态不可信；可继续作答，提交时再确认。')
           if (envelopeRead.kind === 'valid') {
             setMode('pending')
             setEnvelope(envelopeRead.envelope)
             setStatusUnknown(true)
+            setNotice('服务端提交状态不可信；已保留未确认的提交记录并冻结答案。')
           } else {
+            // AC-48：malformed 不得放开作答；冻结编辑，等待重新查询。
             setMode('answering')
-            setFrozen(false)
+            setFrozen(true)
+            setStatusUnknown(true)
+            setNotice(
+              '服务端提交状态不可信；已冻结编辑，请重新查询提交状态后再继续作答。',
+            )
             if (draft !== null) {
               restoreDraft(draft, paper.passages.length)
             }
           }
-        } else if (envelopeRead.kind === 'corrupt') {
-          setMode('unrecoverable')
-          setEnvelopeReason(envelopeRead.reason)
         } else if (envelopeRead.kind === 'valid') {
           setMode('pending')
           setEnvelope(envelopeRead.envelope)
@@ -1088,10 +1165,12 @@ export default function StudentListeningPaperPage() {
     element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  const restart = () => {
+  /** F04：二次确认后清空草稿；必须先取消待保存 timer，防止旧答案被重新写入。 */
+  const performRestart = useCallback(() => {
     if (envelope !== null) {
       return
     }
+    clearSaveTimer()
     removeDraft(userId, paperId)
     removeIndexEntry(userId, paperId)
     setAnswers({})
@@ -1101,7 +1180,15 @@ export default function StudentListeningPaperPage() {
     setBanner(null)
     setSavedAt(null)
     setNotice('已清空本机草稿，重新开始作答。')
-  }
+    setRestartOpen(false)
+  }, [envelope, clearSaveTimer, userId, paperId])
+
+  const openRestartConfirm = useCallback(() => {
+    if (envelope !== null) {
+      return
+    }
+    setRestartOpen(true)
+  }, [envelope])
 
   /* ---------- 渲染 ---------- */
 
@@ -1298,6 +1385,11 @@ export default function StudentListeningPaperPage() {
         cacheOnly={cacheOnly}
         versionNotice={versionNotice}
       />
+      {summary === null && (
+        <div>
+          <Button onClick={() => void queryStatus('manual')}>查询提交状态</Button>
+        </div>
+      )}
       {currentPassageCard}
     </Space>
   )
@@ -1340,7 +1432,7 @@ export default function StudentListeningPaperPage() {
     )
 
   return (
-    <Space direction="vertical" size={14} style={{ width: '100%' }}>
+    <Space direction="vertical" size={14} className="attempt-page" style={{ width: '100%' }}>
       {header}
 
       {mode === 'answering' && banner && (
@@ -1350,12 +1442,21 @@ export default function StudentListeningPaperPage() {
           answered={counts.answered}
           total={counts.total}
           canRestart={envelope === null && !frozen}
-          onRestart={restart}
+          onRestart={openRestartConfirm}
         />
       )}
 
       {mode === 'answering' && notice && (
-        <Alert type="info" showIcon message={notice} />
+        <Alert
+          type="info"
+          showIcon
+          message={notice}
+          action={
+            <Button size="small" onClick={() => void queryStatus('manual')}>
+              查询提交状态
+            </Button>
+          }
+        />
       )}
 
       {mode === 'answering' && submitAlert && (
@@ -1382,7 +1483,12 @@ export default function StudentListeningPaperPage() {
           type="error"
           showIcon
           message="提交状态自相矛盾，已保护性冻结"
-          description="本机草稿、提交记录均保留；请重新查询提交状态，确认前不可修改答案。"
+          description="本机草稿与现有提交记录保持原状；请重新查询提交状态，确认前不可修改答案。"
+          action={
+            <Button size="small" onClick={() => void queryStatus('manual')}>
+              查询提交状态
+            </Button>
+          }
         />
       )}
 
@@ -1401,7 +1507,7 @@ export default function StudentListeningPaperPage() {
       {mode === 'answering' && (
         <>
           {layoutWithSheet(currentPassageCard)}
-          <div className="submit-bar">
+          <div className="submit-bar submit-bar--fixed" role="region" aria-label="提交栏">
             <Typography.Text type="secondary">
               已答 {counts.answered}/{counts.total} · 未答 {counts.unanswered} · 标记{' '}
               {counts.flagged}
@@ -1425,6 +1531,29 @@ export default function StudentListeningPaperPage() {
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => void doSubmit()}
       />
+
+      <Modal
+        open={restartOpen}
+        title="重新开始作答？"
+        okText="确认重新开始"
+        cancelText="取消"
+        okButtonProps={{ danger: true }}
+        onCancel={() => setRestartOpen(false)}
+        onOk={performRestart}
+        centered
+      >
+        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Typography.Text>
+            将清空本机草稿与当前作答（答案、标记、当前篇），并重新从第 1 篇开始。
+          </Typography.Text>
+          <Alert
+            type="warning"
+            showIcon
+            message="此操作不可撤销"
+            description="提交记录（如有）不会被删除；清空后无法恢复本次草稿。"
+          />
+        </Space>
+      </Modal>
 
       <Modal
         open={storageEnvelope !== null}

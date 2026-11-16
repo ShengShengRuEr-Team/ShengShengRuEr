@@ -138,7 +138,7 @@ $env:DATABASE_URL="postgresql+psycopg://<user>:<password>@127.0.0.1:5433/shengsh
 ```
 
 - 作答系统真实浏览器 E2E：`frontend/scripts/e2e_attempt.mjs`（11 项，需后端 + `npm run dev`）。
-- 作答系统完整验收指南：[docs/acceptance/attempt-system/handoff.md](../docs/acceptance/attempt-system/handoff.md)。
+- 作答系统完整验收指南：[docs/acceptance/attempt-system/验收交接文档.md](../docs/acceptance/attempt-system/验收交接文档.md)。
 
 ## 代码风格
 

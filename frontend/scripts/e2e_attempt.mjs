@@ -27,9 +27,25 @@ function record(name, status, detail = '') {
   console.log(`[${status}] ${name}${detail ? ` — ${detail}` : ''}`)
 }
 
-async function shot(page, name) {
+async function shot(page, name, options = {}) {
   await fs.mkdir(OUT_DIR, { recursive: true })
-  await page.screenshot({ path: path.join(OUT_DIR, name), fullPage: true })
+  await page.screenshot({
+    path: path.join(OUT_DIR, name),
+    fullPage: options.fullPage ?? true,
+  })
+}
+
+function assertInViewport(box, viewportHeight, label) {
+  if (
+    box === null ||
+    box.y < 0 ||
+    box.height <= 0 ||
+    box.y + box.height > viewportHeight + 1
+  ) {
+    throw new Error(
+      `${label} 不在视口内：y=${box?.y} height=${box?.height} viewport=${viewportHeight}`,
+    )
+  }
 }
 
 async function main() {
@@ -189,27 +205,211 @@ async function main() {
     record('E2E-07 多标签终态', 'PASS', 'A 成功时 B 已保存草稿，B 冻结且刷新只读')
     await pageB.close()
 
-    // 10. 桌面断点（AC-26）：1280 侧栏 / 1024 顶部折叠，提交栏始终可见
+    // 10. 桌面断点与提交栏视口可见（F07/AC-26）
     await page.goto(`${APP_URL}/student/listening-papers`, { waitUntil: 'networkidle' })
     const thirdRow = page.locator('tr', { hasText: '第 3 套' })
     await thirdRow.getByRole('button', { name: '开始作答' }).click()
     await page.waitForURL(/\/student\/listening-papers\/\d+$/, { timeout: 15000 })
     await page.getByRole('radio').first().waitFor({ timeout: 20000 })
-    await page.setViewportSize({ width: 1280, height: 900 })
-    await page.waitForTimeout(300)
-    if ((await page.getByRole('button', { name: /交\s*卷/ }).count()) !== 1) {
-      throw new Error('1280 下提交栏交卷按钮缺失或重复')
-    }
-    await shot(page, 'e2e-07-1280.png')
-    await page.setViewportSize({ width: 1024, height: 768 })
-    await page.waitForTimeout(300)
-    if ((await page.getByRole('button', { name: /交\s*卷/ }).count()) !== 1) {
-      throw new Error('1024 下提交栏交卷按钮缺失或重复')
-    }
-    await shot(page, 'e2e-08-1024.png')
-    record('E2E-08 桌面断点', 'PASS', '1280 / 1024 提交栏可见')
+    const thirdUrl = page.url()
+    const thirdPaperId = Number(thirdUrl.match(/(\d+)$/)?.[1])
 
-    // 11. 管理员权限（模块二保持原规则，API-1/3 403）
+    for (const [width, height, name] of [
+      [1440, 768, 'e2e-07-1440.png'],
+      [1280, 768, 'e2e-07-1280.png'],
+      [1024, 768, 'e2e-08-1024.png'],
+    ]) {
+      await page.setViewportSize({ width, height })
+      await page.waitForTimeout(300)
+      const submitButton = page.getByRole('button', { name: /交\s*卷/ })
+      if ((await submitButton.count()) !== 1) {
+        throw new Error(`${width} 下提交栏交卷按钮缺失或重复`)
+      }
+      const barBox = await page.locator('.submit-bar--fixed').boundingBox()
+      assertInViewport(barBox, height, `${width}x${height} 提交栏`)
+      const buttonBox = await submitButton.boundingBox()
+      assertInViewport(buttonBox, height, `${width}x${height} 交卷按钮`)
+      await shot(page, name, { fullPage: false })
+      record(
+        `E2E-09 ${width}x${height} 提交栏视口内`,
+        'PASS',
+        `bar.y=${Math.round(barBox.y)} bar.h=${Math.round(barBox.height)}`,
+      )
+    }
+
+    // 11. F01：损坏信封 + API-3 malformed 不得放开编辑
+    const userId = await page.evaluate(() => {
+      const marker = Object.keys(window.localStorage).find((key) =>
+        key.startsWith('ssre.attemptSubmitted.v2.'),
+      )
+      return marker ? Number(marker.split('.')[3]) : null
+    })
+    if (!Number.isFinite(userId)) {
+      throw new Error('无法从本机提交标记解析 userId')
+    }
+    await page.evaluate(
+      ({ uid, pid }) => {
+        window.localStorage.setItem(
+          `ssre.attemptEnvelope.v1.${uid}.${pid}`,
+          '{"schemaVersion":1}',
+        )
+      },
+      { uid: userId, pid: thirdPaperId },
+    )
+    await page.route('**/attempt-status', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 200, msg: '查询成功', data: {} }),
+      }),
+    )
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.getByText(/提交记录无法解析/).waitFor({ timeout: 20000 })
+    if ((await page.getByRole('radiogroup').count()) !== 0) {
+      throw new Error('F01 损坏信封 + malformed 仍出现可交互选项')
+    }
+    if ((await page.getByRole('button', { name: /交\s*卷/ }).count()) !== 0) {
+      throw new Error('F01 损坏信封 + malformed 仍出现交卷按钮')
+    }
+    await page.getByRole('button', { name: '查询提交状态' }).waitFor()
+    await shot(page, 'e2e-09-corrupt-malformed.png')
+    record('E2E-10 F01 损坏信封保护', 'PASS', '仅查询/强警告清除，无选项与交卷')
+    await page.unroute('**/attempt-status')
+    await page.evaluate(
+      ({ uid, pid }) => {
+        window.localStorage.removeItem(`ssre.attemptEnvelope.v1.${uid}.${pid}`)
+      },
+      { uid: userId, pid: thirdPaperId },
+    )
+
+    // 12. F02：手动查询矛盾状态后必须冻结编辑/交卷
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.getByRole('radio').first().waitFor({ timeout: 20000 })
+    await page.route('**/attempts', (route) => {
+      if (route.request().method() !== 'POST') {
+        return route.continue()
+      }
+      return route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 400,
+          msg: '缺少或非法的提交键 Idempotency-Key',
+          data: null,
+        }),
+      })
+    })
+    await page.getByRole('button', { name: /交\s*卷/ }).click()
+    await page.getByRole('button', { name: '确认交卷' }).click()
+    await page.getByText(/提交键异常/).waitFor({ timeout: 20000 })
+    await page.unroute('**/attempts')
+
+    await page.route('**/attempt-status', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 200,
+          msg: '查询成功',
+          data: {
+            exam_paper_id: thirdPaperId,
+            submitted: true,
+            attempt_count: 0,
+            latest_attempt: null,
+          },
+        }),
+      }),
+    )
+    await page.getByRole('button', { name: '查询提交状态' }).click()
+    await page.getByText(/提交状态自相矛盾/).first().waitFor({ timeout: 20000 })
+    if ((await page.getByRole('radiogroup').count()) !== 0) {
+      throw new Error('F02 手动查询矛盾状态后仍可编辑')
+    }
+    if (
+      !(await page.getByRole('button', { name: /交\s*卷/ }).isDisabled())
+    ) {
+      throw new Error('F02 手动查询矛盾状态后交卷按钮仍可点击')
+    }
+    await shot(page, 'e2e-10-manual-query-conflict-frozen.png')
+    record('E2E-11 F02 手动查询矛盾冻结', 'PASS', '无可交互选项，交卷禁用')
+    await page.unroute('**/attempt-status')
+
+    // 13. F04：二次确认后取消旧 timer，旧答案不再复活
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.getByRole('radio').first().waitFor({ timeout: 20000 })
+    await page.getByRole('radio', { name: /选项 B：Question 1 option B/ }).click()
+    await page.getByRole('button', { name: '重新开始' }).click()
+    await page.getByRole('button', { name: '确认重新开始' }).click()
+    await page.waitForTimeout(700)
+    const draftAfterRestart = await page.evaluate(
+      ({ uid, pid }) =>
+        window.localStorage.getItem(`ssre.attemptDraft.v2.${uid}.${pid}`),
+      { uid: userId, pid: thirdPaperId },
+    )
+    if (draftAfterRestart !== null) {
+      throw new Error('F04 重新开始后旧 timer 仍写入了草稿')
+    }
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.getByRole('radio').first().waitFor({ timeout: 20000 })
+    if ((await page.getByRole('radio', { name: /已选/ }).count()) !== 0) {
+      throw new Error('F04 刷新后旧答案复活')
+    }
+    record('E2E-12 F04 重新开始不复活', 'PASS', '草稿为空且刷新后无选中答案')
+
+    // 14. F05：站内返回列表不丢失最后一次作答
+    await page.getByRole('radio', { name: /选项 C：Question 1 option C/ }).click()
+    await page.getByRole('link', { name: /返回听力练习/ }).first().click()
+    await page.waitForURL(/\/student\/listening-papers$/, { timeout: 15000 })
+    await page
+      .locator('tr', { hasText: '第 3 套' })
+      .getByRole('button', { name: /继续作答|开始作答/ })
+      .click()
+    await page.waitForURL(/\/student\/listening-papers\/\d+$/, { timeout: 15000 })
+    await page
+      .getByRole('radio', { name: /选项 C.*已选/ })
+      .waitFor({ timeout: 20000 })
+    record('E2E-13 F05 站内离开保存', 'PASS', '返回列表再进入仍恢复最后一次选择')
+
+    // 15. F06：同题数换批仍提示“汇总对应提交时版本”
+    await page.route('**/attempt-status', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 200,
+          msg: '查询成功',
+          data: {
+            exam_paper_id: thirdPaperId,
+            submitted: true,
+            attempt_count: 1,
+            latest_attempt: {
+              attempt_code: '11111111-2222-4333-8444-555555555555',
+              exam_paper_id: thirdPaperId,
+              submitted_at: '2026-11-16T00:00:00Z',
+              question_count: 4,
+              correct_count: 3,
+              correct_rate: 75,
+              practice_score: {
+                available: false,
+                value: null,
+                max: 249,
+                label: '练习估分，非官方成绩',
+                reason: 'not_standard_25',
+              },
+            },
+          },
+        }),
+      }),
+    )
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.getByText(/汇总对应提交时的试卷版本/).waitFor({ timeout: 20000 })
+    await shot(page, 'e2e-11-same-count-version-notice.png')
+    record('E2E-14 F06 同题数版本提示', 'PASS', '题数相同仍展示汇总版本免责声明')
+    await page.unroute('**/attempt-status')
+
+    // 16. 管理员权限（模块二保持原规则，API-1/3 403）
     await page.goto(`${APP_URL}/login`, { waitUntil: 'networkidle' })
     await page.evaluate(() => localStorage.clear())
     await page.goto(`${APP_URL}/login`, { waitUntil: 'networkidle' })
