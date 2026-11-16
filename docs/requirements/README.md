@@ -8,3 +8,5 @@
 | 模块三：自动数据处理与入库 | [需求 V2.3](module-3/requirements.md) | 2026-11-07 本套文本/扫描后端链路及质量交接 |
 
 需求定义预期行为和验收条件；实际测试结论见 [验收目录](../acceptance/README.md)。后续模块的调研建议须确认后再形成需求基线。
+
+模块三续开发：[确认需求及33项验收](module-3/continuation-20261115.md) · [实施进度](../development/module-3/implementation-20261116.md)。

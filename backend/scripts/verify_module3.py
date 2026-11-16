@@ -134,6 +134,50 @@ class Verification:
 
     def migrations(self, python, url, env):
         migration_env = {**env, "DATABASE_URL": url.render_as_string(False)}
+        # Exercise each deployed ancestry and the unmerged combination. Never
+        # rename/stamp a source revision to bypass its real upgrade path.
+        for label, sources in (
+            ("attempt-source", ["0005_attempt_system"]),
+            ("processing-source", ["0006_module3_invariants"]),
+            ("combined-source", ["0005_attempt_system", "0006_module3_invariants"]),
+        ):
+            for index, source in enumerate(sources):
+                self.run(
+                    f"{label}-{index}",
+                    [python, "-m", "alembic", "upgrade", source],
+                    migration_env,
+                )
+            self.run(
+                f"{label}-fixture",
+                [
+                    python,
+                    "-m",
+                    "scripts.module3_legacy_fixture",
+                    "--source",
+                    "--output",
+                    str(self.output),
+                ],
+                migration_env,
+            )
+            before_source = self.snapshot(url)
+            self.run(
+                f"{label}-to-head",
+                [python, "-m", "alembic", "upgrade", "head"],
+                migration_env,
+            )
+            if self.snapshot(url, before_source) != before_source:
+                raise RuntimeError("Source rows changed during continuation upgrade")
+            self.report.setdefault("source_migration_preservation", {})[label] = {
+                "source_revisions": sources,
+                "before": before_source,
+                "preserved": True,
+            }
+            self.save()
+            self.run(
+                f"{label}-reset",
+                [python, "-m", "alembic", "downgrade", "base"],
+                migration_env,
+            )
         for name, command in (
             ("clean-upgrade", ["upgrade", "head"]),
             ("clean-downgrade", ["downgrade", "base"]),
@@ -414,7 +458,10 @@ def main() -> int:
                 "app/module3",
                 "app/services/processing",
                 "app/api/admin_processing.py",
+                "app/api/admin_processing_workflows.py",
+                "app/db/models_processing_workflows.py",
                 "app/schemas_processing.py",
+                "app/schemas_processing_workflows.py",
                 "tests/module3",
                 "scripts/verify_module3.py",
                 "scripts/run_module3_unittests.py",

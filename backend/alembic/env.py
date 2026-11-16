@@ -12,6 +12,7 @@ from app.db import (  # noqa: F401
     models_attempt,
     models_listening,
     models_processing,
+    models_processing_workflows,
 )
 from app.db.base import Base
 

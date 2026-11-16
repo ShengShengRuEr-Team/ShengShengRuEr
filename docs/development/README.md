@@ -9,3 +9,5 @@
 | 模块三 | [拉取与测试](module-3/testing-guide.md) · [开发计划](module-3/development-plan.md) · [字段映射](module-3/field-mapping.md) · [全链路](module-3/full-pipeline.md) · [验收交接](module-3/independent-acceptance.md) |
 
 交付声明与历史测试结果不代替 [验收记录](../acceptance/README.md)。
+
+模块三续开发：[需求](../requirements/module-3/continuation-20261115.md) · [设计](module-3/continuation-20261115.md) · [实施进度](module-3/implementation-20261116.md)。

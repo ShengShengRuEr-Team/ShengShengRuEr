@@ -12,8 +12,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api import (
     admin,
     admin_listening_papers,
-    attempts,
     admin_processing,
+    admin_processing_workflows,
+    attempts,
     auth,
     listening_papers,
 )
@@ -43,7 +44,13 @@ app.add_middleware(
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
-        content={"code": exc.status_code, "msg": exc.msg, "data": None},
+        content={
+            "code": exc.status_code,
+            "msg": exc.msg,
+            "data": None,
+            **({"error_code": exc.error_code} if exc.error_code else {}),
+            **({"context": exc.context} if exc.context else {}),
+        },
         headers=exc.headers,
     )
 
@@ -85,6 +92,7 @@ app.include_router(listening_papers.router, prefix="/api/v1")
 app.include_router(admin_listening_papers.router, prefix="/api/v1")
 app.include_router(attempts.router, prefix="/api/v1")
 app.include_router(admin_processing.router, prefix="/api/v1")
+app.include_router(admin_processing_workflows.router, prefix="/api/v1")
 
 
 @app.exception_handler(ProcessingError)

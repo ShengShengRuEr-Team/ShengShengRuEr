@@ -6,6 +6,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     Numeric,
@@ -16,6 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
+from app.db import models_processing_workflows  # noqa: F401
 from app.db.base import Base
 
 
@@ -56,12 +58,37 @@ class ProcessingTask(Base):
     __table_args__ = (
         CheckConstraint(
             "state IN ('pending','running','failed',"
-            "'awaiting_confirmation','completed')",
+            "'awaiting_confirmation','completed','stopping','stopped')",
             name="state",
         ),
         Index("ix_processing_tasks_poll", "state", "created_at", "id"),
+        UniqueConstraint(
+            "id",
+            "revision_id",
+            "workflow_id",
+            name="uq_processing_tasks_id_revision_workflow",
+        ),
+        ForeignKeyConstraint(
+            ["revision_id", "workflow_id"],
+            [
+                "processing_workflow_revisions.id",
+                "processing_workflow_revisions.workflow_id",
+            ],
+            use_alter=True,
+            name="fk_processing_task_revision_workflow",
+        ),
+        CheckConstraint(
+            "(workflow_id IS NULL) = (revision_id IS NULL)", name="workflow_binding"
+        ),
     )
     id = Column(UUID(as_uuid=True), primary_key=True)
+    workflow_id = Column(
+        UUID(as_uuid=True), ForeignKey("processing_workflows.id", use_alter=True)
+    )
+    revision_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("processing_workflow_revisions.id", use_alter=True),
+    )
     exam_paper_code = Column(String(64), nullable=False, index=True)
     exam_paper_id = Column(BigInteger, ForeignKey("exam_papers.id"))
     parent_task_id = Column(UUID(as_uuid=True), ForeignKey("processing_tasks.id"))

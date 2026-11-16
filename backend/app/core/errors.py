@@ -3,7 +3,6 @@
 from typing import Any
 
 
-
 class AppError(Exception):
     """可转换为统一响应外壳的业务异常。"""
 
@@ -13,11 +12,15 @@ class AppError(Exception):
         msg: str,
         *,
         headers: dict[str, str] | None = None,
+        error_code: str | None = None,
+        context: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(msg)
         self.status_code = status_code
         self.msg = msg
         self.headers = headers
+        self.error_code = error_code
+        self.context = context
 
 
 def unauthorized(msg: str = "未登录或登录已失效") -> AppError:
