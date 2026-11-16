@@ -1,0 +1,117 @@
+[
+  {
+    "name": "API-DETAIL 定位试卷",
+    "status": "PASS",
+    "detail": "id=1"
+  },
+  {
+    "name": "API-DETAIL 题目 ID",
+    "status": "PASS",
+    "detail": "4 题"
+  },
+  {
+    "name": "API-3 已提交",
+    "status": "PASS",
+    "detail": "count=1"
+  },
+  {
+    "name": "API-3 字段白名单",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "API-3 汇总字段",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "API-3 no-store",
+    "status": "PASS",
+    "detail": "no-store"
+  },
+  {
+    "name": "API-3 无受保护字段",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "API-1 同卷二次提交 E08",
+    "status": "PASS",
+    "detail": "400 本轮同一试卷仅允许提交一次"
+  },
+  {
+    "name": "API-3 未登录 401",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "API-3 管理员 403",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "API-1 管理员 403",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "API-1 缺幂等键 400 E05",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "API-1 缺幂等键文案",
+    "status": "PASS",
+    "detail": "缺少或非法的提交键 Idempotency-Key"
+  },
+  {
+    "name": "API-1 未登录 401 优先",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "API-3 不可访问 404",
+    "status": "PASS",
+    "detail": ""
+  },
+  {
+    "name": "API-3 404 no-store",
+    "status": "PASS",
+    "detail": "no-store"
+  },
+  {
+    "name": "API-3 语义不变量",
+    "status": "PASS",
+    "detail": "submitted === (attempt_count > 0)"
+  },
+  {
+    "name": "API-3 学生隔离（B 无提交）",
+    "status": "PASS",
+    "detail": "count=0"
+  },
+  {
+    "name": "API-1 首次提交 200",
+    "status": "PASS",
+    "detail": "200"
+  },
+  {
+    "name": "API-1 同键同 payload 幂等回放",
+    "status": "PASS",
+    "detail": "code=046e76bb-7eed-4c03-b475-1d1aa85ed7d4"
+  },
+  {
+    "name": "API-1 同键异 payload E09",
+    "status": "PASS",
+    "detail": "400 提交键已用于其他提交，请使用新键"
+  },
+  {
+    "name": "API-1 异键限次 E08",
+    "status": "PASS",
+    "detail": "400 本轮同一试卷仅允许提交一次"
+  },
+  {
+    "name": "API-3 已提交与 API-1 汇总一致",
+    "status": "PASS",
+    "detail": "count=1"
+  }
+]

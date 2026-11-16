@@ -4,26 +4,27 @@
 
 Windows 首次运行请先阅读 [本地启动指南](../docs/development/startup-guide.md)，按顺序准备数据库、后端与前端，并使用锁文件安装依赖。
 
-## 当前状态（2026-11-08）
+## 当前状态（2026-11-16）
 
-模块二前端已实现，共 8 个页面：
+模块二前端 + 作答系统（任务二）已实现：
 
 - **登录页** `/login`：真实登录、错误提示、`?redirect=` 回跳、开放重定向防护
 - **管理端首页** `/admin`：仅 `admin` 角色可进
 - **管理端・试卷列表** `/admin/listening-papers`：三状态列（当前批次 / 检查结果 / 开放状态）、级别与年份本地筛选（写入 URL）、逐卷补调状态、行级失败重试
 - **管理端・试卷详情** `/admin/listening-papers/:id`：原文与题目左右分栏（共享篇章状态）、检查摘要与抽屉、确认/取消开放、试听音频
 - **学生端首页** `/student`：仅 `student` 角色可进，不出现任何管理入口
-- **学生端・听力列表** `/student/listening-papers`：只显示可访问试卷，"查看听力"入口
-- **学生端・整卷页** `/student/listening-papers/:id`：按篇章分页、播放器页面级常驻、题目只读（无作答入口）
+- **学生端・听力列表** `/student/listening-papers`：只显示可访问试卷；入口四态（开始作答 / 继续作答 x/y / 结果待确认 / 已提交），只读本机草稿/信封/标记，不逐卷查 API-3
+- **学生端・整卷页** `/student/listening-papers/:id`：作答（选项/清除/标记/答题卡/翻篇/交卷）、本机草稿与续答、`pending`/`pending-unrecoverable` 冻结、已提交只读汇总 + 中性题号导航、播放器页面级常驻
 - **无权限页** `/403`：展示当前身份，按角色返回首页
 
-关键能力：
+作答系统能力：
 
-- Vite + React + TypeScript + Ant Design 脚手架，可启动、可构建
-- 两套 axios 通道：JSON 接口（`{code,msg,data}` 外壳、Bearer、401/403 分发）与**音频二进制**（`responseType: blob`，绕开 JSON 外壳拦截器）
-- 音频整段下载后本地播放，支持播放/暂停、进度拖动、音量、失败重试；组件卸载/切换时取消请求并释放对象 URL
-- 状态标签严格区分「当前批次 / 检查结果 / 开放许可 / 审核状态」，不合并为"完成"
-- 路由守卫 `RequireAuth` / `RequireRole`；页面级懒加载
+- 作答选择/清除/标记/整卷计数；键盘方向键切换选项，状态不只靠颜色
+- 本机草稿（30 天、每用户 10 份）与独立提交信封（不参与淘汰）；`仅当前浏览器`，不跨设备
+- 提交：`Idempotency-Key` UUIDv4、先写信封并读回、同键重试、E08/E09/E04/未知错误保护、双击防护
+- 终态：先写共享提交标记 → `storage` 事件冻结其他标签 → 删草稿/信封；保存与 `pagehide` flush 前检查终态，防复活
+- API-3 分层解析：已提交有/无汇总、未提交、状态冲突、查询不可用；冲突只保护性冻结
+- 桌面布局：`>=1280` 右侧 sticky 答题卡，`[1024,1280)` 顶部折叠；`<1024` 不承诺
 
 ## 技术栈（版本已锁定）
 
@@ -68,7 +69,12 @@ npm ci --cache .cache/npm --no-audit --no-fund
 npm run typecheck   # 只跑 tsc -b
 npm run build       # tsc -b + vite build
 npm run preview     # 预览 dist/
+npm test            # Vitest（jsdom + RTL），17 files / 117 tests
+npm run test:watch  # 监听模式
 ```
+
+测试依赖：Vitest 5.1.0、jsdom 28.1.0、RTL 16.3.3、user-event 14.6.1、jest-dom 6.9.1。
+不接 CI、不设覆盖率门槛（按需求）。真实浏览器 E2E 脚本：`node scripts/e2e_attempt.mjs`（需要后端 + dev server，见验收指南）。
 
 ## 目录结构
 
@@ -77,7 +83,7 @@ frontend/
 ├─ index.html
 ├─ package.json / package-lock.json
 ├─ tsconfig.json / tsconfig.app.json / tsconfig.node.json
-├─ vite.config.ts
+├─ vite.config.ts / vitest.config.ts
 ├─ .env.example
 └─ src/
    ├─ main.tsx              入口（BrowserRouter + antd reset.css）
@@ -87,9 +93,11 @@ frontend/
    │  ├─ client.ts          JSON 请求实例、外壳解包、Bearer、401/403
    │  ├─ audio.ts           音频二进制通道（Blob、错误体解析、Abort、对象 URL 释放）
    │  ├─ listening.ts       模块二 6 个接口
+   │  ├─ attempts.ts        API-1 提交 / API-3 状态查询
    │  ├─ types.ts           后端 DTO（snake_case）
-   │  ├─ adapters.ts        DTO → camelCase 视图模型
+   │  ├─ adapters.ts        DTO → camelCase 视图模型 + API-3 分层解析
    │  └─ admin.ts / auth.ts / api-error.ts
+   ├─ attempt/              草稿/信封/标记 codec+storage+payload+errors+retention+state+submit
    ├─ auth/                 AuthContext、token 存储、401 跳转
    ├─ constants/            角色与路由常量
    ├─ router/               路由表 + RequireAuth / RequireRole
@@ -97,7 +105,8 @@ frontend/
    ├─ pages/
    │  ├─ LoginPage.tsx / ForbiddenPage.tsx
    │  ├─ admin/             首页、试卷列表、试卷详情
-   │  └─ student/           首页、听力列表、整卷页
+   │  └─ student/           首页、听力列表、整卷页、attempt/ 作答组件
+   ├─ test/                 setup、fixtures、smoke
    ├─ ui/                   播放器、状态标签、加载态、message 桥、退出登录
    └─ utils/                时长格式化、限并发
 ```
@@ -138,7 +147,7 @@ frontend/
 - **状态口径**：`is_current` / `check_passed` / `is_visible` / `review_status` 分别展示；"已确认开放"是许可，不等于"当前可访问"。
 - **筛选**：管理端列表的级别/年份写入 URL query，从详情返回时通过 `location.state.listSearch` 带回。
 - **XSS**：不渲染不可信 HTML；原文按纯文本 + `white-space: pre-wrap`。
-- 本期不引入 ESLint / Prettier，质量门禁为 `tsc -b` + `vite build`。
+- 本期不引入 ESLint / Prettier；质量门禁为 `tsc -b` + `vite build` + `npm test`。
 
 ## 已知限制
 
@@ -147,13 +156,16 @@ frontend/
 3. 取消开放只约束**新请求**，不追溯已打开页面与已下载音频。
 4. 管理端列表状态为**逐卷补调**（`1 + 2N` 次请求），超过 20 套自动降级为"仅基本信息"。
 5. 开发模式（`npm run dev`）下 `React.StrictMode` 会执行两次 effect，音频可能出现两条请求、其中一条 `(canceled)`，**不是重复下载缺陷**；生产构建无此行为。
-6. 学生端不显示答案/解析/正文，是**服务端裁剪**的结果；题目只读，作答功能属任务三。
+6. 学生端不显示答案/解析/正文，是**服务端裁剪**的结果；作答后进入只读，无“再答一次”。
+7. 作答草稿只保存在 `localStorage`（`ssre.attempt*`），不跨设备；共享设备可被开发者工具查看。
+8. 同一试卷仅可提交一次（后端 `ATTEMPT_LIMIT_PER_PAPER = 1`）；幂等键保留期未知，自动重试关闭，需手动同键重试。
+9. `<1024px` 不承诺；手机/平板不在本轮验收范围。
 
 ## 相关文档
 
 - 需求与验收卡（F01–F18）：`docs/requirements/module-2/frontend-requirements.md`
 - 页面原型（线框示意）：`docs/requirements/module-2/frontend-prototype.html`
-- 开发与实现记录：`docs/acceptance/module-2/frontend-implementation.md`
-- 验收交接说明：`docs/acceptance/module-2/frontend-handoff.md`
-- 独立验收报告：`docs/acceptance/module-2/frontend-acceptance-20261109.md`
-- 前端验收截图：`docs/acceptance/module-2/screenshots/`
+- 作答系统需求口径同步：`docs/requirements/attempt-system/attempt-system-sync-20261116.md`
+- 开发与实现记录：`docs/development/attempt-system/api.md`、`implementation.md`
+- 作答系统验收交接：`docs/acceptance/attempt-system/handoff.md`
+- 前端验收截图：`docs/acceptance/module-2/screenshots/`、`docs/acceptance/attempt-system/screenshots/`

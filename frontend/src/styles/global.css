@@ -322,3 +322,269 @@ body {
   padding-top: 10px;
   border-top: 1px dashed #f0f0f0;
 }
+
+/* ---------- 作答系统（P-02–P-07） ---------- */
+
+.attempt-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.attempt-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 16px;
+  align-items: start;
+}
+
+.attempt-main {
+  min-width: 0;
+}
+
+.attempt-side {
+  min-width: 0;
+}
+
+.attempt-side-sticky {
+  position: sticky;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+}
+
+@media (max-width: 1279px) {
+  .attempt-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 选项行：整行可点、键盘可聚焦；选中态不只靠颜色（图标 + aria-checked）。 */
+.option-item--interactive {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.option-item--interactive:hover:not(:disabled) {
+  border-color: #91caff;
+  background: #f0f7ff;
+}
+
+.option-item--interactive:focus-visible {
+  outline: 2px solid #1677ff;
+  outline-offset: 2px;
+}
+
+.option-item--interactive:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.option-item--selected {
+  border-color: #1677ff;
+  background: #e6f4ff;
+  font-weight: 600;
+}
+
+.option-text {
+  flex: 1;
+  word-break: break-word;
+}
+
+.option-check {
+  color: #1677ff;
+}
+
+.option-item--readonly {
+  cursor: default;
+  padding: 4px 0;
+}
+
+.question-actions {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #f0f0f0;
+}
+
+.question-card--readonly {
+  background: #fafafa;
+}
+
+/* 答题卡 */
+.answer-sheet {
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.answer-sheet-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.answer-sheet-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.answer-sheet-group-title {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  color: #595959;
+  font-size: 13px;
+}
+
+.answer-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 6px;
+}
+
+.answer-sheet-item {
+  position: relative;
+  min-height: 34px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.answer-sheet-item:focus-visible {
+  outline: 2px solid #1677ff;
+  outline-offset: 2px;
+}
+
+.answer-sheet-item--answered {
+  border-color: #52c41a;
+  background: #f6ffed;
+}
+
+.answer-sheet-item--unanswered {
+  background: #fff;
+}
+
+.answer-sheet-item--flagged {
+  border-style: dashed;
+  border-color: #faad14;
+}
+
+.answer-sheet-item--current {
+  border-width: 2px;
+  border-color: #1677ff;
+  font-weight: 700;
+}
+
+.answer-sheet-item--neutral {
+  cursor: default;
+}
+
+.answer-sheet-flag {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  font-size: 10px;
+  color: #faad14;
+}
+
+.answer-sheet-legend {
+  border-top: 1px dashed #f0f0f0;
+  padding-top: 8px;
+  font-size: 12px;
+  color: #595959;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
+  border-radius: 2px;
+  border: 1px solid #d9d9d9;
+  vertical-align: middle;
+}
+
+.legend-dot--answered {
+  background: #52c41a;
+  border-color: #52c41a;
+}
+
+.legend-dot--unanswered {
+  background: #fff;
+}
+
+.legend-dot--current {
+  border: 2px solid #1677ff;
+}
+
+.answer-sheet-collapse {
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px 12px;
+}
+
+.answer-sheet-collapse summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+/* 底部提交栏：固定在内容流底部，不被遮挡 */
+.submit-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* 冻结/汇总/清除态 */
+.pending-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.retry-policy-notice {
+  padding: 0 2px;
+}
+
+.submit-summary-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+

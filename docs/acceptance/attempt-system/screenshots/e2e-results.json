@@ -1,0 +1,77 @@
+{
+  "results": [
+    {
+      "name": "E2E-01 登录",
+      "status": "PASS",
+      "detail": "http://127.0.0.1:5173/student"
+    },
+    {
+      "name": "E2E-01b 列表入口",
+      "status": "PASS",
+      "detail": "开始作答"
+    },
+    {
+      "name": "E2E-01c 作答门禁",
+      "status": "PASS",
+      "detail": "详情 + API-3 完成后才出现选项"
+    },
+    {
+      "name": "E2E-01d 选择/标记/计数",
+      "status": "PASS",
+      "detail": "已答 3/4、标记 1"
+    },
+    {
+      "name": "E2E-02 刷新恢复",
+      "status": "PASS",
+      "detail": "答案/标记/篇恢复"
+    },
+    {
+      "name": "E2E-03 提交成功与汇总",
+      "status": "PASS",
+      "detail": "正确 2/4、50%"
+    },
+    {
+      "name": "E2E-04 已提交刷新只读",
+      "status": "PASS",
+      "detail": "无选项/无交卷/汇总保留"
+    },
+    {
+      "name": "E2E-05 受保护字段与提交标记",
+      "status": "PASS",
+      "detail": "无答案/解析/正文；标记已写入"
+    },
+    {
+      "name": "E2E-07 多标签终态",
+      "status": "PASS",
+      "detail": "A 成功时 B 已保存草稿，B 冻结且刷新只读"
+    },
+    {
+      "name": "E2E-08 桌面断点",
+      "status": "PASS",
+      "detail": "1280 / 1024 提交栏可见"
+    },
+    {
+      "name": "E2E-06 管理员登录",
+      "status": "PASS",
+      "detail": "http://127.0.0.1:5173/admin"
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
+    "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
+    "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
+    "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
+    "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead."
+  ]
+}

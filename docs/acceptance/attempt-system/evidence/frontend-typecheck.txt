@@ -1,0 +1,5 @@
+# 类型检查证据（无输出即通过）
+# 命令：cd frontend && npx tsc -b
+# 时间：2026-11-16 12:38（Asia/Shanghai）
+# 结果：exit=0，无输出
+# 工具链：TypeScript 6.0.3；tsconfig 引用 tsconfig.app.json / tsconfig.node.json

@@ -1,0 +1,2177 @@
+I001 [*] Import block is un-sorted or un-formatted
+  --> alembic\env.py:3:1
+   |
+ 1 |   """Alembic 迁移环境。"""
+ 2 |
+ 3 | / from logging.config import fileConfig
+ 4 | |
+ 5 | | from alembic import context
+ 6 | | from sqlalchemy import engine_from_config, pool
+ 7 | |
+ 8 | | from app.core.config import get_settings
+ 9 | | from app.db import models  # noqa: F401  确保所有模型注册到 metadata
+10 | | from app.db import models_attempt  # noqa: F401  作答系统模型注册到 metadata
+11 | | from app.db import models_listening  # noqa: F401  模块二业务模型注册到 metadata
+12 | | from app.db.base import Base
+   | |____________________________^
+13 |
+14 |   config = context.config
+   |
+help: Organize imports
+   |
+8  | from app.core.config import get_settings
+   - from app.db import models  # noqa: F401  确保所有模型注册到 metadata
+   - from app.db import models_attempt  # noqa: F401  作答系统模型注册到 metadata
+   - from app.db import models_listening  # noqa: F401  模块二业务模型注册到 metadata
+9  + from app.db import (
+10 +     models,  # noqa: F401  确保所有模型注册到 metadata
+11 +     models_attempt,  # noqa: F401  作答系统模型注册到 metadata
+12 +     models_listening,  # noqa: F401  模块二业务模型注册到 metadata
+13 + )
+14 | from app.db.base import Base
+   |
+
+E501 Line too long (90 > 88)
+  --> app\api\admin_listening_papers.py:68:89
+   |
+66 |     if payload.action == "confirm":
+67 |         visibility, check = visibility_service.confirm_visible(
+68 |             db, paper, batch, current_user.id, payload.reason, settings.audio_storage_path
+   |                                                                                         ^^
+69 |         )
+70 |     else:
+   |
+
+E501 Line too long (100 > 88)
+   --> app\api\admin_listening_papers.py:102:89
+    |
+100 |         return ok(
+101 |             CheckResultData(
+102 |                 exam_paper_id=paper.id, batch_code=None, is_passed=False, issues=[], checked_at=None
+    |                                                                                         ^^^^^^^^^^^^
+103 |             )
+104 |         )
+    |
+
+E501 Line too long (96 > 88)
+  --> app\api\listening_papers.py:52:89
+   |
+52 | @router.get("/listening-papers/{exam_paper_id}", response_model=ApiResponse[PaperDetailStudent])
+   |                                                                                         ^^^^^^^^
+53 | def get_listening_paper(
+54 |     exam_paper_id: int,
+   |
+
+E501 Line too long (93 > 88)
+  --> app\db\models_listening.py:41:77
+   |
+39 |     __table_args__ = (
+40 |         CheckConstraint(
+41 |             "review_status IN ('待审核', '需修改', '待确认', '已通过')", name="review_status"
+   |                                                                                         ^^^^^
+42 |         ),
+43 |     )
+   |
+
+E501 Line too long (98 > 88)
+  --> app\db\models_listening.py:52:89
+   |
+50 |     storage_key: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+51 |     duration_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
+52 |     format: Mapped[str] = mapped_column(String(16), nullable=False, default="", server_default="")
+   |                                                                                         ^^^^^^^^^^
+53 |     mime_type: Mapped[str] = mapped_column(String(64), nullable=False)
+54 |     file_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+   |
+
+E501 Line too long (99 > 88)
+  --> app\db\models_listening.py:59:89
+   |
+57 |     )
+58 |     # 16 表基线：音频版本与派生关系（原始/剪辑/降噪/转码）。
+59 |     version_no: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+   |                                                                                         ^^^^^^^^^^^
+60 |     variant_type: Mapped[str] = mapped_column(
+61 |         String(32), nullable=False, default="原始", server_default="原始"
+   |
+
+E501 Line too long (93 > 88)
+  --> app\db\models_listening.py:78:77
+   |
+76 |     __table_args__ = (
+77 |         CheckConstraint(
+78 |             "review_status IN ('待审核', '需修改', '待确认', '已通过')", name="review_status"
+   |                                                                                         ^^^^^
+79 |         ),
+80 |     )
+   |
+
+E501 Line too long (89 > 88)
+  --> app\db\models_listening.py:83:89
+   |
+82 |     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+83 |     exam_paper_code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+   |                                                                                         ^
+84 |     exam_level: Mapped[str] = mapped_column(String(32), nullable=False)
+85 |     exam_year: Mapped[int] = mapped_column(Integer, nullable=False)
+   |
+
+E501 Line too long (93 > 88)
+  --> app\db\models_listening.py:97:89
+   |
+95 |     # 避免「末尾整题缺失」这类不完整数据被当成整卷（验收报告 F02）。
+96 |     expected_question_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+97 |     expected_question_count_source: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+   |                                                                                         ^^^^^
+98 |     # 16 表基线：来源说明与题号/选项映射来源。
+99 |     source: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+   |
+
+E501 Line too long (92 > 88)
+   --> app\db\models_listening.py:99:89
+    |
+ 97 |     expected_question_count_source: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+ 98 |     # 16 表基线：来源说明与题号/选项映射来源。
+ 99 |     source: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    |                                                                                         ^^^^
+100 |     mapping_source: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+101 |     collector: Mapped[str] = mapped_column(
+    |
+
+E501 Line too long (100 > 88)
+   --> app\db\models_listening.py:100:89
+    |
+ 98 |     # 16 表基线：来源说明与题号/选项映射来源。
+ 99 |     source: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+100 |     mapping_source: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    |                                                                                         ^^^^^^^^^^^^
+101 |     collector: Mapped[str] = mapped_column(
+102 |         String(64), nullable=False, default="", server_default=""
+    |
+
+E501 Line too long (93 > 88)
+   --> app\db\models_listening.py:161:77
+    |
+159 |     __table_args__ = (
+160 |         CheckConstraint(
+161 |             "review_status IN ('待审核', '需修改', '待确认', '已通过')", name="review_status"
+    |                                                                                         ^^^^^
+162 |         ),
+163 |     )
+    |
+
+E501 Line too long (103 > 88)
+   --> app\db\models_listening.py:170:89
+    |
+168 |     )
+169 |     content_group_code: Mapped[str] = mapped_column(String(64), nullable=False)
+170 |     group_name: Mapped[str] = mapped_column(String(255), nullable=False, default="", server_default="")
+    |                                                                                         ^^^^^^^^^^^^^^^
+171 |     exam_level_scope: Mapped[str] = mapped_column(String(16), nullable=False, default="", server_default="")
+172 |     content_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    |
+
+E501 Line too long (108 > 88)
+   --> app\db\models_listening.py:171:89
+    |
+169 |     content_group_code: Mapped[str] = mapped_column(String(64), nullable=False)
+170 |     group_name: Mapped[str] = mapped_column(String(255), nullable=False, default="", server_default="")
+171 |     exam_level_scope: Mapped[str] = mapped_column(String(16), nullable=False, default="", server_default="")
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^
+172 |     content_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+173 |     collector: Mapped[str] = mapped_column(
+    |
+
+E501 Line too long (93 > 88)
+   --> app\db\models_listening.py:189:77
+    |
+187 |         UniqueConstraint("batch_id", "passage_index"),
+188 |         CheckConstraint(
+189 |             "review_status IN ('待审核', '需修改', '待确认', '已通过')", name="review_status"
+    |                                                                                         ^^^^^
+190 |         ),
+191 |     )
+    |
+
+E501 Line too long (104 > 88)
+   --> app\db\models_listening.py:205:89
+    |
+203 |     passage_code: Mapped[str] = mapped_column(String(64), nullable=False)
+204 |     passage_index: Mapped[int] = mapped_column(Integer, nullable=False)
+205 |     passage_type: Mapped[str] = mapped_column(String(32), nullable=False, default="", server_default="")
+    |                                                                                         ^^^^^^^^^^^^^^^^
+206 |     topic: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+207 |     # 16 表基线：场景与口音（口音为标注字段，未判定时记「未判定」）。
+    |
+
+E501 Line too long (91 > 88)
+   --> app\db\models_listening.py:206:89
+    |
+204 |     passage_index: Mapped[int] = mapped_column(Integer, nullable=False)
+205 |     passage_type: Mapped[str] = mapped_column(String(32), nullable=False, default="", server_default="")
+206 |     topic: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    |                                                                                         ^^^
+207 |     # 16 表基线：场景与口音（口音为标注字段，未判定时记「未判定」）。
+208 |     scene: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    |
+
+E501 Line too long (91 > 88)
+   --> app\db\models_listening.py:208:89
+    |
+206 |     topic: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+207 |     # 16 表基线：场景与口音（口音为标注字段，未判定时记「未判定」）。
+208 |     scene: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    |                                                                                         ^^^
+209 |     accent: Mapped[str] = mapped_column(
+210 |         String(32), nullable=False, default="未判定", server_default="未判定"
+    |
+
+E501 Line too long (93 > 88)
+   --> app\db\models_listening.py:233:77
+    |
+231 |         CheckConstraint("segment_type IN ('body', 'question')", name="segment_type"),
+232 |         CheckConstraint(
+233 |             "review_status IN ('待审核', '需修改', '待确认', '已通过')", name="review_status"
+    |                                                                                         ^^^^^
+234 |         ),
+235 |     )
+    |
+
+E501 Line too long (104 > 88)
+   --> app\db\models_listening.py:247:89
+    |
+245 |     segment_type: Mapped[str] = mapped_column(String(32), nullable=False)
+246 |     text: Mapped[str] = mapped_column(Text, nullable=False)
+247 |     speaker_code: Mapped[str] = mapped_column(String(64), nullable=False, default="", server_default="")
+    |                                                                                         ^^^^^^^^^^^^^^^^
+248 |     start_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
+249 |     end_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    |
+
+E501 Line too long (89 > 88)
+   --> app\db\models_listening.py:264:89
+    |
+262 |     __tablename__ = "questions"
+263 |     __table_args__ = (
+264 |         CheckConstraint("correct_option IN ('A', 'B', 'C', 'D')", name="correct_option"),
+    |                                                                                         ^
+265 |         CheckConstraint(
+266 |             "content_state IN ('待补齐', '可用', '停用')", name="content_state"
+    |
+
+E501 Line too long (93 > 88)
+   --> app\db\models_listening.py:269:77
+    |
+267 |         ),
+268 |         CheckConstraint(
+269 |             "review_status IN ('待审核', '需修改', '待确认', '已通过')", name="review_status"
+    |                                                                                         ^^^^^
+270 |         ),
+271 |     )
+    |
+
+E501 Line too long (92 > 88)
+   --> app\db\models_listening.py:282:89
+    |
+280 |     question_code: Mapped[str] = mapped_column(String(64), nullable=False)
+281 |     question_segment_id: Mapped[int | None] = mapped_column(
+282 |         BigInteger, ForeignKey("transcript_segments.id", ondelete="SET NULL"), nullable=True
+    |                                                                                         ^^^^
+283 |     )
+284 |     # 来源卷全卷题号（16 表基线 question_index）；目标卷题号见 presentations.question_no。
+    |
+
+E501 Line too long (90 > 88)
+   --> app\db\models_listening.py:284:70
+    |
+282 |         BigInteger, ForeignKey("transcript_segments.id", ondelete="SET NULL"), nullable=True
+283 |     )
+284 |     # 来源卷全卷题号（16 表基线 question_index）；目标卷题号见 presentations.question_no。
+    |                                                                                         ^^
+285 |     question_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+286 |     question_text: Mapped[str] = mapped_column(Text, nullable=False)
+    |
+
+E501 Line too long (93 > 88)
+   --> app\db\models_listening.py:315:77
+    |
+313 |         UniqueConstraint("batch_id", "question_no"),
+314 |         CheckConstraint(
+315 |             "review_status IN ('待审核', '需修改', '待确认', '已通过')", name="review_status"
+    |                                                                                         ^^^^^
+316 |         ),
+317 |     )
+    |
+
+E501 Line too long (100 > 88)
+   --> app\db\models_listening.py:333:89
+    |
+331 |         String(16), nullable=False, default="未知", server_default="未知"
+332 |     )
+333 |     mapping_source: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    |                                                                                         ^^^^^^^^^^^^
+334 |     option_letter_mapping: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+335 |     collector: Mapped[str] = mapped_column(
+    |
+
+E501 Line too long (97 > 88)
+   --> app\db\models_listening.py:381:89
+    |
+379 |         BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+380 |     )
+381 |     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    |                                                                                         ^^^^^^^^^
+382 |     cancelled_by: Mapped[int | None] = mapped_column(
+383 |         BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    |
+
+E501 Line too long (97 > 88)
+   --> app\db\models_listening.py:385:89
+    |
+383 |         BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+384 |     )
+385 |     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    |                                                                                         ^^^^^^^^^
+386 |     created_at: Mapped[datetime] = mapped_column(
+387 |         DateTime(timezone=True), nullable=False, server_default=func.now()
+    |
+
+E501 Line too long (99 > 88)
+   --> app\db\models_listening.py:411:89
+    |
+409 |         BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+410 |     )
+411 |     reason: Mapped[str] = mapped_column(String(255), nullable=False, default="", server_default="")
+    |                                                                                         ^^^^^^^^^^^
+412 |     created_at: Mapped[datetime] = mapped_column(
+413 |         DateTime(timezone=True), nullable=False, server_default=func.now()
+    |
+
+E501 Line too long (90 > 88)
+ --> app\import_module2.py:5:85
+  |
+3 | 用法（在 backend 目录）::
+4 |
+5 |     python -m app.import_module2 --input <import_payload.json> --audio-file <真实音频.m4a>
+  |                                                                                         ^^
+6 |
+7 | 特性（对齐需求 M2-B07 / M2-B08、验收 B02/B09/B13）：
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> app\import_module2.py:19:1
+   |
+17 |   """
+18 |
+19 | / from __future__ import annotations
+20 | |
+21 | | import argparse
+22 | | import hashlib
+23 | | import json
+24 | | import os
+25 | | import re
+26 | | import shutil
+27 | | import sys
+28 | | import uuid
+29 | | from datetime import datetime, timezone
+30 | | from pathlib import Path
+31 | |
+32 | | from sqlalchemy import select
+33 | |
+34 | | from app.core.config import get_settings
+35 | | from app.db.base import SessionLocal
+36 | | from app.db import models_listening as m
+   | |________________________________________^
+37 |
+38 |   # 采集来源默认标识：本套数据来自试填工作簿的人工整理导入，未经人工核听，
+   |
+help: Organize imports
+   |
+34 | from app.core.config import get_settings
+35 + from app.db import models_listening as m
+36 | from app.db.base import SessionLocal
+   - from app.db import models_listening as m
+37 |
+   |
+
+E501 Line too long (97 > 88)
+  --> app\import_module2.py:85:74
+   |
+83 |                     for key in ("document", "sha256", "locator"))
+84 |             and re.fullmatch(r"[0-9a-f]{64}", source.get("sha256", "")) is not None,
+85 |             "应有题量须附原卷核对依据 expected_question_count_source：document、sha256、locator",
+   |                                                                                         ^^^^^^^^^
+86 |         )
+87 |     for field in ("exam_paper_code", "exam_level", "exam_year", "exam_month", "paper_set"):
+   |
+
+E501 Line too long (91 > 88)
+  --> app\import_module2.py:87:89
+   |
+85 |             "应有题量须附原卷核对依据 expected_question_count_source：document、sha256、locator",
+86 |         )
+87 |     for field in ("exam_paper_code", "exam_level", "exam_year", "exam_month", "paper_set"):
+   |                                                                                         ^^^
+88 |         _require(paper.get(field) not in (None, ""), f"exam_paper 缺少字段：{field}")
+89 |     audio = payload["audio"]
+   |
+
+E501 Line too long (95 > 88)
+   --> app\import_module2.py:140:89
+    |
+138 |     if declared is None:
+139 |         return
+140 |     if paper.expected_question_count is not None and declared != paper.expected_question_count:
+    |                                                                                         ^^^^^^^
+141 |         raise ValueError(
+142 |             f"应有题量与已固定值冲突：已固定 {paper.expected_question_count} 题，"
+    |
+
+E501 Line too long (92 > 88)
+   --> app\import_module2.py:146:89
+    |
+144 |         )
+145 |     if paper.expected_question_count_source and (
+146 |         paper.expected_question_count_source != paper_data["expected_question_count_source"]
+    |                                                                                         ^^^^
+147 |     ):
+148 |         raise ValueError("应有题量来源与已固定依据冲突")
+    |
+
+E501 Line too long (91 > 88)
+   --> app\import_module2.py:172:89
+    |
+171 |     requested_key = payload["audio"]["storage_key"]
+172 |     destination, needs_write = _resolve_audio_target(audio_dir, requested_key, actual_hash)
+    |                                                                                         ^^^
+173 |     # 实际落库的键可能因内容冲突而与申报值不同，以落盘结果为准。
+174 |     storage_key = destination.name
+    |
+
+E501 Line too long (93 > 88)
+   --> app\import_module2.py:211:89
+    |
+209 |             audio_data = payload["audio"]
+210 |             audio_rec = db.scalar(
+211 |                 select(m.AudioFile).where(m.AudioFile.audio_code == audio_data["audio_code"])
+    |                                                                                         ^^^^^
+212 |             )
+213 |             if audio_rec is not None:
+    |
+
+E501 Line too long (101 > 88)
+   --> app\import_module2.py:219:81
+    |
+217 |                 if audio_rec.file_hash != expected_hash:
+218 |                     conflicts.append(
+219 |                         f"文件哈希 现有 {audio_rec.file_hash[:16]}... / 申报 {expected_hash[:16]}..."
+    |                                                                                         ^^^^^^^^^^^^^
+220 |                     )
+221 |                 if audio_rec.storage_key != storage_key:
+    |
+
+E501 Line too long (99 > 88)
+   --> app\import_module2.py:227:83
+    |
+225 |                 if audio_rec.duration_ms != audio_data["duration_ms"]:
+226 |                     conflicts.append(
+227 |                         f"时长 现有 {audio_rec.duration_ms}ms / 申报 {audio_data['duration_ms']}ms"
+    |                                                                                         ^^^^^^^^^^^
+228 |                     )
+229 |                 if conflicts:
+    |
+
+E501 Line too long (97 > 88)
+   --> app\import_module2.py:231:72
+    |
+229 |                 if conflicts:
+230 |                     raise ValueError(
+231 |                         f"音频编码 {audio_data['audio_code']} 已被另一份文件占用，拒绝静默复用："
+    |                                                                                         ^^^^^^^^^
+232 |                         + "；".join(conflicts)
+233 |                         + "。音频编码是唯一身份，内容变更（如剪辑、降噪）请使用新的 audio_code。"
+    |
+
+E501 Line too long (97 > 88)
+   --> app\import_module2.py:233:61
+    |
+231 |                         f"音频编码 {audio_data['audio_code']} 已被另一份文件占用，拒绝静默复用："
+232 |                         + "；".join(conflicts)
+233 |                         + "。音频编码是唯一身份，内容变更（如剪辑、降噪）请使用新的 audio_code。"
+    |                                                                                         ^^^^^^^^^
+234 |                     )
+235 |             if audio_rec is None:
+    |
+
+E501 Line too long (92 > 88)
+   --> app\import_module2.py:287:89
+    |
+285 |                     "audio_file_hash": expected_hash,
+286 |                     "duration_ms": audio_data["duration_ms"],
+287 |                     "source_xlsx_sha256": payload.get("meta", {}).get("source_xlsx_sha256"),
+    |                                                                                         ^^^^
+288 |                     "expected_question_count": paper_rec.expected_question_count,
+289 |                     "expected_question_count_source": paper_rec.expected_question_count_source,
+    |
+
+E501 Line too long (95 > 88)
+   --> app\import_module2.py:289:89
+    |
+287 |                     "source_xlsx_sha256": payload.get("meta", {}).get("source_xlsx_sha256"),
+288 |                     "expected_question_count": paper_rec.expected_question_count,
+289 |                     "expected_question_count_source": paper_rec.expected_question_count_source,
+    |                                                                                         ^^^^^^^
+290 |                 },
+291 |             )
+    |
+
+UP017 [*] Use `datetime.UTC` alias
+   --> app\import_module2.py:395:46
+    |
+393 |             batch.status = "active"
+394 |             batch.is_current = True
+395 |             batch.imported_at = datetime.now(timezone.utc)
+    |                                              ^^^^^^^^^^^^
+396 |
+397 |             # 先完成 flush，再发布文件。硬链接以排他方式新建，永不覆盖已有目标。
+    |
+help: Convert to `datetime.UTC` alias
+    |
+28  | import uuid
+    - from datetime import datetime, timezone
+29  + from datetime import datetime, timezone, UTC
+30  | from pathlib import Path
+--------------------------------------------------------------------------------
+394 |             batch.is_current = True
+    -             batch.imported_at = datetime.now(timezone.utc)
+395 +             batch.imported_at = datetime.now(UTC)
+396 |
+    |
+
+E501 Line too long (95 > 88)
+   --> app\import_module2.py:405:89
+    |
+403 |                     os.link(staged, destination)
+404 |                 except FileExistsError:
+405 |                     _require(destination.is_file() and sha256_file(destination) == actual_hash,
+    |                                                                                         ^^^^^^^
+406 |                              "音频目标在导入期间发生冲突，拒绝覆盖")
+407 |                 else:
+    |
+
+E501 Line too long (92 > 88)
+   --> app\import_module2.py:442:82
+    |
+440 | def main() -> int:
+441 |     parser = argparse.ArgumentParser(description="导入模块二结构化样例与真实音频")
+442 |     parser.add_argument("--input", required=True, help="结构化导入文件 import_payload.json")
+    |                                                                                         ^^^^
+443 |     parser.add_argument("--audio-file", required=True, help="真实音频文件（与来源清单哈希一致）")
+444 |     args = parser.parse_args()
+    |
+
+E501 Line too long (97 > 88)
+   --> app\import_module2.py:443:76
+    |
+441 |     parser = argparse.ArgumentParser(description="导入模块二结构化样例与真实音频")
+442 |     parser.add_argument("--input", required=True, help="结构化导入文件 import_payload.json")
+443 |     parser.add_argument("--audio-file", required=True, help="真实音频文件（与来源清单哈希一致）")
+    |                                                                                          ^^^^^^^^
+444 |     args = parser.parse_args()
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> app\import_module2.py:448:31
+    |
+446 |     try:
+447 |         result = run_import(Path(args.input), Path(args.audio_file))
+448 |     except Exception as exc:  # noqa: BLE001 - CLI 需把可定位错误打印出来
+    |                               ^^^^^^^^^^^^^^
+449 |         print(f"导入失败：{exc}", file=sys.stderr)
+450 |         return 1
+    |
+help: Remove unused `noqa` directive
+    |
+447 |         result = run_import(Path(args.input), Path(args.audio_file))
+    -     except Exception as exc:  # noqa: BLE001 - CLI 需把可定位错误打印出来
+448 +     except Exception as exc:
+449 |         print(f"导入失败：{exc}", file=sys.stderr)
+    |
+
+E501 Line too long (91 > 88)
+  --> app\repositories\attempt_content.py:74:66
+   |
+72 |     db: Session, exam_paper_id: int
+73 | ) -> tuple[bool, ExamPaper | None, ImportBatch | None]:
+74 |     """返回 ``(visible, paper, batch)``；三条件（当前批次 ∧ 检查通过 ∧ 确认可见）缺一不可。
+   |                                                                                          ^^
+75 |
+76 |     这是提交链的第一步业务判定（6b），必须先于身份分类/内容核对，避免
+   |
+
+E501 Line too long (105 > 88)
+  --> app\repositories\listening.py:87:89
+   |
+85 | # 学生可见性判定
+86 | # --------------------------------------------------------------------------- #
+87 | def student_access(db: Session, exam_paper_id: int) -> tuple[bool, ExamPaper | None, ImportBatch | None]:
+   |                                                                                         ^^^^^^^^^^^^^^^^^
+88 |     """返回 (是否可见, 试卷, 当前批次)。三态缺一即不可见。"""
+89 |     paper = get_paper(db, exam_paper_id)
+   |
+
+E501 Line too long (89 > 88)
+  --> app\repositories\listening.py:92:89
+   |
+90 |     if paper is None:
+91 |         return False, None, None
+92 |     if paper.expected_question_count is None or not paper.expected_question_count_source:
+   |                                                                                         ^
+93 |         return False, paper, None
+94 |     batch = get_current_batch(db, exam_paper_id)
+   |
+
+E501 Line too long (94 > 88)
+   --> app\repositories\listening.py:106:89
+    |
+106 | def list_papers(db: Session, *, is_admin: bool) -> list[tuple[ExamPaper, ImportBatch | None]]:
+    |                                                                                         ^^^^^^
+107 |     """管理员看全部；学生只保留满足可见条件的试卷。"""
+108 |     papers = db.scalars(select(ExamPaper).order_by(ExamPaper.id)).all()
+    |
+
+E501 Line too long (91 > 88)
+   --> app\repositories\listening.py:125:89
+    |
+123 | def _load_batch_content(db: Session, batch_id: int):
+124 |     passages = db.scalars(
+125 |         select(Passage).where(Passage.batch_id == batch_id).order_by(Passage.passage_index)
+    |                                                                                         ^^^
+126 |     ).all()
+127 |     passage_ids = [p.id for p in passages]
+    |
+
+F841 Local variable `passage_ids` is assigned to but never used
+   --> app\repositories\listening.py:127:5
+    |
+125 |         select(Passage).where(Passage.batch_id == batch_id).order_by(Passage.passage_index)
+126 |     ).all()
+127 |     passage_ids = [p.id for p in passages]
+    |     ^^^^^^^^^^^
+128 |     segments = db.scalars(
+129 |         select(TranscriptSegment)
+    |
+help: Remove assignment to unused variable `passage_ids`
+    |
+126 |     ).all()
+    -     passage_ids = [p.id for p in passages]
+127 +     [p.id for p in passages]
+128 |     segments = db.scalars(
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+E501 Line too long (99 > 88)
+   --> app\repositories\listening.py:151:89
+    |
+149 |     # 题目按原卷题号排序
+150 |     presentation_by_question = {p.question_id: p for p in presentations}
+151 |     return passages, seg_by_passage, questions_by_passage, presentation_by_question, question_by_id
+    |                                                                                         ^^^^^^^^^^^
+
+E501 Line too long (92 > 88)
+   --> app\repositories\listening.py:168:89
+    |
+166 |     for paper_letter in BASE_OPTIONS:  # 原卷字母顺序 A-D
+167 |         base_letter = mapping.get(paper_letter, paper_letter)
+168 |         options.append({"label": paper_letter, "text": base_by_letter.get(base_letter, "")})
+    |                                                                                         ^^^^
+169 |     return options
+    |
+
+RUF059 Unpacked variable `seg_by_passage` is never used
+   --> app\repositories\listening.py:232:15
+    |
+231 | def assemble_student_detail(db: Session, paper: ExamPaper, batch: ImportBatch) -> dict:
+232 |     passages, seg_by_passage, questions_by_passage, presentation_by_question, _ = (
+    |               ^^^^^^^^^^^^^^
+233 |         _load_batch_content(db, batch.id)
+234 |     )
+    |
+help: Prefix it with an underscore or any other dummy variable pattern
+    |
+231 | def assemble_student_detail(db: Session, paper: ExamPaper, batch: ImportBatch) -> dict:
+    -     passages, seg_by_passage, questions_by_passage, presentation_by_question, _ = (
+232 +     passages, _seg_by_passage, questions_by_passage, presentation_by_question, _ = (
+233 |         _load_batch_content(db, batch.id)
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+E501 Line too long (96 > 88)
+   --> app\repositories\listening.py:374:89
+    |
+372 |             select(Presentation).where(Presentation.batch_id == batch.id).limit(1)
+373 |         )
+374 |         base["mapping_source"] = first_presentation.mapping_source if first_presentation else ""
+    |                                                                                         ^^^^^^^^
+375 |     return base
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> app\services\attempts.py:380:42
+    |
+378 |     try:
+379 |         db.rollback()
+380 |     except Exception as rollback_error:  # noqa: BLE001 - 安全记录状态，不掩盖 COMMIT 未知
+    |                                          ^^^^^^^^^^^^^^
+381 |         _safe_log(
+382 |             f"{stage}_rollback_failure",
+    |
+help: Remove unused `noqa` directive
+    |
+379 |         db.rollback()
+    -     except Exception as rollback_error:  # noqa: BLE001 - 安全记录状态，不掩盖 COMMIT 未知
+380 +     except Exception as rollback_error:
+381 |         _safe_log(
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> app\services\attempts.py:402:28
+    |
+400 |         try:
+401 |             db.rollback()
+402 |         except Exception:  # noqa: BLE001 - 重读失败只记录安全状态
+    |                            ^^^^^^^^^^^^^^
+403 |             pass
+404 |         _safe_log(
+    |
+help: Remove unused `noqa` directive
+    |
+401 |             db.rollback()
+    -         except Exception:  # noqa: BLE001 - 重读失败只记录安全状态
+402 +         except Exception:
+403 |             pass
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> app\services\attempts.py:512:31
+    |
+510 |             error=exc,
+511 |         )
+512 |     except Exception as exc:  # noqa: BLE001 - 未预期异常必须安全转换（R7-05）
+    |                               ^^^^^^^^^^^^^^
+513 |         try:
+514 |             db.rollback()
+    |
+help: Remove unused `noqa` directive
+    |
+511 |         )
+    -     except Exception as exc:  # noqa: BLE001 - 未预期异常必须安全转换（R7-05）
+512 +     except Exception as exc:
+513 |         try:
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> app\services\attempts.py:515:28
+    |
+513 |         try:
+514 |             db.rollback()
+515 |         except Exception:  # noqa: BLE001 - rollback 失败只记录安全状态
+    |                            ^^^^^^^^^^^^^^
+516 |             pass
+517 |         _safe_log(
+    |
+help: Remove unused `noqa` directive
+    |
+514 |             db.rollback()
+    -         except Exception:  # noqa: BLE001 - rollback 失败只记录安全状态
+515 +         except Exception:
+516 |             pass
+    |
+
+E501 Line too long (95 > 88)
+  --> app\services\content_check.py:28:89
+   |
+28 | def evaluate(db: Session, paper: ExamPaper, batch: ImportBatch, audio_dir: Path) -> list[dict]:
+   |                                                                                         ^^^^^^^
+29 |     """返回问题清单；空清单表示检查通过。"""
+30 |     issues: list[dict] = []
+   |
+
+E501 Line too long (103 > 88)
+  --> app\services\content_check.py:83:86
+   |
+81 |     for q in questions:
+82 |         if q.passage_id not in passage_ids:
+83 |             issues.append(_issue("question_passage_missing", f"题目 {q.question_code} 所属篇章不存在"))
+   |                                                                                         ^^^^^^^^^^^^^^^
+84 |         if not q.question_text.strip():
+85 |             issues.append(_issue("question_text_empty", f"题目 {q.question_code} 题干为空"))
+   |
+
+E501 Line too long (92 > 88)
+  --> app\services\content_check.py:85:84
+   |
+83 |             issues.append(_issue("question_passage_missing", f"题目 {q.question_code} 所属篇章不存在"))
+84 |         if not q.question_text.strip():
+85 |             issues.append(_issue("question_text_empty", f"题目 {q.question_code} 题干为空"))
+   |                                                                                          ^^^
+86 |         for letter, text_ in (("A", q.option_a), ("B", q.option_b), ("C", q.option_c), ("D", q.option_d)):
+87 |             if not (text_ or "").strip():
+   |
+
+E501 Line too long (106 > 88)
+  --> app\services\content_check.py:86:89
+   |
+84 |         if not q.question_text.strip():
+85 |             issues.append(_issue("question_text_empty", f"题目 {q.question_code} 题干为空"))
+86 |         for letter, text_ in (("A", q.option_a), ("B", q.option_b), ("C", q.option_c), ("D", q.option_d)):
+   |                                                                                         ^^^^^^^^^^^^^^^^^^
+87 |             if not (text_ or "").strip():
+88 |                 issues.append(_issue("option_empty", f"题目 {q.question_code} 选项 {letter} 为空"))
+   |
+
+E501 Line too long (99 > 88)
+  --> app\services\content_check.py:88:85
+   |
+86 |         for letter, text_ in (("A", q.option_a), ("B", q.option_b), ("C", q.option_c), ("D", q.option_d)):
+87 |             if not (text_ or "").strip():
+88 |                 issues.append(_issue("option_empty", f"题目 {q.question_code} 选项 {letter} 为空"))
+   |                                                                                         ^^^^^^^^^^^
+89 |         if q.correct_option not in ("A", "B", "C", "D"):
+90 |             issues.append(_issue("correct_option_invalid", f"题目 {q.question_code} 答案字母非法：{q.correct_option}"))
+   |
+
+E501 Line too long (119 > 88)
+  --> app\services\content_check.py:90:85
+   |
+88 |                 issues.append(_issue("option_empty", f"题目 {q.question_code} 选项 {letter} 为空"))
+89 |         if q.correct_option not in ("A", "B", "C", "D"):
+90 |             issues.append(_issue("correct_option_invalid", f"题目 {q.question_code} 答案字母非法：{q.correct_option}"))
+   |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+91 |         # 16 表基线 content_state：非「可用」的题目不允许进入可展示状态。
+92 |         if q.content_state != "可用":
+   |
+
+E501 Line too long (94 > 88)
+  --> app\services\content_check.py:96:74
+   |
+94 |                 _issue(
+95 |                     "content_state_not_usable",
+96 |                     f"题目 {q.question_code} 内容完整度为「{q.content_state}」，不能确认可见",
+   |                                                                                         ^^^^^^
+97 |                 )
+98 |             )
+   |
+
+E501 Line too long (97 > 88)
+   --> app\services\content_check.py:101:84
+    |
+ 99 |         presentation = presentation_by_question.get(q.id)
+100 |         if presentation is None:
+101 |             issues.append(_issue("presentation_missing", f"题目 {q.question_code} 缺少原卷映射"))
+    |                                                                                         ^^^^^^^^^
+102 |         else:
+103 |             mapping = presentation.option_letter_mapping or {}
+    |
+
+E501 Line too long (101 > 88)
+   --> app\services\content_check.py:107:84
+    |
+105 |             if sorted(mapping.keys()) != letters:
+106 |                 issues.append(
+107 |                     _issue("option_mapping_incomplete", f"题目 {q.question_code} 选项映射未覆盖 A-D")
+    |                                                                                          ^^^^^^^^^^^^
+108 |                 )
+109 |             elif sorted(str(mapping[letter]) for letter in letters) != letters:
+    |
+
+E501 Line too long (91 > 88)
+   --> app\services\content_check.py:110:59
+    |
+108 |                 )
+109 |             elif sorted(str(mapping[letter]) for letter in letters) != letters:
+110 |                 # 映射值必须是 A–D 的一一对应，否则会出现空选项或重复选项（验收报告 F03）。
+    |                                                                                          ^^
+111 |                 issues.append(
+112 |                     _issue(
+    |
+
+E501 Line too long (97 > 88)
+   --> app\services\content_check.py:114:75
+    |
+112 |                     _issue(
+113 |                         "option_mapping_invalid",
+114 |                         f"题目 {q.question_code} 选项映射值非法：{mapping}（必须是 A–D 的排列）",
+    |                                                                                          ^^^^^^^^
+115 |                     )
+116 |                 )
+    |
+
+E501 Line too long (91 > 88)
+   --> app\services\content_check.py:136:89
+    |
+134 |     from app.db.models_listening import AudioFile
+135 |
+136 |     audio = db.get(AudioFile, paper.playback_audio_id) if paper.playback_audio_id else None
+    |                                                                                         ^^^
+137 |     if audio is None:
+138 |         issues.append(_issue("audio_unbound", "试卷未绑定音频"))
+    |
+
+E501 Line too long (90 > 88)
+   --> app\services\content_check.py:142:81
+    |
+140 |         audio_path = audio_dir / audio.storage_key
+141 |         if not audio_path.is_file():
+142 |             issues.append(_issue("audio_missing", f"音频文件不存在：{audio.storage_key}"))
+    |                                                                                         ^^
+143 |
+144 |     return issues
+    |
+
+UP017 [*] Use `datetime.UTC` alias
+  --> app\services\visibility.py:24:25
+   |
+23 | def _utc_now() -> datetime:
+24 |     return datetime.now(timezone.utc)
+   |                         ^^^^^^^^^^^^
+help: Convert to `datetime.UTC` alias
+   |
+7  |
+   - from datetime import datetime, timezone
+8  + from datetime import datetime, timezone, UTC
+9  | from pathlib import Path
+--------------------------------------------------------------------------------
+23 | def _utc_now() -> datetime:
+   -     return datetime.now(timezone.utc)
+24 +     return datetime.now(UTC)
+25 |
+   |
+
+E501 Line too long (90 > 88)
+  --> scripts\acceptance_attempt.py:83:55
+   |
+81 |     else:
+82 |         print("  - （无成功提交写入 attempts；可见性操作按 finally 处理）")
+83 |     print("说明：本次运行可能已消耗提交机会并写入永久 attempt/拒绝标记；永久记录不撤销。")
+   |                                                                                         ^^
+84 |     _NOTICE_PRINTED = True
+   |
+
+E501 Line too long (89 > 88)
+   --> scripts\acceptance_attempt.py:171:59
+    |
+169 |     attempt_key: str,
+170 | ) -> httpx.Response | None:
+171 |     """首提交结果未知（超时/连接断/5xx）时按 2.6.4 用原键重试一次；两次均未知 → FAIL。"""
+    |                                                                                         ^
+172 |
+173 |     headers = _submit_headers(student_token, attempt_key)
+    |
+
+E501 Line too long (94 > 88)
+   --> scripts\acceptance_attempt.py:194:80
+    |
+192 |                 _pass(
+193 |                     "首提交 5xx 视为结果未知，按 2.6.4 原键重试",
+194 |                     f"HTTP {response.status_code} key={masked_key} -> 同键重试一次（不改键）",
+    |                                                                                         ^^^^^^
+195 |                 )
+196 |                 continue
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> scripts\acceptance_attempt.py:255:24
+    |
+253 |     try:
+254 |         connection.read_only = True
+255 |     except Exception:  # noqa: BLE001 - 驱动差异时退化为只读 SELECT
+    |                        ^^^^^^^^^^^^^^
+256 |         pass
+257 |     return connection
+    |
+help: Remove unused `noqa` directive
+    |
+254 |         connection.read_only = True
+    -     except Exception:  # noqa: BLE001 - 驱动差异时退化为只读 SELECT
+255 +     except Exception:
+256 |         pass
+    |
+
+E501 Line too long (89 > 88)
+   --> scripts\acceptance_attempt.py:268:89
+    |
+266 |         student_id = row[0]
+267 |         cursor.execute(
+268 |             "SELECT count(*) FROM attempts WHERE student_id = %s AND exam_paper_id = %s",
+    |                                                                                         ^
+269 |             (student_id, paper_id),
+270 |         )
+    |
+
+E501 Line too long (92 > 88)
+   --> scripts\acceptance_attempt.py:273:89
+    |
+271 |         attempts = cursor.fetchone()[0]
+272 |         cursor.execute(
+273 |             "SELECT count(*) FROM attempt_answers a JOIN attempts t ON t.id = a.attempt_id "
+    |                                                                                         ^^^^
+274 |             "WHERE t.student_id = %s AND t.exam_paper_id = %s",
+275 |             (student_id, paper_id),
+    |
+
+E501 Line too long (92 > 88)
+   --> scripts\acceptance_attempt.py:374:89
+    |
+372 |     if args.check_visibility and not args.visibility_paper_id:
+373 |         missing.append("--visibility-paper-id（启用 --check-visibility 时必填）")
+374 |     if (args.inject_interrupt or args.inject_restore_failure) and not args.check_visibility:
+    |                                                                                         ^^^^
+375 |         missing.append("--check-visibility（使用 --inject-* 时必填）")
+376 |     if missing:
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> scripts\acceptance_attempt.py:387:35
+    |
+385 |         try:
+386 |             connection = _open_readonly_connection(args.database_url)
+387 |         except Exception as exc:  # noqa: BLE001 - DB 连接异常按前置失败
+    |                                   ^^^^^^^^^^^^^^
+388 |             return _abort(2, f"数据库连接失败：{type(exc).__name__}")
+389 |         if connection is None:
+    |
+help: Remove unused `noqa` directive
+    |
+386 |             connection = _open_readonly_connection(args.database_url)
+    -         except Exception as exc:  # noqa: BLE001 - DB 连接异常按前置失败
+387 +         except Exception as exc:
+388 |             return _abort(2, f"数据库连接失败：{type(exc).__name__}")
+    |
+
+E501 Line too long (90 > 88)
+   --> scripts\acceptance_attempt.py:398:89
+    |
+397 |     base_url = args.base_url.rstrip("/")
+398 |     with httpx.Client(base_url=base_url, timeout=args.timeout, trust_env=False) as client:
+    |                                                                                         ^^
+399 |         try:
+400 |             probe = client.get("/api/v1/listening-papers")
+    |
+
+E501 Line too long (90 > 88)
+   --> scripts\acceptance_attempt.py:408:79
+    |
+406 |                 f"服务探测异常：无 token 列表返回 {probe.status_code}，预期 401",
+407 |             )
+408 |         _pass("服务可达且未认证返回 401", f"GET /listening-papers -> {probe.status_code}")
+    |                                                                                         ^^
+409 |
+410 |         student_password = _password(PASSWORD_ENV_STUDENT, "学生密码：")
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> scripts\acceptance_attempt.py:794:35
+    |
+792 |     except SystemExit:
+793 |         raise
+794 |     except BaseException as exc:  # noqa: BLE001 - 顶层兜底必须保证资源说明
+    |                                   ^^^^^^^^^^^^^^
+795 |         print(f"[FAIL] 未捕获异常：{type(exc).__name__}")
+796 |         _print_resource_notice()
+    |
+help: Remove unused `noqa` directive
+    |
+793 |         raise
+    -     except BaseException as exc:  # noqa: BLE001 - 顶层兜底必须保证资源说明
+794 +     except BaseException as exc:
+795 |         print(f"[FAIL] 未捕获异常：{type(exc).__name__}")
+    |
+
+E501 Line too long (94 > 88)
+  --> scripts\acceptance_module2.py:27:89
+   |
+26 | def _login(client: httpx.Client, username: str, password: str) -> str:
+27 |     response = client.post("/api/v1/login", json={"username": username, "password": password})
+   |                                                                                         ^^^^^^
+28 |     if response.status_code == 200:
+29 |         return response.json()["data"]["token"]
+   |
+
+E501 Line too long (101 > 88)
+  --> scripts\acceptance_module2.py:50:89
+   |
+48 |         # 先确认可见，保证后续学生侧用例可执行
+49 |         papers_admin = client.get("/api/v1/listening-papers", headers=admin_h)
+50 |         admin_items = papers_admin.json()["data"]["items"] if papers_admin.status_code == 200 else []
+   |                                                                                         ^^^^^^^^^^^^^
+51 |         _check("2 管理员试卷列表可见全部", papers_admin.status_code == 200 and len(admin_items) >= 1,
+52 |                f"count={len(admin_items)}")
+   |
+
+E501 Line too long (101 > 88)
+  --> scripts\acceptance_module2.py:51:78
+   |
+49 |         papers_admin = client.get("/api/v1/listening-papers", headers=admin_h)
+50 |         admin_items = papers_admin.json()["data"]["items"] if papers_admin.status_code == 200 else []
+51 |         _check("2 管理员试卷列表可见全部", papers_admin.status_code == 200 and len(admin_items) >= 1,
+   |                                                                                         ^^^^^^^^^^^^^
+52 |                f"count={len(admin_items)}")
+53 |         if not admin_items:
+   |
+
+E501 Line too long (103 > 88)
+  --> scripts\acceptance_module2.py:63:82
+   |
+61 |             headers=admin_h,
+62 |         )
+63 |         _check("3 管理员确认可见", confirm.status_code == 200 and confirm.json()["data"]["is_visible"],
+   |                                                                                         ^^^^^^^^^^^^^^^
+64 |                f"HTTP {confirm.status_code} {confirm.text[:120]}")
+   |
+
+E501 Line too long (121 > 88)
+  --> scripts\acceptance_module2.py:68:89
+   |
+66 |         # 学生列表
+67 |         listing = client.get("/api/v1/listening-papers", headers=student_h)
+68 |         student_ids = [i["exam_paper_id"] for i in listing.json()["data"]["items"]] if listing.status_code == 200 else []
+   |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+69 |         _check("4 学生列表返回可见试卷", paper_id in student_ids, f"ids={student_ids}")
+   |
+
+E501 Line too long (111 > 88)
+  --> scripts\acceptance_module2.py:76:89
+   |
+74 |         total_q = sum(len(p["questions"]) for p in d.get("passages", []))
+75 |         raw = detail.text
+76 |         no_restricted = all(f not in raw for f in ("correct_option", "explanation_text", "explanation_source"))
+   |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^
+77 |         no_body = '"segments"' not in raw
+78 |         _check("5 学生详情返回 25 题", total_q == 25, f"questions={total_q}")
+   |
+
+E501 Line too long (98 > 88)
+  --> scripts\acceptance_module2.py:82:89
+   |
+81 |         # 管理员配套：答案/解析/状态
+82 |         comp = client.get(f"/api/v1/admin/listening-papers/{paper_id}/companion", headers=admin_h)
+   |                                                                                         ^^^^^^^^^^
+83 |         c = comp.json().get("data", {}) if comp.status_code == 200 else {}
+84 |         cq = sum(len(p["questions"]) for p in c.get("passages", []))
+   |
+
+E501 Line too long (104 > 88)
+  --> scripts\acceptance_module2.py:85:89
+   |
+83 |         c = comp.json().get("data", {}) if comp.status_code == 200 else {}
+84 |         cq = sum(len(p["questions"]) for p in c.get("passages", []))
+85 |         has_answer = any(q.get("correct_option") for p in c.get("passages", []) for q in p["questions"])
+   |                                                                                         ^^^^^^^^^^^^^^^^
+86 |         has_segments = any(p.get("segments") for p in c.get("passages", []))
+87 |         _check("7 管理员配套返回 25 题与答案/解析/原文", cq == 25 and has_answer and has_segments,
+   |
+
+E501 Line too long (98 > 88)
+  --> scripts\acceptance_module2.py:87:74
+   |
+85 |         has_answer = any(q.get("correct_option") for p in c.get("passages", []) for q in p["questions"])
+86 |         has_segments = any(p.get("segments") for p in c.get("passages", []))
+87 |         _check("7 管理员配套返回 25 题与答案/解析/原文", cq == 25 and has_answer and has_segments,
+   |                                                                                         ^^^^^^^^^^
+88 |                f"questions={cq}")
+89 |         _check("8 状态字段彼此独立", all(k in c for k in ("is_current", "check_passed", "is_visible", "is_pending_confirmation")))
+   |
+
+E501 Line too long (130 > 88)
+  --> scripts\acceptance_module2.py:89:81
+   |
+87 |         _check("7 管理员配套返回 25 题与答案/解析/原文", cq == 25 and has_answer and has_segments,
+88 |                f"questions={cq}")
+89 |         _check("8 状态字段彼此独立", all(k in c for k in ("is_current", "check_passed", "is_visible", "is_pending_confirmation")))
+   |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+90 |
+91 |         # 权限
+   |
+
+E501 Line too long (120 > 88)
+  --> scripts\acceptance_module2.py:93:89
+   |
+91 |         # 权限
+92 |         _check("9 学生调管理员接口 403",
+93 |                client.get(f"/api/v1/admin/listening-papers/{paper_id}/companion", headers=student_h).status_code == 403)
+   |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+94 |         _check("10 学生不能改可见性",
+95 |                client.post(f"/api/v1/admin/listening-papers/{paper_id}/visibility",
+   |
+
+E501 Line too long (106 > 88)
+  --> scripts\acceptance_module2.py:96:89
+   |
+94 |         _check("10 学生不能改可见性",
+95 |                client.post(f"/api/v1/admin/listening-papers/{paper_id}/visibility",
+96 |                            json={"action": "cancel", "reason": ""}, headers=student_h).status_code == 403)
+   |                                                                                         ^^^^^^^^^^^^^^^^^^
+97 |         _check("11 无 token 调业务接口 401",
+98 |                client.get("/api/v1/listening-papers").status_code == 401)
+   |
+
+E501 Line too long (90 > 88)
+   --> scripts\acceptance_module2.py:104:89
+    |
+102 |                            headers={**student_h, "Range": "bytes=0-1023"})
+103 |         _check("12 学生音频 Range 返回 206 与 Accept-Ranges",
+104 |                audio.status_code == 206 and audio.headers.get("Accept-Ranges") == "bytes",
+    |                                                                                         ^^
+105 |                f"HTTP {audio.status_code} CR={audio.headers.get('Content-Range')}")
+    |
+
+E501 Line too long (94 > 88)
+   --> scripts\acceptance_module2.py:109:85
+    |
+107 |         # 取消可见 → 学生拒绝
+108 |         cancel = client.post(f"/api/v1/admin/listening-papers/{paper_id}/visibility",
+109 |                              json={"action": "cancel", "reason": "验收取消"}, headers=admin_h)
+    |                                                                                         ^^^^^^
+110 |         _check("13 管理员取消可见", cancel.status_code == 200 and not cancel.json()["data"]["is_visible"])
+111 |         after_list = client.get("/api/v1/listening-papers", headers=student_h).json()["data"]["items"]
+    |
+
+E501 Line too long (106 > 88)
+   --> scripts\acceptance_module2.py:110:82
+    |
+108 |         cancel = client.post(f"/api/v1/admin/listening-papers/{paper_id}/visibility",
+109 |                              json={"action": "cancel", "reason": "验收取消"}, headers=admin_h)
+110 |         _check("13 管理员取消可见", cancel.status_code == 200 and not cancel.json()["data"]["is_visible"])
+    |                                                                                         ^^^^^^^^^^^^^^^^^^
+111 |         after_list = client.get("/api/v1/listening-papers", headers=student_h).json()["data"]["items"]
+112 |         after_ids = [i["exam_paper_id"] for i in after_list]
+    |
+
+E501 Line too long (102 > 88)
+   --> scripts\acceptance_module2.py:111:89
+    |
+109 |                              json={"action": "cancel", "reason": "验收取消"}, headers=admin_h)
+110 |         _check("13 管理员取消可见", cancel.status_code == 200 and not cancel.json()["data"]["is_visible"])
+111 |         after_list = client.get("/api/v1/listening-papers", headers=student_h).json()["data"]["items"]
+    |                                                                                         ^^^^^^^^^^^^^^
+112 |         after_ids = [i["exam_paper_id"] for i in after_list]
+113 |         _check("14 取消后学生列表不含该卷", paper_id not in after_ids)
+    |
+
+E501 Line too long (104 > 88)
+   --> scripts\acceptance_module2.py:115:89
+    |
+113 |         _check("14 取消后学生列表不含该卷", paper_id not in after_ids)
+114 |         _check("15 取消后学生详情 404",
+115 |                client.get(f"/api/v1/listening-papers/{paper_id}", headers=student_h).status_code == 404)
+    |                                                                                         ^^^^^^^^^^^^^^^^
+116 |         _check("16 取消后学生音频 404",
+117 |                client.get(f"/api/v1/listening-papers/{paper_id}/audio", headers=student_h).status_code == 404)
+    |
+
+E501 Line too long (110 > 88)
+   --> scripts\acceptance_module2.py:117:89
+    |
+115 |                client.get(f"/api/v1/listening-papers/{paper_id}", headers=student_h).status_code == 404)
+116 |         _check("16 取消后学生音频 404",
+117 |                client.get(f"/api/v1/listening-papers/{paper_id}/audio", headers=student_h).status_code == 404)
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^
+118 |
+119 |         # 恢复可见，便于后续使用
+    |
+
+E501 Line too long (91 > 88)
+  --> scripts\verify_module2_all.py:36:89
+   |
+36 | def _run(cmd: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+   |                                                                                         ^^^
+37 |     return subprocess.run(
+38 |         cmd, cwd=str(BACKEND_DIR), capture_output=True, text=True,
+   |
+
+E501 Line too long (104 > 88)
+  --> scripts\verify_module2_all.py:45:87
+   |
+43 | def check_environment() -> None:
+44 |     version = sys.version_info
+45 |     record(version >= (3, 14), "Python 版本 ≥ 3.14", f"{version.major}.{version.minor}.{version.micro}")
+   |                                                                                         ^^^^^^^^^^^^^^^^
+46 |
+47 |     try:
+   |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+  --> scripts\verify_module2_all.py:54:31
+   |
+52 |             server = conn.execute(text("select version()")).scalar()
+53 |         record(True, "数据库连通", str(server)[:40])
+54 |     except Exception as exc:  # noqa: BLE001
+   |                               ^^^^^^^^^^^^^^
+55 |         record(False, "数据库连通", f"{type(exc).__name__}: {str(exc)[:120]}")
+56 |         return
+   |
+help: Remove unused `noqa` directive
+   |
+53 |         record(True, "数据库连通", str(server)[:40])
+   -     except Exception as exc:  # noqa: BLE001
+54 +     except Exception as exc:
+55 |         record(False, "数据库连通", f"{type(exc).__name__}: {str(exc)[:120]}")
+   |
+
+E501 Line too long (93 > 88)
+  --> scripts\verify_module2_all.py:60:89
+   |
+58 |     try:
+59 |         with engine.connect() as conn:
+60 |             revision = conn.execute(text("select version_num from alembic_version")).scalar()
+   |                                                                                         ^^^^^
+61 |         record(revision == "0004_expected_count_source", "迁移版本 = 0004", str(revision))
+62 |     except Exception as exc:  # noqa: BLE001
+   |
+
+E501 Line too long (90 > 88)
+  --> scripts\verify_module2_all.py:61:85
+   |
+59 |         with engine.connect() as conn:
+60 |             revision = conn.execute(text("select version_num from alembic_version")).scalar()
+61 |         record(revision == "0004_expected_count_source", "迁移版本 = 0004", str(revision))
+   |                                                                                         ^^
+62 |     except Exception as exc:  # noqa: BLE001
+63 |         record(False, "迁移版本 = 0004", f"{type(exc).__name__}: {str(exc)[:120]}")
+   |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+  --> scripts\verify_module2_all.py:62:31
+   |
+60 |             revision = conn.execute(text("select version_num from alembic_version")).scalar()
+61 |         record(revision == "0004_expected_count_source", "迁移版本 = 0004", str(revision))
+62 |     except Exception as exc:  # noqa: BLE001
+   |                               ^^^^^^^^^^^^^^
+63 |         record(False, "迁移版本 = 0004", f"{type(exc).__name__}: {str(exc)[:120]}")
+   |
+help: Remove unused `noqa` directive
+   |
+61 |         record(revision == "0004_expected_count_source", "迁移版本 = 0004", str(revision))
+   -     except Exception as exc:  # noqa: BLE001
+62 +     except Exception as exc:
+63 |         record(False, "迁移版本 = 0004", f"{type(exc).__name__}: {str(exc)[:120]}")
+   |
+
+E501 Line too long (91 > 88)
+  --> scripts\verify_module2_all.py:83:85
+   |
+81 |         with SessionLocal() as db:
+82 |             paper = db.scalar(select(ExamPaper).order_by(ExamPaper.id))
+83 |             record(paper is not None, "试卷存在", paper.exam_paper_code if paper else "无")
+   |                                                                                          ^^
+84 |             if paper is None:
+85 |                 return
+   |
+
+E501 Line too long (91 > 88)
+  --> scripts\verify_module2_all.py:94:89
+   |
+92 |             batch = db.scalar(
+93 |                 select(ImportBatch).where(
+94 |                     ImportBatch.exam_paper_id == paper.id, ImportBatch.is_current.is_(True)
+   |                                                                                         ^^^
+95 |                 )
+96 |             )
+   |
+
+E501 Line too long (90 > 88)
+  --> scripts\verify_module2_all.py:97:82
+   |
+95 |                 )
+96 |             )
+97 |             record(batch is not None, "存在当前批次", batch.batch_code if batch else "无")
+   |                                                                                         ^^
+98 |             if batch is None:
+99 |                 return
+   |
+
+E501 Line too long (93 > 88)
+   --> scripts\verify_module2_all.py:103:89
+    |
+101 |             def count_of(model) -> int:
+102 |                 return db.scalar(
+103 |                     select(func.count()).select_from(model).where(model.batch_id == batch.id)
+    |                                                                                         ^^^^^
+104 |                 ) or 0
+    |
+
+E501 Line too long (99 > 88)
+   --> scripts\verify_module2_all.py:119:89
+    |
+117 |             )
+118 |
+119 |             audio = db.get(AudioFile, paper.playback_audio_id) if paper.playback_audio_id else None
+    |                                                                                         ^^^^^^^^^^^
+120 |             record(audio is not None, "试卷已绑定音频", audio.storage_key if audio else "未绑定")
+121 |             if audio:
+    |
+
+E501 Line too long (97 > 88)
+   --> scripts\verify_module2_all.py:120:82
+    |
+119 |             audio = db.get(AudioFile, paper.playback_audio_id) if paper.playback_audio_id else None
+120 |             record(audio is not None, "试卷已绑定音频", audio.storage_key if audio else "未绑定")
+    |                                                                                         ^^^^^^^^^
+121 |             if audio:
+122 |                 path = get_settings().audio_storage_path / audio.storage_key
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> scripts\verify_module2_all.py:143:31
+    |
+141 |                 "25 题审核状态为「待审核」（未冒认为已审核）",
+142 |             )
+143 |     except Exception as exc:  # noqa: BLE001
+    |                               ^^^^^^^^^^^^^^
+144 |         record(False, "数据检查", f"{type(exc).__name__}: {str(exc)[:150]}")
+    |
+help: Remove unused `noqa` directive
+    |
+142 |             )
+    -     except Exception as exc:  # noqa: BLE001
+143 +     except Exception as exc:
+144 |         record(False, "数据检查", f"{type(exc).__name__}: {str(exc)[:150]}")
+    |
+
+E501 Line too long (91 > 88)
+   --> scripts\verify_module2_all.py:166:89
+    |
+164 |             batch = db.scalar(
+165 |                 select(ImportBatch).where(
+166 |                     ImportBatch.exam_paper_id == paper.id, ImportBatch.is_current.is_(True)
+    |                                                                                         ^^^
+167 |                 )
+168 |             )
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> scripts\verify_module2_all.py:188:31
+    |
+186 |                 f"is_visible={visibility.is_visible if visibility else '无'}",
+187 |             )
+188 |     except Exception as exc:  # noqa: BLE001
+    |                               ^^^^^^^^^^^^^^
+189 |         record(False, "状态记录检查", f"{type(exc).__name__}: {str(exc)[:150]}")
+    |
+help: Remove unused `noqa` directive
+    |
+187 |             )
+    -     except Exception as exc:  # noqa: BLE001
+188 +     except Exception as exc:
+189 |         record(False, "状态记录检查", f"{type(exc).__name__}: {str(exc)[:150]}")
+    |
+
+E501 Line too long (96 > 88)
+   --> scripts\verify_module2_all.py:194:89
+    |
+192 | def run_pytest() -> None:
+193 |     # 不加 -q：pytest.ini 的 addopts 已有 -q，再加一次会变成 -qq 而吞掉汇总行。
+194 |     proc = _run([sys.executable, "-m", "pytest", "-p", "no:warnings", "-p", "no:cacheprovider"])
+    |                                                                                         ^^^^^^^^
+195 |     tail = (proc.stdout or "").strip().splitlines()
+196 |     summary = next((line for line in reversed(tail) if "passed" in line or "failed" in line), "")
+    |
+
+E501 Line too long (97 > 88)
+   --> scripts\verify_module2_all.py:196:89
+    |
+194 |     proc = _run([sys.executable, "-m", "pytest", "-p", "no:warnings", "-p", "no:cacheprovider"])
+195 |     tail = (proc.stdout or "").strip().splitlines()
+196 |     summary = next((line for line in reversed(tail) if "passed" in line or "failed" in line), "")
+    |                                                                                         ^^^^^^^^^
+197 |     record(proc.returncode == 0, "pytest 全部通过", summary[:80])
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> scripts\verify_module2_all.py:214:28
+    |
+212 |                 if client.get(url).status_code < 500:
+213 |                     return True
+214 |         except Exception:  # noqa: BLE001
+    |                            ^^^^^^^^^^^^^^
+215 |             time.sleep(0.5)
+216 |     return False
+    |
+help: Remove unused `noqa` directive
+    |
+213 |                     return True
+    -         except Exception:  # noqa: BLE001
+214 +         except Exception:
+215 |             time.sleep(0.5)
+    |
+
+E501 Line too long (105 > 88)
+   --> scripts\verify_module2_all.py:229:74
+    |
+227 |         port = 8010
+228 |         if not _port_free(port):
+229 |             record(False, "临时服务端口可用", f"127.0.0.1:{port} 已被占用，请用 --base-url 指定现有服务")
+    |                                                                                         ^^^^^^^^^^^^^^^^^
+230 |             return
+231 |         server = subprocess.Popen(
+    |
+
+E501 Line too long (96 > 88)
+   --> scripts\verify_module2_all.py:245:89
+    |
+244 |     try:
+245 |         m1 = _run([sys.executable, "-m", "scripts.acceptance", "--base-url", base_url], env=env)
+    |                                                                                         ^^^^^^^^
+246 |         m1_summary = next(
+247 |             (line for line in (m1.stdout or "").splitlines() if "验收汇总" in line), ""
+    |
+
+E501 Line too long (101 > 88)
+   --> scripts\verify_module2_all.py:249:79
+    |
+247 |             (line for line in (m1.stdout or "").splitlines() if "验收汇总" in line), ""
+248 |         )
+249 |         record(m1.returncode == 0, "模块一验收（B15 无回归）", m1_summary or (m1.stderr or "")[:100])
+    |                                                                                         ^^^^^^^^^^^^^
+250 |
+251 |         m2 = _run([sys.executable, "-m", "scripts.acceptance_module2", "--base-url", base_url], env=env)
+    |
+
+E501 Line too long (104 > 88)
+   --> scripts\verify_module2_all.py:251:89
+    |
+249 |         record(m1.returncode == 0, "模块一验收（B15 无回归）", m1_summary or (m1.stderr or "")[:100])
+250 |
+251 |         m2 = _run([sys.executable, "-m", "scripts.acceptance_module2", "--base-url", base_url], env=env)
+    |                                                                                         ^^^^^^^^^^^^^^^^
+252 |         m2_summary = next(
+253 |             (line for line in (m2.stdout or "").splitlines() if "验收汇总" in line), ""
+    |
+
+E501 Line too long (103 > 88)
+   --> scripts\verify_module2_all.py:255:89
+    |
+253 |             (line for line in (m2.stdout or "").splitlines() if "验收汇总" in line), ""
+254 |         )
+255 |         failed = [line.strip() for line in (m2.stdout or "").splitlines() if line.startswith("[FAIL]")]
+    |                                                                                         ^^^^^^^^^^^^^^^
+256 |         record(m2.returncode == 0, "模块二验收 16 项", m2_summary or (m2.stderr or "")[:100])
+257 |         for line in failed:
+    |
+
+E501 Line too long (93 > 88)
+   --> scripts\verify_module2_all.py:256:83
+    |
+254 |         )
+255 |         failed = [line.strip() for line in (m2.stdout or "").splitlines() if line.startswith("[FAIL]")]
+256 |         record(m2.returncode == 0, "模块二验收 16 项", m2_summary or (m2.stderr or "")[:100])
+    |                                                                                         ^^^^^
+257 |         for line in failed:
+258 |             record(False, "  失败项", line[:100])
+    |
+
+E501 Line too long (100 > 88)
+   --> scripts\verify_module2_all.py:270:74
+    |
+268 | def main() -> int:
+269 |     parser = argparse.ArgumentParser(description="模块二一键自检（验收用）")
+270 |     parser.add_argument("--base-url", default=None, help="复用已启动的服务；不填则临时起 8010 端口")
+    |                                                                                         ^^^^^^^^^^^^
+271 |     args = parser.parse_args()
+    |
+
+E501 Line too long (94 > 88)
+   --> tests\test_attempt_api.py:526:89
+    |
+525 |     other_paper_same_key = _post(
+526 |         client, paper_b.paper_id, _payload(paper_b.question_ids), key=key, token=student_token
+    |                                                                                         ^^^^^^
+527 |     )
+528 |     assert other_paper_same_key.status_code == 400
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> tests\test_attempt_api.py:776:39
+    |
+774 |                     )
+775 |                 )
+776 |         except BaseException as exc:  # noqa: BLE001 - 线程内失败带回主线程
+    |                                       ^^^^^^^^^^^^^^
+777 |             errors.append(exc)
+    |
+help: Remove unused `noqa` directive
+    |
+775 |                 )
+    -         except BaseException as exc:  # noqa: BLE001 - 线程内失败带回主线程
+776 +         except BaseException as exc:
+777 |             errors.append(exc)
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> tests\test_attempt_api.py:998:39
+    |
+996 |                 )
+997 |             )
+998 |         except BaseException as exc:  # noqa: BLE001
+    |                                       ^^^^^^^^^^^^^^
+999 |             errors.append(exc)
+    |
+help: Remove unused `noqa` directive
+    |
+997 |             )
+    -         except BaseException as exc:  # noqa: BLE001
+998 +         except BaseException as exc:
+999 |             errors.append(exc)
+    |
+
+E501 Line too long (89 > 88)
+    --> tests\test_attempt_api.py:1017:89
+     |
+1017 | def test_a14_without_limit_lock_race_can_duplicate(student_token, api_data, monkeypatch):
+     |                                                                                         ^
+1018 |     import app.services.attempts as service
+     |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+    --> tests\test_attempt_api.py:1045:39
+     |
+1043 |                 )
+1044 |             )
+1045 |         except BaseException as exc:  # noqa: BLE001
+     |                                       ^^^^^^^^^^^^^^
+1046 |             errors.append(exc)
+     |
+help: Remove unused `noqa` directive
+     |
+1044 |             )
+     -         except BaseException as exc:  # noqa: BLE001
+1045 +         except BaseException as exc:
+1046 |             errors.append(exc)
+     |
+
+F841 Local variable `real_insert` is assigned to but never used
+    --> tests\test_attempt_api.py:1129:5
+     |
+1127 |     content = api_data.build_paper()
+1128 |     real_resolve = service.resolve_existing
+1129 |     real_insert = service.insert_attempt_with_answers
+     |     ^^^^^^^^^^^
+1130 |     state = {"calls": 0}
+     |
+help: Remove assignment to unused variable `real_insert`
+     |
+1128 |     real_resolve = service.resolve_existing
+     -     real_insert = service.insert_attempt_with_answers
+1129 |     state = {"calls": 0}
+     |
+note: This is an unsafe fix and may change runtime behavior
+
+E501 Line too long (91 > 88)
+   --> tests\test_attempt_content.py:311:89
+    |
+309 | def test_a3_old_batch_identity_is_version_mismatch(db, tmp_path, attempt_content):
+310 |     paper_scope = _make_paper(db, tmp_path)
+311 |     old = _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_old", is_current=False)
+    |                                                                                         ^^^
+312 |     new = _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_new", is_current=True)
+    |
+
+E501 Line too long (90 > 88)
+   --> tests\test_attempt_content.py:312:89
+    |
+310 |     paper_scope = _make_paper(db, tmp_path)
+311 |     old = _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_old", is_current=False)
+312 |     new = _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_new", is_current=True)
+    |                                                                                         ^^
+313 |
+314 |     visible, paper, batch = attempt_content.check_submit_access(
+    |
+
+E501 Line too long (90 > 88)
+   --> tests\test_attempt_content.py:465:89
+    |
+463 |     paper_scope = _make_paper(db, tmp_path)
+464 |     _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_old", is_current=False)
+465 |     new = _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_new", is_current=True)
+    |                                                                                         ^^
+466 |
+467 |     visible, paper, batch = attempt_content.check_submit_access(
+    |
+
+E501 Line too long (91 > 88)
+   --> tests\test_attempt_content.py:491:89
+    |
+489 | def test_a8_mixed_identity_prefers_version_mismatch(db, tmp_path, attempt_content):
+490 |     paper_scope = _make_paper(db, tmp_path)
+491 |     old = _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_old", is_current=False)
+    |                                                                                         ^^^
+492 |     new = _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_new", is_current=True)
+493 |     other = _make_content(db, tmp_path)
+    |
+
+F841 Local variable `new` is assigned to but never used
+   --> tests\test_attempt_content.py:492:5
+    |
+490 |     paper_scope = _make_paper(db, tmp_path)
+491 |     old = _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_old", is_current=False)
+492 |     new = _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_new", is_current=True)
+    |     ^^^
+493 |     other = _make_content(db, tmp_path)
+    |
+help: Remove assignment to unused variable `new`
+    |
+491 |     old = _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_old", is_current=False)
+    -     new = _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_new", is_current=True)
+492 +     _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_new", is_current=True)
+493 |     other = _make_content(db, tmp_path)
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+E501 Line too long (90 > 88)
+   --> tests\test_attempt_content.py:492:89
+    |
+490 |     paper_scope = _make_paper(db, tmp_path)
+491 |     old = _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_old", is_current=False)
+492 |     new = _add_batch(db, paper_scope.paper, tag=f"{paper_scope.tag}_new", is_current=True)
+    |                                                                                         ^^
+493 |     other = _make_content(db, tmp_path)
+    |
+
+RUF005 Consider `[*list(range(1, 25)), 26]` instead of concatenation
+   --> tests\test_attempt_content.py:596:26
+    |
+594 |         tmp_path,
+595 |         count=25,
+596 |         presentation_nos=list(range(1, 25)) + [26],
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+597 |     )
+598 |     _visible, paper, batch = attempt_content.check_submit_access(
+    |
+help: Replace with `[*list(range(1, 25)), 26]`
+    |
+595 |         count=25,
+    -         presentation_nos=list(range(1, 25)) + [26],
+596 +         presentation_nos=[*list(range(1, 25)), 26],
+597 |     )
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+E501 Line too long (92 > 88)
+   --> tests\test_attempt_grading.py:119:89
+    |
+117 |     result = g.grade(
+118 |         questions,
+119 |         _answers(g, questions, lambda question: "B" if question.question_no == 25 else "A"),
+    |                                                                                         ^^^^
+120 |     )
+    |
+
+E501 Line too long (91 > 88)
+   --> tests\test_attempt_grading.py:141:89
+    |
+139 |     result = g.grade(
+140 |         questions,
+141 |         _answers(g, questions, lambda question: "B" if question.question_no == 1 else "A"),
+    |                                                                                         ^^^
+142 |     )
+    |
+
+E501 Line too long (91 > 88)
+   --> tests\test_attempt_grading.py:210:89
+    |
+208 |     correct = g.grade(
+209 |         questions,
+210 |         _answers(g, questions, lambda question: "B" if question.question_no == 1 else "A"),
+    |                                                                                         ^^^
+211 |     )
+212 |     wrong_letter = g.grade(
+    |
+
+RUF034 Useless `if`-`else` condition
+   --> tests\test_attempt_grading.py:214:49
+    |
+212 |     wrong_letter = g.grade(
+213 |         questions,
+214 |         _answers(g, questions, lambda question: "A" if question.question_no == 1 else "A"),
+    |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+215 |     )
+    |
+
+E501 Line too long (91 > 88)
+   --> tests\test_attempt_grading.py:214:89
+    |
+212 |     wrong_letter = g.grade(
+213 |         questions,
+214 |         _answers(g, questions, lambda question: "A" if question.question_no == 1 else "A"),
+    |                                                                                         ^^^
+215 |     )
+    |
+
+RUF005 Consider `[*_types()[:-1], ""]` instead of concatenation
+   --> tests\test_attempt_grading.py:242:10
+    |
+240 |     [
+241 |         (_types()[:24], "not_standard_25"),
+242 |         (_types()[:-1] + [""], "question_type_missing"),
+    |          ^^^^^^^^^^^^^^^^^^^^
+243 |         (_types()[:-1] + ["讲话"], "unknown_type"),
+244 |         (
+    |
+help: Replace with `[*_types()[:-1], ""]`
+    |
+241 |         (_types()[:24], "not_standard_25"),
+    -         (_types()[:-1] + [""], "question_type_missing"),
+242 +         ([*_types()[:-1], ""], "question_type_missing"),
+243 |         (_types()[:-1] + ["讲话"], "unknown_type"),
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+RUF005 Consider `[*_types()[:-1], "讲话"]` instead of concatenation
+   --> tests\test_attempt_grading.py:243:10
+    |
+241 |         (_types()[:24], "not_standard_25"),
+242 |         (_types()[:-1] + [""], "question_type_missing"),
+243 |         (_types()[:-1] + ["讲话"], "unknown_type"),
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^
+244 |         (
+245 |             ["短篇新闻"] * 8 + ["长对话"] * 7 + ["听力篇章"] * 10,
+    |
+help: Replace with `[*_types()[:-1], "讲话"]`
+    |
+242 |         (_types()[:-1] + [""], "question_type_missing"),
+    -         (_types()[:-1] + ["讲话"], "unknown_type"),
+243 +         ([*_types()[:-1], "讲话"], "unknown_type"),
+244 |         (
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+RUF005 Consider `[*_types()[:-2], "讲话", ""]` instead of concatenation
+   --> tests\test_attempt_grading.py:266:13
+    |
+265 | def test_a6_reason_priority_missing_before_unknown_and_count(g):
+266 |     types = _types()[:-2] + ["讲话", ""]
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+267 |     facts = [
+268 |         g.PracticeFact(passage_type=passage_type, is_correct=True)
+    |
+help: Replace with `[*_types()[:-2], "讲话", ""]`
+    |
+265 | def test_a6_reason_priority_missing_before_unknown_and_count(g):
+    -     types = _types()[:-2] + ["讲话", ""]
+266 +     types = [*_types()[:-2], "讲话", ""]
+267 |     facts = [
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+E501 Line too long (92 > 88)
+   --> tests\test_attempt_grading.py:335:89
+    |
+333 |     result = g.grade(
+334 |         questions,
+335 |         _answers(g, questions, lambda question: "B" if question.question_no == 25 else "A"),
+    |                                                                                         ^^^^
+336 |     )
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> tests\test_attempt_keys.py:315:43
+    |
+313 |                     )
+314 |                     session.rollback()
+315 |             except BaseException as exc:  # noqa: BLE001 - 线程内失败需带回主线程
+    |                                           ^^^^^^^^^^^^^^
+316 |                 errors.append(exc)
+317 |                 session.rollback()
+    |
+help: Remove unused `noqa` directive
+    |
+314 |                     session.rollback()
+    -             except BaseException as exc:  # noqa: BLE001 - 线程内失败需带回主线程
+315 +             except BaseException as exc:
+316 |                 errors.append(exc)
+    |
+
+F401 [*] `app.db.models.TokenRevocation` imported but unused
+   --> tests\test_attempt_regression.py:270:37
+    |
+268 |     from app.core.security import hash_password
+269 |     from app.db.base import SessionLocal
+270 |     from app.db.models import Role, TokenRevocation, User, UserRole
+    |                                     ^^^^^^^^^^^^^^^
+271 |
+272 |     created = []
+    |
+help: Remove unused import: `app.db.models.TokenRevocation`
+    |
+269 |     from app.db.base import SessionLocal
+    -     from app.db.models import Role, TokenRevocation, User, UserRole
+270 +     from app.db.models import Role, User, UserRole
+271 |
+    |
+
+E501 Line too long (99 > 88)
+  --> tests\test_attempt_schemas.py:71:89
+   |
+69 |             "answers": [{"question_id": 1, "selected_option": letter}],
+70 |         }
+71 |         assert schemas.AttemptSubmitIn.model_validate(payload).answers[0].selected_option == letter
+   |                                                                                         ^^^^^^^^^^^
+
+E501 Line too long (89 > 88)
+   --> tests\test_module2_listening.py:99:89
+    |
+ 98 |     with SessionLocal() as db:
+ 99 |         paper = db.query(ExamPaper).filter(ExamPaper.exam_paper_code == PAPER_CODE).one()
+    |                                                                                         ^
+100 |         return paper.id
+    |
+
+E401 [*] Multiple imports on one line
+   --> tests\test_module2_listening.py:114:5
+    |
+112 |     audio_path = settings.audio_storage_path / AUDIO_KEY
+113 |     audio_hash = hashlib.sha256(audio_path.read_bytes()).hexdigest()
+114 |     import tempfile, pathlib
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+115 |
+116 |     with tempfile.TemporaryDirectory() as tmp:
+    |
+help: Split imports
+    |
+113 |     audio_hash = hashlib.sha256(audio_path.read_bytes()).hexdigest()
+    -     import tempfile, pathlib
+114 +     import tempfile
+115 +     import pathlib
+116 |
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+   --> tests\test_module2_listening.py:114:5
+    |
+112 |     audio_path = settings.audio_storage_path / AUDIO_KEY
+113 |     audio_hash = hashlib.sha256(audio_path.read_bytes()).hexdigest()
+114 |     import tempfile, pathlib
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+115 |
+116 |     with tempfile.TemporaryDirectory() as tmp:
+    |
+help: Organize imports
+    |
+113 |     audio_hash = hashlib.sha256(audio_path.read_bytes()).hexdigest()
+    -     import tempfile, pathlib
+114 +     import pathlib
+115 +     import tempfile
+116 |
+    |
+
+E501 Line too long (89 > 88)
+   --> tests\test_module2_listening.py:119:89
+    |
+117 |         payload_file = pathlib.Path(tmp) / "payload.json"
+118 |         payload_file.write_text(
+119 |             json.dumps(_sample_payload(audio_hash), ensure_ascii=False), encoding="utf-8"
+    |                                                                                         ^
+120 |         )
+121 |         result = run_import(payload_file, audio_path)
+    |
+
+E501 Line too long (110 > 88)
+   --> tests\test_module2_listening.py:137:89
+    |
+137 | def test_student_hidden_before_confirm(client: TestClient, student_token: str, module2_paper_id: int) -> None:
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^
+138 |     listing = client.get("/api/v1/listening-papers", headers=auth_headers(student_token))
+139 |     assert listing.status_code == 200
+    |
+
+E501 Line too long (89 > 88)
+   --> tests\test_module2_listening.py:138:89
+    |
+137 | def test_student_hidden_before_confirm(client: TestClient, student_token: str, module2_paper_id: int) -> None:
+138 |     listing = client.get("/api/v1/listening-papers", headers=auth_headers(student_token))
+    |                                                                                         ^
+139 |     assert listing.status_code == 200
+140 |     ids = [item["exam_paper_id"] for item in listing.json()["data"]["items"]]
+    |
+
+E501 Line too long (91 > 88)
+   --> tests\test_module2_listening.py:144:89
+    |
+143 |     detail = client.get(
+144 |         f"/api/v1/listening-papers/{module2_paper_id}", headers=auth_headers(student_token)
+    |                                                                                         ^^^
+145 |     )
+146 |     assert detail.status_code == 404
+    |
+
+E501 Line too long (91 > 88)
+   --> tests\test_module2_listening.py:161:89
+    |
+160 |     detail = client.get(
+161 |         f"/api/v1/listening-papers/{module2_paper_id}", headers=auth_headers(student_token)
+    |                                                                                         ^^^
+162 |     )
+163 |     assert detail.status_code == 200, detail.text
+    |
+
+E501 Line too long (91 > 88)
+   --> tests\test_module2_listening.py:178:89
+    |
+176 |     )
+177 |     detail = client.get(
+178 |         f"/api/v1/listening-papers/{module2_paper_id}", headers=auth_headers(student_token)
+    |                                                                                         ^^^
+179 |     )
+180 |     raw = detail.text
+    |
+
+E501 Line too long (100 > 88)
+   --> tests\test_module2_listening.py:181:89
+    |
+179 |     )
+180 |     raw = detail.text
+181 |     for forbidden_field in ("correct_option", "explanation_text", "explanation_source", "segments"):
+    |                                                                                         ^^^^^^^^^^^^
+182 |         assert forbidden_field not in raw
+183 |     question = detail.json()["data"]["passages"][0]["questions"][0]
+    |
+
+E501 Line too long (116 > 88)
+   --> tests\test_module2_listening.py:188:89
+    |
+188 | def test_student_cannot_call_admin_endpoints(client: TestClient, student_token: str, module2_paper_id: int) -> None:
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+189 |     for method, url in (
+190 |         ("get", f"/api/v1/admin/listening-papers/{module2_paper_id}/companion"),
+    |
+
+E501 Line too long (97 > 88)
+   --> tests\test_module2_listening.py:228:89
+    |
+227 |     denied = client.get(
+228 |         f"/api/v1/listening-papers/{module2_paper_id}/audio", headers=auth_headers(student_token)
+    |                                                                                         ^^^^^^^^^
+229 |     )
+230 |     assert denied.status_code == 404
+    |
+
+F401 [*] `sqlalchemy.select` imported but unused
+   --> tests\test_module2_listening.py:266:28
+    |
+264 | def test_missing_questions_against_expected_count(module2_paper_id: int) -> None:
+265 |     """F02：只比较题目数与映射数，末尾整题一起缺失仍能通过；必须对照应有题量。"""
+266 |     from sqlalchemy import select
+    |                            ^^^^^^
+267 |
+268 |     from app.core.config import get_settings
+    |
+help: Remove unused import: `sqlalchemy.select`
+    |
+265 |     """F02：只比较题目数与映射数，末尾整题一起缺失仍能通过；必须对照应有题量。"""
+    -     from sqlalchemy import select
+266 |
+    |
+
+E501 Line too long (111 > 88)
+   --> tests\test_module2_listening.py:285:85
+    |
+283 |             kinds = [i["kind"] for i in issues]
+284 |             assert "question_count_mismatch" in kinds, kinds
+285 |             assert any("应有题量(2)" in i["message"] for i in issues if i["kind"] == "question_count_mismatch")
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^
+286 |         finally:
+287 |             paper.expected_question_count = 1
+    |
+
+E501 Line too long (95 > 88)
+   --> tests\test_module2_listening.py:305:89
+    |
+303 |         paper = db.get(ExamPaper, module2_paper_id)
+304 |         batch = _load_paper_batch(db, paper.id)
+305 |         presentation = db.scalar(select(Presentation).where(Presentation.batch_id == batch.id))
+    |                                                                                         ^^^^^^^
+306 |         original = presentation.option_letter_mapping
+307 |         presentation.option_letter_mapping = {"A": "Z", "B": "B", "C": "C", "D": "D"}
+    |
+
+E501 Line too long (95 > 88)
+   --> tests\test_module2_listening.py:336:89
+    |
+334 |     with SessionLocal() as db:
+335 |         batch = _load_paper_batch(db, module2_paper_id)
+336 |         presentation = db.scalar(select(Presentation).where(Presentation.batch_id == batch.id))
+    |                                                                                         ^^^^^^^
+337 |         original = presentation.option_letter_mapping
+338 |         # 原答案 A；把 A→B、B→A 交换，正确文字将出现在 B
+    |
+
+RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+   --> tests\test_module2_listening.py:424:24
+    |
+422 |     try:
+423 |         run_import(payload_file, new_audio)
+424 |     except Exception:  # noqa: BLE001 - 预期失败
+    |                        ^^^^^^^^^^^^^^
+425 |         pass
+426 |     else:  # pragma: no cover
+    |
+help: Remove unused `noqa` directive
+    |
+423 |         run_import(payload_file, new_audio)
+    -     except Exception:  # noqa: BLE001 - 预期失败
+424 +     except Exception:
+425 |         pass
+    |
+
+E501 Line too long (89 > 88)
+  --> tests\test_module2_recheck.py:54:89
+   |
+52 |         batch = get_current_batch(db, pid)
+53 |         visible = get_visibility(db, batch.id)
+54 |         counts = {model.__tablename__: db.scalar(select(func.count()).select_from(model))
+   |                                                                                         ^
+55 |                   for model in (m.ExamPaper, m.AudioFile, m.ImportBatch, m.Passage,
+56 |                                 m.TranscriptSegment, m.Question, m.Presentation)}
+   |
+
+E501 Line too long (95 > 88)
+   --> tests\test_module2_recheck.py:109:89
+    |
+107 |             _import(tmp_path, bad, replacement)
+108 |     assert _state(pid) == before
+109 |     assert {p.name: sha256_file(p) for p in audio_dir.iterdir() if p.is_file()} == files_before
+    |                                                                                         ^^^^^^^
+110 |     assert sha256_file(audio_dir / key) == sha256_file(current_audio)
+111 |     response = client.get(f"/api/v1/listening-papers/{pid}/audio",
+    |
+
+E501 Line too long (90 > 88)
+   --> tests\test_module2_recheck.py:117:89
+    |
+117 | def test_partial_copy_failure_removes_temp_only(prepared_database, tmp_path, monkeypatch):
+    |                                                                                         ^^
+118 |     from app import import_module2 as importer
+119 |     from app.core.config import get_settings
+    |
+
+E501 Line too long (99 > 88)
+   --> tests\test_module2_recheck.py:148:89
+    |
+146 |     assert version.read_bytes() == b"unrelated-existing-file"
+147 |     version.write_bytes(b"B")
+148 |     assert _resolve_audio_target(tmp_path, original.name, sha256_file(version)) == (version, False)
+    |                                                                                         ^^^^^^^^^^^
+
+E501 Line too long (89 > 88)
+   --> tests\test_module2_recheck.py:182:89
+    |
+180 |         assert client.get(f"/api/v1/listening-papers/{pid}{suffix}",
+181 |                           headers=auth_headers(student_token)).status_code == 404
+182 |     listing = client.get("/api/v1/listening-papers", headers=auth_headers(student_token))
+    |                                                                                         ^
+183 |     assert pid not in {p["exam_paper_id"] for p in listing.json()["data"]["items"]}
+    |
+
+Found 178 errors.
+[*] 26 fixable with `--fix` (8 unsafe fixes available with `--fix --unsafe-fixes`).
