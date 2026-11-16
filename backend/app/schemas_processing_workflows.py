@@ -237,8 +237,15 @@ class WorkflowMaterialDto(StrictModel):
 
 class WorkflowProgressDto(StrictModel):
     stage: str
+    description: str
     completed_count: int
     total_count: int | None
+    unit: str
+    current_item: str | None
+    active: bool
+    observed_at: datetime
+    started_at: datetime | None
+    last_progress_at: datetime | None
     elapsed_ms: int
     checkpoint: str | None
 

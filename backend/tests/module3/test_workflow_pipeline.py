@@ -7,7 +7,7 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 BASE = "/api/v1/admin/processing-workflows"
 
@@ -999,3 +999,114 @@ def test_complete_synthetic_pipeline_and_empty_error_review(client, pipeline):
         headers=c["headers"],
     )
     assert response.json()["data"]["state"] == "succeeded"
+
+
+def test_live_progress_timer_and_expired_lease_are_read_only(client, pipeline):
+    from app.db import models_processing as p
+    from app.db import models_processing_workflows as m
+    from app.db.base import SessionLocal
+    from app.services.processing.tasks import utcnow
+
+    c = pipeline
+    response = c["post"]("start", {"reason": "Synthetic progress check"})
+    assert response.status_code == 202, response.text
+    operation = response.json()["data"]
+    with SessionLocal() as db:
+        command = db.get(m.ProcessingWorkflowCommand, UUID(operation["operation_id"]))
+        task = db.get(p.ProcessingTask, UUID(operation["result"]["task_id"]))
+        command.state = "running"
+        command.execution_token = task.lease_token = uuid4()
+        command.lease_expires_at = task.expires_at = utcnow() + timedelta(seconds=120)
+        task.state, task.stage = "running", "reuse"
+        task.created_at = utcnow() - timedelta(seconds=60)
+        workflow = db.get(m.ProcessingWorkflow, UUID(c["id"]))
+        workflow.processing_state = "running"
+        root = (
+            c["context"]["settings"].m3_path("m3_artifacts_dir")
+            / str(task.id)
+            / "assembly-documents"
+        )
+        root.mkdir(parents=True)
+        material_id = task.request["material_ids"][1]
+        (root / "input-manifest.json").write_text(
+            json.dumps(
+                {
+                    "task_id": str(task.id),
+                    "files": [{"material_id": material_id, "page_numbers": [2, 3]}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        db.commit()
+    first = c["detail"]()
+    value = first["progress"]
+    assert value["active"] is True
+    assert value["stage"] == "assembly_extract"
+    assert value["unit"] == "页" and value["total_count"] == 2
+    assert value["elapsed_ms"] >= 60000
+    assert value["started_at"] and value["observed_at"]
+    assert first["gates"] == []
+    assert c["detail"]()["row_version"] == first["row_version"]
+    with SessionLocal() as db:
+        command = db.get(m.ProcessingWorkflowCommand, UUID(operation["operation_id"]))
+        command.lease_expires_at = utcnow() - timedelta(seconds=1)
+        db.commit()
+    value = c["detail"]()["progress"]
+    assert value["active"] is False
+    assert "心跳已过期" in value["description"]
+    with SessionLocal() as db:
+        assert (
+            db.scalars(
+                select(m.ProcessingStageApproval).where(
+                    m.ProcessingStageApproval.revision_id == UUID(first["revision_id"])
+                )
+            ).all()
+            == []
+        )
+
+
+def test_source_projection_before_annotation_preserves_frozen_payload(client, pipeline):
+    from app.db import models_processing_workflows as m
+    from app.db.base import SessionLocal
+    from app.services.processing import orchestration
+
+    c = pipeline
+    for section in (
+        "evidences",
+        "skill_question_relations",
+        "error_question_relations",
+        "other_relations",
+    ):
+        c["source"].pop(section, None)
+    c["execute"](c["post"]("start", {"reason": "Synthetic source projection check"}))
+    c["approve"]("align")
+    detail = c["detail"]()
+    assert detail["processing_state"] == "awaiting_source"
+    assert detail["issues"] == []
+    response = client.get(
+        f"{BASE}/{c['id']}/revisions/{detail['revision_id']}/questions",
+        headers=c["headers"],
+    )
+    assert response.status_code == 200, response.text
+    value = response.json()["data"]
+    assert value["items"][0]["generation_state"] == "not_generated"
+    assert value["items"][0]["review_requirements"] == {
+        "primary_skills": [],
+        "answer_evidence": [],
+        "error_causes": [],
+    }
+    with SessionLocal() as db:
+        revision = db.get(m.ProcessingWorkflowRevision, UUID(detail["revision_id"]))
+        payload, _ = orchestration.stage_payload(
+            db, revision, "source", c["context"]["settings"]
+        )
+        assert "skill_question_relations" not in payload
+
+
+def test_waiting_progress_duration_is_frozen(pipeline):
+    c = pipeline
+    c["execute"](c["post"]("start", {"reason": "Synthetic paused clock check"}))
+    first, second = c["detail"]()["progress"], c["detail"]()["progress"]
+    assert first["active"] is False
+    assert first["elapsed_ms"] == second["elapsed_ms"]
+    assert "等待核听确认" in first["description"]

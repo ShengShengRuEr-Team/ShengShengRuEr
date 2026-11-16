@@ -152,8 +152,24 @@ def questions(db, revision, settings, expected_hash=None, cursor=0, limit=25):
     if (expected_hash and expected_hash != identity) or (cursor and not expected_hash):
         raise w.conflict("VERSION_CONFLICT", "题目分页版本变化，请重新读取")
     selected = content["questions"][cursor : cursor + limit]
+    display_content = content
+    if stage == "source":
+        # Source drafts precede annotation tables. Normalize only this read
+        # projection; keep the immutable source payload and its hash unchanged.
+        display_content = {
+            **content,
+            **{
+                key: content.get(key, [])
+                for key in (
+                    "evidences",
+                    "skill_question_relations",
+                    "error_question_relations",
+                    "other_relations",
+                )
+            },
+        }
     return {
-        "items": [question_view(content, q) for q in selected],
+        "items": [question_view(display_content, q) for q in selected],
         "result_hash": identity,
         "total": len(content["questions"]),
         "next_cursor": cursor + limit

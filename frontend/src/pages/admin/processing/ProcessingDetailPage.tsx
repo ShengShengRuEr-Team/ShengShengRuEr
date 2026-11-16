@@ -11,6 +11,7 @@ import QuestionContent from './QuestionContent'
 import ReviewPanel from './ReviewPanel'
 import StageApprovalPanel from './StageApprovalPanel'
 import ReprocessPanel from './ReprocessPanel'
+import ProcessingProgress from './ProcessingProgress'
 import './processing.css'
 
 export default function ProcessingDetailPage() {
@@ -88,8 +89,7 @@ export default function ProcessingDetailPage() {
       <Button onClick={refresh}>刷新</Button></Space>
     <PendingOperationPanel owner={owner} target={workflowId} onChange={refresh} onRecovered={()=>refresh()} />
     {error&&<Alert type="error" showIcon title={error} closable onClose={()=>setError('')}/>}{notice&&<Alert type="success" title={notice}/>}
-    <Card><Descriptions column={3} size="small" items={[
-      {key:'progress',label:'处理进度',children:`${stateLabel(workflow.progress.stage)} · ${workflow.progress.completed_count}/${workflow.progress.total_count??'待定'}`},
+    <Card><ProcessingProgress workflow={workflow}/><Descriptions column={3} size="small" items={[
       {key:'content',label:'内容审核',children:stateLabel(workflow.content_review_state)},{key:'errors',label:'错因审核',children:stateLabel(workflow.error_review_state)},
       {key:'publish',label:'正式入库',children:stateLabel(workflow.publication_state)},{key:'visible',label:'学生可见',children:workflow.is_student_visible?'已开放':'未开放'},
       {key:'cost',label:'本任务费用账本',children:`已知 $${workflow.usage.known_usd} / 预留 $${workflow.usage.reserved_usd}${workflow.usage.has_unknown_charges?'（有未确认计费）':''}`},

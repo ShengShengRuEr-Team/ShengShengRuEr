@@ -19,7 +19,9 @@ export interface WorkflowDetail extends WorkflowSummary {
   listening_pages: { paper: number[]; answer: number[] }; materials: WorkflowMaterial[]
   current_batch_id: number | null; is_student_visible: boolean; stages: Record<string, Projection>
   review_session_id: string | null; review_session_version: number | null
-  progress: {stage: string; completed_count: number; total_count: number | null; elapsed_ms: number; checkpoint: string | null}
+  progress: {stage: string; description: string; completed_count: number; total_count: number | null
+    unit: string; current_item: string | null; active: boolean; observed_at: string
+    started_at: string | null; last_progress_at: string | null; elapsed_ms: number; checkpoint: string | null}
   gates: Array<{kind: string; state: string; dependency_hash: string | null}>
   issues: Array<{code: string; message: string; retryable: boolean}>
   allowed_actions: Array<{action: string; enabled: boolean; blocked_reason: string | null}>

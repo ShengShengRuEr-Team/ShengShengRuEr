@@ -343,8 +343,9 @@ def workflow_data(db, workflow):
     from decimal import Decimal
 
     from app.core.config import get_settings
-    from app.db.models_processing import LlmAttempt, ProcessingArtifact, ProcessingTask
+    from app.db.models_processing import LlmAttempt, ProcessingTask
     from app.services.processing.orchestration import environment_ready
+    from app.services.processing.progress import workflow_progress
 
     task = (
         db.get(ProcessingTask, workflow.current_task_id)
@@ -440,33 +441,9 @@ def workflow_data(db, workflow):
         "listening_pages": revision.listening_pages,
         "materials": materials,
         "error_generation_summary": {},
-        "progress": {
-            "stage": task.stage if task else "materials",
-            "completed_count": db.scalar(
-                select(func.count())
-                .select_from(ProcessingArtifact)
-                .where(
-                    ProcessingArtifact.task_id == task.id,
-                    ProcessingArtifact.stage == "workflow_candidate",
-                )
-            )
-            if task
-            else sum(r["state"] == "ready" for r in materials),
-            "total_count": task.request.get("expected_question_count") if task else 3,
-            "elapsed_ms": max(
-                0,
-                int(
-                    (
-                        (now if task.state == "running" else task.updated_at)
-                        - task.created_at
-                    ).total_seconds()
-                    * 1000
-                ),
-            )
-            if task
-            else 0,
-            "checkpoint": None,
-        },
+        "progress": workflow_progress(
+            db, workflow, task, materials, now, get_settings(), revision
+        ),
         "gates": [
             {
                 "kind": stage,
@@ -485,6 +462,7 @@ def workflow_data(db, workflow):
                 "retryable": issue.get("retryable", False),
             }
             for issue in task.issues
+            if issue.get("issue_code") != "DOWNSTREAM_SCOPE_STOP"
         ]
         if task
         else [],

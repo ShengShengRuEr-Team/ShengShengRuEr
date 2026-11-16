@@ -1,6 +1,6 @@
 export const stateLabels: Record<string, string> = {
   review:'逐题审核',align:'音频对齐',assemble:'来源组装',annotate:'整套标注',annotate_sample:'前5题试标',
-  extract:'原件提取',normalize:'音频解码',reference:'原文提取',preflight:'环境检查',materials:'材料准备',
+  extract:'原件提取',assembly_extract:'答案解析识别',reuse:'复用已确认结果',normalize:'音频解码',reference:'原文提取',preflight:'环境检查',materials:'材料准备',
   awaiting_materials: '待补材料', queued: '排队中', running: '执行中', awaiting_alignment: '等待核听确认',
   awaiting_source: '等待来源确认', awaiting_sample: '等待5题试标复核', awaiting_review: '等待整套审核',
   not_ready: '尚未就绪', pending: '待审核', approved: '已通过', unpublished: '未发布', preparing: '发布准备中',
