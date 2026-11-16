@@ -79,13 +79,14 @@ export async function getContentCheck(
 /** 接口 ⑤：确认或取消学生可见。理由选填，最长 255 字。 */
 export async function setPaperVisibility(
   examPaperId: number,
+  expectedBatchId: number,
   action: VisibilityAction,
   reason = '',
 ): Promise<VisibilityResult> {
   const data = await request<VisibilityStateDto>({
     method: 'POST',
     url: `/api/v1/admin/listening-papers/${examPaperId}/visibility`,
-    data: { action, reason },
+    data: { action, reason, expected_batch_id: expectedBatchId },
   })
   return toVisibilityResult(data)
 }

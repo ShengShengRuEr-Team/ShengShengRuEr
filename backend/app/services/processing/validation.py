@@ -194,10 +194,7 @@ def validate_result(
         ):
             if not str(q.get(field, "")).strip():
                 issue("QUESTION_FIELD_MISSING", f"题目缺少{field}", qid)
-        if (
-            q.get("correct_option") not in "ABCD"
-            or len(q.get("correct_option", "")) != 1
-        ):
+        if q.get("correct_option") not in ("A", "B", "C", "D"):
             issue("ANSWER_INVALID", "标准答案无效", qid)
         s = segments.get(str(q.get("question_segment_src_id")))
         if (
@@ -275,6 +272,11 @@ def validate_result(
                 "review_status",
                 "notes",
             }
+            if (
+                payload.get("schema_version") == "m3.v2"
+                and section == "error_question_relations"
+            ):
+                common |= {"rule_version", "business_eligible"}
             if any(v is not None and k not in fields | common for k, v in r.items()):
                 issue("RELATION_FIELDS_INVALID", "关系存在不允许的对象字段", rid)
             attr = r.get("attributes_json") or {}
@@ -370,4 +372,11 @@ def validate_result(
             for r in answer_rows
         ):
             issue("ANSWER_EVIDENCE_MISSING", "每题必须有答案证据", qid)
+    if payload.get("schema_version") == "m3.v2":
+        from app.module3.option_annotations import validate_option_relations
+
+        try:
+            validate_option_relations(payload)
+        except ProcessingError as error:
+            issue(error.code, str(error))
     return issues

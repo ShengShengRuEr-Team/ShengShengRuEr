@@ -113,6 +113,8 @@ export interface AdminPassage {
 }
 
 export interface PaperCompanion extends PaperSummary {
+  batchId: number | null
+  resultHash: string | null
   batchCode: string | null
   isCurrent: boolean
   checkPassed: boolean
@@ -229,6 +231,8 @@ function toAdminPassage(dto: PassageAdminDto): AdminPassage {
 export function toPaperCompanion(dto: PaperCompanionDto): PaperCompanion {
   return {
     ...toPaperSummary(dto),
+    batchId: dto.batch_id,
+    resultHash: dto.result_hash,
     batchCode: dto.batch_code,
     isCurrent: dto.is_current,
     checkPassed: dto.check_passed,

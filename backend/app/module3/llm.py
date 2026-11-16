@@ -53,7 +53,7 @@ def external_commitments(run_key):
             .scalars()
             .all()
         )
-    totals = [Decimal(0), Decimal(0), Decimal(0)]
+    totals = [Decimal(0), Decimal(0), Decimal(0), Decimal(0)]
     for name in names:
         if name == engine.url.database:
             continue
@@ -73,7 +73,8 @@ def external_commitments(run_key):
                     coalesce(sum(coalesce(charged_usd,reserved_usd))
                         FILTER (WHERE run_key=:run),0),
                     coalesce(sum(coalesce(charged_usd,reserved_usd))
-                        FILTER (WHERE run_key=:run AND phase='sample'),0)
+                        FILTER (WHERE run_key=:run AND phase='sample'),0),
+                    count(*) FILTER (WHERE run_key=:run AND billing_status='unknown')
                     FROM processing_llm_attempts
                 """),
                     {"run": run_key},
@@ -88,7 +89,7 @@ def external_commitments(run_key):
     return totals
 
 
-def reserve(task_id, run_key, phase, request, settings):
+def reserve(task_id, run_key, phase, request, settings, *, execution_token=None):
     # UTF-8 byte count is a conservative upper bound for byte-level tokenization.
     maximum = (
         Decimal(len(canonical_bytes(request))) * INPUT_PER_TOKEN
@@ -96,12 +97,39 @@ def reserve(task_id, run_key, phase, request, settings):
     ) * Decimal("1.20")
     with cluster_budget_lock(), SessionLocal() as db:
         db.execute(text("SELECT pg_advisory_xact_lock(3913343171)"))
+        if execution_token is not None:
+            from app.db.models_processing_workflows import ProcessingWorkflowCommand
+            from app.module3.workflow_worker import fence
+            from app.services.processing.tasks import fenced_task
+
+            command_id = db.scalar(
+                select(ProcessingWorkflowCommand.id).where(
+                    ProcessingWorkflowCommand.execution_token == execution_token,
+                    ProcessingWorkflowCommand.state == "running",
+                )
+            )
+            if command_id is None:
+                raise ProcessingError("LEASE_REVOKED", "收费请求执行权已撤销")
+            fence(db, command_id, execution_token)
+            fenced_task(db, task_id, execution_token)
         rows = db.scalars(select(LlmAttempt)).all()
 
         def cost(row):
             return row.charged_usd if row.charged_usd is not None else row.reserved_usd
 
-        external_total, external_run, external_sample = external_commitments(run_key)
+        external_total, external_run, external_sample, external_unknown = (
+            external_commitments(run_key)
+        )
+        if execution_token is not None and (
+            external_unknown
+            or any(
+                row.run_key == run_key and row.billing_status == "unknown"
+                for row in rows
+            )
+        ):
+            raise ProcessingError(
+                "BILLING_LEDGER_UNAVAILABLE", "同一原音存在未确认计费，停止新调用"
+            )
         total = sum((cost(r) for r in rows), external_total)
         run = sum((cost(r) for r in rows if r.run_key == run_key), external_run)
         sample = sum(
@@ -158,7 +186,17 @@ def settle(attempt_id, *, response=None, error_code=None, status="succeeded"):
         db.commit()
 
 
-def request_json(task_id, run_key, phase, system, data, settings, *, transport=None):
+def request_json(
+    task_id,
+    run_key,
+    phase,
+    system,
+    data,
+    settings,
+    *,
+    transport=None,
+    execution_token=None,
+):
     if (
         not settings.deepseek_api_key
         or not settings.deepseek_api_key.get_secret_value()
@@ -180,8 +218,19 @@ def request_json(task_id, run_key, phase, system, data, settings, *, transport=N
             {"role": "user", "content": canonical_bytes(data).decode("utf-8")},
         ],
     }
-    for index in range(3):
-        attempt = reserve(task_id, run_key, phase, request, settings)
+    attempts = 1 if execution_token is not None else 3
+    for index in range(attempts):
+        if execution_token is not None:
+            from app.services.processing.tasks import fenced_task
+
+            with SessionLocal() as db:
+                fenced_task(db, task_id, execution_token)
+        attempt = reserve(
+            task_id, run_key, phase, request, settings, execution_token=execution_token
+        )
+        if execution_token is not None:
+            with SessionLocal() as db:
+                fenced_task(db, task_id, execution_token)
         try:
             with httpx.Client(timeout=120, transport=transport) as client:
                 response = client.post(
@@ -194,7 +243,7 @@ def request_json(task_id, run_key, phase, system, data, settings, *, transport=N
                 )
         except httpx.TransportError:
             settle(attempt, error_code="LLM_TRANSPORT", status="failed")
-            if index == 2:
+            if index == attempts - 1:
                 raise ProcessingError(
                     "LLM_TRANSPORT", "模型连接失败；未知消耗保留预留额", retryable=True
                 ) from None
@@ -203,7 +252,10 @@ def request_json(task_id, run_key, phase, system, data, settings, *, transport=N
         if response.status_code != 200:
             code = "LLM_AUTH" if response.status_code in {401, 403} else "LLM_HTTP"
             settle(attempt, error_code=code, status="failed")
-            if response.status_code not in {429, 500, 502, 503, 504} or index == 2:
+            if (
+                response.status_code not in {429, 500, 502, 503, 504}
+                or index == attempts - 1
+            ):
                 raise ProcessingError(
                     code,
                     "模型调用失败；详见去敏调用账本",

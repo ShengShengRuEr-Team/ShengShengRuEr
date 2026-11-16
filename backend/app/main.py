@@ -1,6 +1,8 @@
 """FastAPI 应用入口与全局装配。"""
 
+import asyncio
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -23,7 +25,32 @@ from app.module3.contracts import ProcessingError
 
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app):
+    from app.services.processing.uploads import recover_uploads
+
+    async def recover():
+        while True:
+            try:
+                await asyncio.to_thread(recover_uploads)
+            except Exception:
+                logger.warning("上传恢复扫描暂不可用", exc_info=True)
+            await asyncio.sleep(15)
+
+    recovery = asyncio.create_task(recover())
+    try:
+        yield
+    finally:
+        recovery.cancel()
+        try:
+            await recovery
+        except asyncio.CancelledError:
+            pass
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="英语四六级听力错题与推荐系统 - 模块一",
     version="1.0.0",
     docs_url="/docs",

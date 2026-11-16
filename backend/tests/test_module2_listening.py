@@ -5,6 +5,7 @@
 scripts/acceptance_module2.py 在开发库上另行验收。
 """
 
+from tests.batch_preconditions import current_batch_id
 import hashlib
 import json
 
@@ -153,7 +154,7 @@ def test_confirm_then_student_sees(
 ) -> None:
     confirm = client.post(
         f"/api/v1/admin/listening-papers/{module2_paper_id}/visibility",
-        json={"action": "confirm", "reason": "测试确认"},
+        json={"expected_batch_id": current_batch_id(module2_paper_id), "action": "confirm", "reason": "测试确认"},
         headers=auth_headers(admin_token),
     )
     assert confirm.status_code == 200, confirm.text
@@ -173,7 +174,7 @@ def test_student_response_excludes_restricted_fields(
 ) -> None:
     client.post(
         f"/api/v1/admin/listening-papers/{module2_paper_id}/visibility",
-        json={"action": "confirm", "reason": ""},
+        json={"expected_batch_id": current_batch_id(module2_paper_id), "action": "confirm", "reason": ""},
         headers=auth_headers(admin_token),
     )
     detail = client.get(
@@ -196,7 +197,7 @@ def test_student_cannot_call_admin_endpoints(client: TestClient, student_token: 
         assert response.status_code == 403, url
     response = client.post(
         f"/api/v1/admin/listening-papers/{module2_paper_id}/visibility",
-        json={"action": "confirm", "reason": ""},
+        json={"expected_batch_id": current_batch_id(module2_paper_id), "action": "confirm", "reason": ""},
         headers=auth_headers(student_token),
     )
     assert response.status_code == 403
@@ -207,7 +208,7 @@ def test_audio_range_and_cancel_blocks_student(
 ) -> None:
     client.post(
         f"/api/v1/admin/listening-papers/{module2_paper_id}/visibility",
-        json={"action": "confirm", "reason": ""},
+        json={"expected_batch_id": current_batch_id(module2_paper_id), "action": "confirm", "reason": ""},
         headers=auth_headers(admin_token),
     )
     audio = client.get(
@@ -220,7 +221,7 @@ def test_audio_range_and_cancel_blocks_student(
 
     cancel = client.post(
         f"/api/v1/admin/listening-papers/{module2_paper_id}/visibility",
-        json={"action": "cancel", "reason": "测试取消"},
+        json={"expected_batch_id": current_batch_id(module2_paper_id), "action": "cancel", "reason": "测试取消"},
         headers=auth_headers(admin_token),
     )
     assert cancel.status_code == 200
@@ -314,7 +315,7 @@ def test_invalid_option_mapping_blocks_confirm(
 
             response = client.post(
                 f"/api/v1/admin/listening-papers/{module2_paper_id}/visibility",
-                json={"action": "confirm", "reason": ""},
+                json={"expected_batch_id": current_batch_id(module2_paper_id), "action": "confirm", "reason": ""},
                 headers=auth_headers(admin_token),
             )
             assert response.status_code == 400, response.text

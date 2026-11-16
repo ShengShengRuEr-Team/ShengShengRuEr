@@ -1,0 +1,162 @@
+"""Bounded, version-pinned draft projections; private execution details stay private."""
+
+from functools import cache
+
+from app.module3.contracts import result_hash
+from app.module3.option_annotations import invert_option_mapping
+from app.services.processing import orchestration as o
+from app.services.processing import reviewing
+from app.services.processing import workflows as w
+
+
+@cache
+def dictionary_names():
+    from app.services.processing.validation import load_dictionary
+
+    return {
+        row["error_cause_code"]: row["cause_name"]
+        for table in load_dictionary()["tables"]
+        if table["name"] == "error_cause"
+        for row in table["rows"]
+    }
+
+
+def public_value(value):
+    if isinstance(value, list):
+        return [public_value(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: public_value(item)
+            for key, item in value.items()
+            if key
+            not in {
+                "storage_key",
+                "source_storage_key",
+                "path",
+                "page_image",
+                "model_root",
+                "nltk_data",
+                "execution_token",
+                "lease_token",
+                "worker_id",
+                "call",
+                "rules_manifest",
+            }
+        }
+    return value
+
+
+def question_view(content, question):
+    qid = question["_src_id"]
+    evidences = {r["_src_id"]: r for r in content.get("evidences", [])}
+    error_rows = content.get("error_question_relations", [])
+    skill_rows = content.get("skill_question_relations", [])
+    presentation = next(
+        row for row in content["presentations"] if row["question_src_id"] == qid
+    )
+    inverse = invert_option_mapping(presentation["option_letter_mapping"])
+
+    def evidence_groups(rows, owner):
+        return [
+            {
+                **evidences[row["evidence_src_id"]],
+                "relation_src_id": row["_src_id"],
+                "support_note": (row.get("attributes_json") or {}).get(
+                    "support_note", ""
+                ),
+            }
+            for row in sorted(rows, key=lambda row: row.get("sort_order") or 0)
+            if row.get("owner_relation_src_id") == owner
+        ]
+
+    options = []
+    for display, base in presentation["option_letter_mapping"].items():
+        errors = [
+            {
+                "relation_src_id": row["_src_id"],
+                "code": row["error_cause_code"],
+                "name": dictionary_names().get(
+                    row["error_cause_code"], row["error_cause_code"]
+                ),
+                "rationale": (row.get("attributes_json") or {}).get(
+                    "trigger_mechanism", ""
+                ),
+                "evidence": evidence_groups(error_rows, row["_src_id"]),
+            }
+            for row in error_rows
+            if row.get("question_src_id") == qid and row.get("option_letter") == base
+        ]
+        options.append(
+            {
+                "display_letter": display,
+                "base_option_letter": base,
+                "text": question["option_" + base.lower()],
+                "error_causes": errors,
+            }
+        )
+    receipt = next(
+        (
+            r
+            for r in content.get("generation_receipts", [])
+            if r["question_src_id"] == qid
+        ),
+        None,
+    )
+    return public_value(
+        {
+            **question,
+            "question_src_id": qid,
+            "question_no": presentation["question_no"],
+            "correct_option_base": question["correct_option"],
+            "correct_option_display": inverse[question["correct_option"]],
+            "options": sorted(options, key=lambda row: row["display_letter"]),
+            "skills": [
+                {**row, "evidence": evidence_groups(skill_rows, row["_src_id"])}
+                for row in skill_rows
+                if row.get("question_src_id") == qid
+            ],
+            "answer_evidence": [
+                {
+                    **evidences[row["evidence_src_id"]],
+                    "relation_src_id": row["_src_id"],
+                    "support_note": (row.get("attributes_json") or {}).get(
+                        "support_note", ""
+                    ),
+                }
+                for row in content.get("other_relations", [])
+                if row.get("question_src_id") == qid
+                and row["relation_kind"] == "ANSWER_EVIDENCE"
+            ],
+            "generation_state": receipt["state"] if receipt else "not_generated",
+            "review_requirements": {
+                key: sorted(refs)
+                for key, refs in reviewing.review_requirements(content, qid).items()
+            },
+        }
+    )
+
+
+def questions(db, revision, settings, expected_hash=None, cursor=0, limit=25):
+    stage = next(
+        (
+            stage
+            for stage in ("final", "sample", "source")
+            if stage in revision.stage_fingerprints
+        ),
+        None,
+    )
+    if not stage:
+        return {"items": [], "next_cursor": None, "result_hash": None, "total": 0}
+    content, _ = o.stage_payload(db, revision, stage, settings)
+    identity = result_hash(content)
+    if (expected_hash and expected_hash != identity) or (cursor and not expected_hash):
+        raise w.conflict("VERSION_CONFLICT", "题目分页版本变化，请重新读取")
+    selected = content["questions"][cursor : cursor + limit]
+    return {
+        "items": [question_view(content, q) for q in selected],
+        "result_hash": identity,
+        "total": len(content["questions"]),
+        "next_cursor": cursor + limit
+        if cursor + limit < len(content["questions"])
+        else None,
+    }

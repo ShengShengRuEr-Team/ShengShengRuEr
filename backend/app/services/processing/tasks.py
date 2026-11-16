@@ -64,8 +64,8 @@ def register_material(
     db: Session, data: MaterialRequest, user_id: int, settings: Settings
 ):
     path = controlled_path(settings.m3_path("m3_materials_dir"), data.storage_key)
-    if path.stat().st_size > 2 * 1024**3:
-        raise ProcessingError("SOURCE_TOO_LARGE", "单材料超过2GiB限制")
+    if path.stat().st_size > settings.m3_upload_max_bytes:
+        raise ProcessingError("SOURCE_TOO_LARGE", "单材料超过配置上传上限")
     mime, digest = media_type(path), file_hash(path)
     if digest != data.expected_sha256:
         raise conflict("材料实际哈希与登记值不符")
@@ -353,7 +353,9 @@ def expire_leases(db: Session):
 def claim_task(db: Session, worker_id: str, lease_seconds=120):
     task = db.scalar(
         select(m.ProcessingTask)
-        .where(m.ProcessingTask.state == "pending")
+        .where(
+            m.ProcessingTask.state == "pending", m.ProcessingTask.workflow_id.is_(None)
+        )
         .order_by(m.ProcessingTask.created_at, m.ProcessingTask.id)
         .with_for_update(skip_locked=True)
         .limit(1)
@@ -492,6 +494,8 @@ def latest_reviews(db, task):
 
 def record_review(db, task_id, data: ReviewRequest, user):
     task = get_task(db, task_id, lock=True)
+    if task.workflow_id and not db.info.get("workflow_review_session"):
+        raise conflict("新结果须通过完整逐题审核会话提交")
     if task.result_hash != data.result_hash or not get_draft(db, task):
         raise conflict("复核必须绑定当前真实结果")
     if data.decision == "approved":
@@ -602,6 +606,10 @@ def record_review(db, task_id, data: ReviewRequest, user):
                     review_status="已通过" if data.decision == "approved" else "需修改"
                 )
             )
+    if task.workflow_id:
+        # New workflows keep generation completion separate from review and
+        # publication. Saving a real review never resurrects the completed job.
+        return row
     reviews = latest_reviews(db, task)
     checked = db.scalar(
         select(ContentCheck)
@@ -650,6 +658,8 @@ def child_task(db, parent, user_id, *, state="pending"):
 
 def retry_task(db, task_id, data: RetryRequest, user_id, settings):
     parent = get_task(db, task_id, lock=True)
+    if parent.workflow_id:
+        raise conflict("统一工作流任务须通过工作流命令显式重试")
     if parent.input_hash != data.expected_input_hash or parent.state not in {
         "failed",
         "awaiting_confirmation",
@@ -712,6 +722,8 @@ CORRECTABLE = {
 
 def correct_task(db, task_id, data: CorrectionRequest, user_id):
     parent = get_task(db, task_id, lock=True)
+    if parent.workflow_id:
+        raise conflict("统一工作流修订必须通过来源校正服务，禁止旧入口修改标注")
     if parent.result_hash != data.expected_result_hash:
         raise conflict("结果版本冲突")
     draft = get_draft(db, parent)
@@ -764,6 +776,8 @@ def activate(db, paper_id, data: ActivationRequest, user_id):
     if paper is None:
         raise not_found()
     task = get_task(db, data.task_id, lock=True)
+    if task.workflow_id and not db.info.get("workflow_publication"):
+        raise conflict("新结果须通过工作流发布操作激活")
     batch = db.get(ImportBatch, data.batch_id)
     check = db.get(ContentCheck, data.check_id)
     if (

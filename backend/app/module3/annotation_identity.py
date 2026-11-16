@@ -22,6 +22,10 @@ def rules_manifest() -> dict:
         "app/module3/annotation_identity.py",
         "app/module3/annotations.py",
         "app/module3/annotation_checks.py",
+        "app/module3/option_annotations.py",
+        "app/module3/workflow_worker.py",
+        "app/services/processing/reviewing.py",
+        "app/services/processing/reprocessing.py",
     )
     content = {
         "result_version": RESULT_VERSION,
@@ -31,7 +35,7 @@ def rules_manifest() -> dict:
         "dictionary_sha256": file_hash(root / "config/module3/dictionary-schema.json"),
         "implementation": {name: file_hash(root / name) for name in files},
         # Enabled only after the new candidate/worker path is actually implemented.
-        "generation_enabled": False,
+        "generation_enabled": True,
     }
     return {**content, "manifest_hash": fingerprint(content)}
 
@@ -46,6 +50,28 @@ def materials_hash(materials: list[dict], document_mode: str) -> str:
     )
 
 
+def source_identity(value, payload):
+    materials = {
+        row["material_id"]: row["sha256"] for row in payload.get("source_materials", [])
+    }
+
+    def normalize(item):
+        if isinstance(item, list):
+            return [normalize(row) for row in item]
+        if isinstance(item, dict):
+            result = {
+                key: normalize(row)
+                for key, row in item.items()
+                if key != "source_materials"
+            }
+            if "material_id" in result and result["material_id"] in materials:
+                result["material_sha256"] = materials[result.pop("material_id")]
+            return result
+        return item
+
+    return normalize(value)
+
+
 def question_input_hash(payload: dict, question: dict) -> str:
     passage = question["passage_src_id"]
     source_ids = {question["_src_id"], passage} | {
@@ -54,27 +80,36 @@ def question_input_hash(payload: dict, question: dict) -> str:
         if s["passage_src_id"] == passage
     }
     return fingerprint(
-        {
-            "version": RESULT_VERSION,
-            "question": question,
-            "passage": [p for p in payload["passages"] if p["_src_id"] == passage],
-            "segments": sorted(
-                [
-                    s
-                    for s in payload["transcript_segments"]
-                    if s["passage_src_id"] == passage
+        source_identity(
+            {
+                "version": RESULT_VERSION,
+                "audio_sha256": payload.get("audio", {}).get("file_hash"),
+                "presentation": [
+                    p
+                    for p in payload.get("presentations", [])
+                    if p.get("question_src_id") == question["_src_id"]
                 ],
-                key=lambda row: (row["segment_index"], row["_src_id"]),
-            ),
-            "source_refs": sorted(
-                [
-                    r
-                    for r in payload.get("source_refs", [])
-                    if r.get("src_id") in source_ids
-                ],
-                key=fingerprint,
-            ),
-        }
+                "question": question,
+                "passage": [p for p in payload["passages"] if p["_src_id"] == passage],
+                "segments": sorted(
+                    [
+                        s
+                        for s in payload["transcript_segments"]
+                        if s["passage_src_id"] == passage
+                    ],
+                    key=lambda row: (row["segment_index"], row["_src_id"]),
+                ),
+                "source_refs": sorted(
+                    [
+                        r
+                        for r in payload.get("source_refs", [])
+                        if r.get("src_id") in source_ids
+                    ],
+                    key=fingerprint,
+                ),
+            },
+            payload,
+        )
     )
 
 
@@ -99,10 +134,26 @@ def result_hash(payload: dict, manifest: dict) -> str:
     # Review/progress metadata cannot change immutable content identity.
     for key in ("review", "review_session", "read_at", "row_version"):
         normalized.pop(key, None)
+    if "generation_receipts" in normalized:
+        normalized["generation_receipts"] = [
+            {
+                k: v
+                for k, v in receipt.items()
+                if k
+                not in {
+                    "artifact_id",
+                    "artifact_hash",
+                    "task_id",
+                    "attempt_id",
+                    "reused_from_task_id",
+                }
+            }
+            for receipt in normalized["generation_receipts"]
+        ]
     return fingerprint(
         {
             "version": RESULT_VERSION,
             "rules_manifest": manifest,
-            "content": result_identity(normalized),
+            "content": result_identity(source_identity(normalized, payload)),
         }
     )

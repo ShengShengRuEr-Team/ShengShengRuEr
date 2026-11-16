@@ -1,0 +1,93 @@
+// Desktop contract/interaction checks with explicit synthetic API responses.
+import { createRequire } from 'node:module'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+const require = createRequire(process.env.M3_PLAYWRIGHT_PACKAGE)
+const {chromium} = require('playwright')
+const output=path.resolve(process.env.M3_BROWSER_OUTPUT || 'backend/var/verification/browser')
+await fs.mkdir(output,{recursive:true})
+const root='/api/v1/admin/processing-workflows',wid='11111111-1111-4111-8111-111111111111',rid='22222222-2222-4222-8222-222222222222'
+const hash='a'.repeat(64),session='33333333-3333-4333-8333-333333333333'
+const summary={workflow_id:wid,revision_id:rid,row_version:7,exam_level:'CET4',exam_year:2025,exam_month:6,paper_set:1,exam_paper_id:null,
+  processing_state:'awaiting_review',content_review_state:'pending',error_review_state:'pending',publication_state:'unpublished',created_at:'2026-11-16T00:00:00Z',updated_at:'2026-11-16T00:01:00Z'}
+const workflow={...summary,task_id:wid,result_hash:hash,document_mode:'text',listening_pages:{paper:[1],answer:[1]},
+  materials:['paper','answer','audio'].map((kind,index)=>({kind,upload_id:wid,upload_version:1,state:'ready',material_id:index+1,lease_expired:false,failure_code:null,filename:`synthetic-${kind}.${kind==='audio'?'wav':'pdf'}`})),
+  current_batch_id:null,is_student_visible:false,stages:{source:{task_id:wid,artifact_id:1,artifact_hash:hash,dependency_hash:hash},final:{task_id:wid,artifact_id:2,artifact_hash:hash,dependency_hash:hash}},
+  review_session_id:session,review_session_version:1,progress:{stage:'review',completed_count:2,total_count:2,elapsed_ms:12000,checkpoint:null},gates:[],issues:[],
+  allowed_actions:[{action:'start',enabled:false},{action:'reserve_upload',enabled:false}],usage:{known_usd:'0.002',reserved_usd:'0',has_unknown_charges:false}}
+const question=(n)=>({question_src_id:`q:${n}`,question_no:n,question_text:'What is the correct answer?',explanation_text:'Synthetic source explicitly states Alpha.',correct_option_base:'A',correct_option_display:'A',generation_state:'generated_empty',
+  options:['Alpha','Beta','Gamma','Delta'].map((text,i)=>({display_letter:'ABCD'[i],base_option_letter:'ABCD'[i],text,error_causes:[]})),skills:[],answer_evidence:[],review_requirements:{primary_skills:[],answer_evidence:[],error_causes:[]}})
+const browser=await chromium.launch({headless:true,executablePath:process.env.M3_BROWSER_EXECUTABLE})
+const checks=[],errors=[],requests=[]
+function check(value,label){if(!value)throw Error(label);checks.push(label)}
+try {
+  for(const [width,height] of [[1440,900],[1280,720]]) {
+    const context=await browser.newContext({viewport:{width,height}});const page=await context.newPage()
+    await page.addInitScript(()=>localStorage.setItem('ssre_access_token','synthetic-browser-token'))
+    page.on('pageerror',error=>errors.push(error.message))
+    let sessionVersion=1,createKey=null,createCount=0
+    await page.route('**/api/v1/**',async route=>{
+      const req=route.request(),url=new URL(req.url()),pathname=url.pathname
+      if(req.method()==='OPTIONS'){await route.fulfill({status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*','Access-Control-Allow-Methods':'*'}});return}
+      requests.push({method:req.method(),path:pathname})
+      let data=null
+      if(pathname==='/api/v1/getInfo')data={user:{user_id:1,username:'synthetic-admin',nickname:'交互验证'},roles:['admin'],is_admin:true,permissions:[]}
+      else if(pathname===root+'/capabilities')data={max_upload_bytes:536870912,processing_ready:true,blocked_reason:null}
+      else if(pathname===root&&req.method()==='GET')data={items:[summary],next_cursor:null}
+      else if(pathname===root&&req.method()==='POST'){
+        createCount++;createKey=req.headers()['idempotency-key'];
+        await route.fulfill({status:504,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify({code:504,msg:'Synthetic lost response after commit',data:null})});return
+      }
+      else if(pathname===root+'/operations/by-key'){
+        check(url.searchParams.get('idempotency_key')===createKey,'recovery queries the original operation key')
+        data={operation_id:wid,workflow_id:wid,revision_id:rid,action:'create',state:'succeeded',failure_code:null,result:{},created_at:summary.created_at}
+      }
+      else if(pathname===`${root}/${wid}`)data=workflow
+      else if(pathname.endsWith('/operations'))data={items:[]}
+      else if(pathname.endsWith('/questions'))data={items:[question(1),question(2)],total:2,result_hash:hash,next_cursor:null}
+      else if(pathname.endsWith(`/review-sessions/${session}`))data={row_version:sessionVersion,items:[],result_hash:hash,state:'draft',total:2,next_cursor:null}
+      else if(pathname.endsWith('/items')){const body=req.postDataJSON();check(Boolean(req.headers()['idempotency-key']),'review save carries original operation key');check(body.expected_result_hash===hash,'review save binds immutable final result');sessionVersion++;
+        data={operation_id:wid,workflow_id:wid,revision_id:rid,action:'review_save',state:'succeeded',failure_code:null,result:{session_version:sessionVersion},created_at:summary.created_at}}
+      else if(pathname==='/api/v1/listening-papers')data=[]
+      else throw Error(`Unexpected synthetic API request: ${req.method()} ${pathname}`)
+      await route.fulfill({status:200,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify({code:200,msg:'Synthetic contract response',data})})
+    })
+    const base=process.env.M3_BROWSER_URL||'http://127.0.0.1:5199'
+    for(const [name,url,ready] of [
+      ['new','/admin/listening-papers/processing/new','创建材料处理任务'],
+      ['list','/admin/listening-papers/processing','处理任务与待审核'],
+      ['review',`/admin/listening-papers/processing/${wid}`,'第1题审核意见'],
+    ]){
+      await page.goto(base+url);await page.getByText(ready,{exact:true}).waitFor()
+      if(!process.env.M3_BROWSER_NO_SCREENSHOTS)await page.screenshot({path:path.join(output,`${width}-${name}.png`),fullPage:true})
+      check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${width} ${name}: no horizontal overflow`)
+    }
+    check(await page.getByRole('button',{name:'正式入库并激活',exact:true}).isDisabled(),`${width}: incomplete review cannot publish`)
+    check(await page.getByRole('button',{name:'提交整套审核',exact:true}).isDisabled(),`${width}: unconfirmed audio cannot submit`)
+    await page.getByLabel('审核意见 / 退回原因',{exact:true}).fill('Synthetic unsaved opinion one')
+    await page.getByLabel('跳转题目').click();await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter')
+    await page.getByText('第2题审核意见',{exact:true}).waitFor()
+    await page.getByLabel('审核意见 / 退回原因',{exact:true}).fill('Synthetic unsaved opinion two')
+    await page.getByRole('button',{name:'保存本题意见',exact:true}).click()
+    await page.getByText('本题意见已保存到服务器',{exact:true}).waitFor()
+    const changes=await page.evaluate(()=>JSON.parse(localStorage.getItem(Object.keys(localStorage).find(key=>key.startsWith('m3-review:')))).drafts)
+    check(changes['q:1']?.note==='Synthetic unsaved opinion one'&&!changes['q:2'],`${width}: saving one question preserves other unsaved opinions`)
+    check(await page.getByRole('button',{name:'提交整套审核',exact:true}).isDisabled(),`${width}: unsaved opinions still block full submission`)
+    // A committed command whose HTTP response is lost must be recovered by key.
+    await page.evaluate(()=>{for(const key of Object.keys(localStorage))if(key.startsWith('m3-review:'))localStorage.removeItem(key)})
+    await page.goto(base+`/admin/listening-papers/processing/${wid}`);await page.getByText('第1题审核意见',{exact:true}).waitFor()
+    await page.goto(base+'/admin/listening-papers/processing/new')
+    await page.getByRole('button',{name:'创建并上传材料',exact:true}).click()
+    await page.getByText('有一项操作尚未核对结果',{exact:true}).waitFor()
+    await page.waitForTimeout(300)
+    check(await page.getByRole('button').filter({hasText:'创建并上传材料'}).isDisabled(),`${width}: lost create response blocks a new key`)
+    await page.getByRole('button',{name:'查询原操作',exact:true}).click()
+    await page.getByText('第1题审核意见',{exact:true}).waitFor()
+    check(createCount===1,`${width}: recovering creation does not create a second workflow`)
+    await context.close()
+  }
+  check(errors.length===0,'no browser runtime errors')
+  check(!requests.some(req=>req.path.endsWith('/start')||req.path.endsWith('/continue')||req.path.endsWith('/publish')),'reading and polling issue no processing commands')
+  await fs.writeFile(path.join(output,'summary.json'),JSON.stringify({scope:'synthetic desktop UI contracts, not real-material acceptance',status:'PASS',checks,errors},null,2))
+  console.log(JSON.stringify({status:'PASS',checks:checks.length,output}))
+} finally {await browser.close()}

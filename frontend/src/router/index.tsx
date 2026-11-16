@@ -16,6 +16,9 @@ const ForbiddenPage = lazy(() => import('../pages/ForbiddenPage'))
 const AdminHomePage = lazy(() => import('../pages/admin/HomePage'))
 const AdminListeningPaperListPage = lazy(() => import('../pages/admin/ListeningPaperListPage'))
 const AdminListeningPaperDetailPage = lazy(() => import('../pages/admin/ListeningPaperDetailPage'))
+const ProcessingListPage = lazy(() => import('../pages/admin/processing/ProcessingListPage'))
+const NewWorkflowPage = lazy(() => import('../pages/admin/processing/NewWorkflowPage'))
+const ProcessingDetailPage = lazy(() => import('../pages/admin/processing/ProcessingDetailPage'))
 const StudentHomePage = lazy(() => import('../pages/student/HomePage'))
 const StudentListeningPaperListPage = lazy(() => import('../pages/student/ListeningPaperListPage'))
 const StudentListeningPaperPage = lazy(() => import('../pages/student/ListeningPaperPage'))
@@ -66,6 +69,9 @@ export default function AppRouter() {
             path={ROUTES.ADMIN_LISTENING_PAPER_DETAIL}
             element={<AdminListeningPaperDetailPage />}
           />
+          <Route path="/admin/listening-papers/processing" element={<ProcessingListPage />} />
+          <Route path="/admin/listening-papers/processing/new" element={<NewWorkflowPage />} />
+          <Route path="/admin/listening-papers/processing/:workflowId" element={<ProcessingDetailPage />} />
         </Route>
 
         <Route

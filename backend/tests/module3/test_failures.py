@@ -4,6 +4,8 @@ from uuid import UUID
 
 import pytest
 
+from tests.batch_preconditions import current_batch_id
+
 
 @pytest.mark.parametrize(
     "status,count", [(401, 1), (403, 1), (429, 3), (500, 3), (503, 3)]
@@ -236,7 +238,11 @@ def test_a31_media_full_hash_and_ranges(persisted, client, student_token):
         client.post(
             visible,
             headers=c["headers"],
-            json={"action": "confirm", "reason": "synthetic"},
+            json={
+                "expected_batch_id": current_batch_id(c["paper_id"]),
+                "action": "confirm",
+                "reason": "synthetic",
+            },
         ).status_code
         == 200
     )

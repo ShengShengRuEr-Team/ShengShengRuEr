@@ -293,6 +293,12 @@ def process(task_id, token, settings):
                         transcription = {
                             "segments": task.request.get("reference_segments", [])
                         }
+                        if task.workflow_id and task.request.get(
+                            "corrected_reference_structure"
+                        ):
+                            transcription["trusted_question_structure"] = task.request[
+                                "corrected_reference_structure"
+                            ]
                         if (
                             not transcription["segments"]
                             and task.request.get("reference_preparation") == "auto"
@@ -560,6 +566,11 @@ def run_once(settings):
         if not lock.execute(text("SELECT pg_try_advisory_lock(3913343170)")).scalar():
             return 0
         try:
+            from app.module3.workflow_worker import run_one
+
+            continuation = run_one(settings)
+            if continuation is not None:
+                return continuation
             with SessionLocal() as db:
                 tasks.expire_leases(db)
                 task = tasks.claim_task(

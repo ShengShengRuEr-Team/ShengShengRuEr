@@ -167,23 +167,20 @@ def publish_audio(source: Path, audio_dir: Path, audio: dict):
     return target, created
 
 
-def persist_result(db, task_id, token, payload, audio_source, settings):
+def persist_result(
+    db, task_id, token, payload, audio_source, settings, *, execution_guard=None
+):
     """Caller commits; retain immutable content when commit status is uncertain.
 
     Unreferenced content-addressed files are safe and can be reconciled separately.
     Existing files are never removed by a failed task.
     """
-    task = fenced_task(db, task_id, token)
-    issues = validate_result(payload, task.request)
-    if issues:
-        task.issues = issues
-        task.state, task.stage, task.lease_token = (
-            "awaiting_confirmation",
-            "validate",
-            None,
-        )
-        return None
-    snapshot = ensure_dictionary(db)
+    # Read the paper identity before taking locks. Both old workers and new
+    # publication operations take the paper lock BEFORE the task lock.
+    task = db.get(p.ProcessingTask, task_id)
+    is_v2 = payload.get("schema_version") == "m3.v2"
+    if (is_v2 or task.workflow_id) and execution_guard is None:
+        raise ProcessingError("REVIEW_REQUIRED", "新规则结果只能通过工作流发布服务入库")
     # Paper-level lock also protects first-create and result-fingerprint races.
     db.execute(
         text("SELECT pg_advisory_xact_lock(:key)"),
@@ -199,16 +196,34 @@ def persist_result(db, task_id, token, payload, audio_source, settings):
         paper = m.ExamPaper(**values)
         db.add(paper)
         db.flush()
+    if execution_guard:
+        execution_guard(db)
+    else:
+        task = fenced_task(db, task_id, token)
+    issues = validate_result(payload, task.request)
+    if issues:
+        task.issues = issues
+        task.state, task.stage, task.lease_token = (
+            "awaiting_confirmation",
+            "validate",
+            None,
+        )
+        return None
+    snapshot = ensure_dictionary(db)
     count, source = (
         task.request[k]
         for k in ("expected_question_count", "expected_question_count_source")
     )
     if paper.expected_question_count is not None and (
         paper.expected_question_count != count
-        or paper.expected_question_count_source != source
+        or (not is_v2 and paper.expected_question_count_source != source)
     ):
         raise ProcessingError("PAPER_IDENTITY_CONFLICT", "可信题量或来源冲突")
-    paper.expected_question_count, paper.expected_question_count_source = count, source
+    if not is_v2 or paper.expected_question_count is None:
+        paper.expected_question_count, paper.expected_question_count_source = (
+            count,
+            source,
+        )
     result_hash = business_hash(payload)
     result_fp = fingerprint(
         {
@@ -217,6 +232,10 @@ def persist_result(db, task_id, token, payload, audio_source, settings):
             "result": result_identity(payload),
         }
     )
+    if is_v2:
+        result_fp = fingerprint(
+            {"revision_id": str(task.revision_id), "result_hash": result_hash}
+        )
     prior = db.scalar(
         select(m.ImportBatch).where(
             m.ImportBatch.exam_paper_id == paper.id,
@@ -232,7 +251,7 @@ def persist_result(db, task_id, token, payload, audio_source, settings):
             )
             .order_by(m.ContentCheck.id.desc())
         )
-        if not check or not check.is_passed:
+        if (not check or not check.is_passed) and not is_v2:
             raise ProcessingError(
                 "RESULT_NOT_VALIDATED", "同指纹已有待检批次，请先完成原任务检查"
             )
@@ -246,11 +265,12 @@ def persist_result(db, task_id, token, payload, audio_source, settings):
             .where(p.ProcessingTask.batch_id == prior.id)
             .order_by(p.ProcessingTask.created_at)
         )
-        task.state, task.stage, task.lease_token = (
-            "awaiting_confirmation",
-            "review",
-            None,
-        )
+        if not is_v2:
+            task.state, task.stage, task.lease_token = (
+                "awaiting_confirmation",
+                "review",
+                None,
+            )
         return prior
     audio = payload["audio"]
     if file_hash(audio_source) != audio["file_hash"]:
@@ -464,13 +484,22 @@ def persist_result(db, task_id, token, payload, audio_source, settings):
                         conversion_hash=source_ref.get("conversion_hash"),
                     )
                 )
+    if is_v2:
+        from app.services.processing.publication import insert_annotation_states
+
+        insert_annotation_states(db, task, paper, batch, payload, maps)
     store_draft(db, task, payload, view="final")
     task.batch_id, task.exam_paper_id, task.result_hash = (
         batch.id,
         paper.id,
         result_hash,
     )
-    task.state, task.stage, task.lease_token = "awaiting_confirmation", "review", None
+    if not is_v2:
+        task.state, task.stage, task.lease_token = (
+            "awaiting_confirmation",
+            "review",
+            None,
+        )
     task.updated_at = utcnow()
     db.flush()
     return batch

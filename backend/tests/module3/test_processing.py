@@ -5,6 +5,8 @@ from uuid import UUID
 
 import pytest
 
+from tests.batch_preconditions import current_batch_id
+
 
 def test_a01_duplicate_material_and_persistent_task(context, client):
     c = context
@@ -251,7 +253,11 @@ def test_a26_a27_a36_activation_review_gate_and_replay(
     assert (
         client.post(
             visible,
-            json={"action": "confirm", "reason": "synthetic technical test"},
+            json={
+                "expected_batch_id": current_batch_id(c["paper_id"]),
+                "action": "confirm",
+                "reason": "synthetic technical test",
+            },
             headers=c["headers"],
         ).status_code
         == 200
@@ -268,7 +274,11 @@ def test_a26_a27_a36_activation_review_gate_and_replay(
     assert (
         client.post(
             visible,
-            json={"action": "cancel", "reason": "synthetic"},
+            json={
+                "expected_batch_id": current_batch_id(c["paper_id"]),
+                "action": "cancel",
+                "reason": "synthetic",
+            },
             headers=c["headers"],
         ).status_code
         == 200

@@ -115,7 +115,20 @@ def add_event(db, workflow, revision, command, user_id, event_type, detail):
     )
 
 
-def finish_command(db, workflow, revision, user_id, action, key, digest, body, result):
+def finish_command(
+    db,
+    workflow,
+    revision,
+    user_id,
+    action,
+    key,
+    digest,
+    body,
+    result,
+    *,
+    state="succeeded",
+    retry_of_operation_id=None,
+):
     command = m.ProcessingWorkflowCommand(
         id=uuid4(),
         workflow_id=workflow.id,
@@ -125,8 +138,9 @@ def finish_command(db, workflow, revision, user_id, action, key, digest, body, r
         request_hash=digest,
         request=body,
         expected_workflow_version=body.get("expected_workflow_version"),
-        state="succeeded",
+        state=state,
         result=result,
+        retry_of_operation_id=retry_of_operation_id,
         created_by=user_id,
     )
     db.add(command)
@@ -218,14 +232,43 @@ def create_revision(db, workflow_id, payload, user_id, key):
         "activating",
     }:
         raise conflict("WORKFLOW_BUSY", "请先核对当前发布操作")
+    revision = copy_revision(
+        db,
+        workflow,
+        parent,
+        user_id,
+        payload.reason,
+        payload.document_mode,
+        body["listening_pages"],
+    )
+    return finish_command(
+        db,
+        workflow,
+        revision,
+        user_id,
+        "create_revision",
+        key,
+        digest,
+        body,
+        {
+            "workflow_id": str(workflow.id),
+            "revision_id": str(revision.id),
+            "row_version": workflow.row_version,
+        },
+    )
+
+
+def copy_revision(
+    db, workflow, parent, user_id, reason, document_mode, listening_pages
+):
     revision = m.ProcessingWorkflowRevision(
         id=uuid4(),
         workflow_id=workflow.id,
         revision_no=parent.revision_no + 1,
         parent_revision_id=parent.id,
-        reason=payload.reason,
-        document_mode=payload.document_mode,
-        listening_pages=body["listening_pages"],
+        reason=reason,
+        document_mode=document_mode,
+        listening_pages=listening_pages,
         rules_manifest=rules_manifest(),
         created_by=user_id,
     )
@@ -282,21 +325,8 @@ def create_revision(db, workflow_id, payload, user_id, key):
     workflow.content_review_state = "not_ready"
     workflow.error_review_state = "not_ready"
     workflow.publication_state = "unpublished"
-    return finish_command(
-        db,
-        workflow,
-        revision,
-        user_id,
-        "create_revision",
-        key,
-        digest,
-        body,
-        {
-            "workflow_id": str(workflow.id),
-            "revision_id": str(revision.id),
-            "row_version": workflow.row_version,
-        },
-    )
+    db.flush()
+    return revision
 
 
 def workflow_data(db, workflow):
@@ -310,6 +340,50 @@ def workflow_data(db, workflow):
         .where(m.ProcessingMaterialSelection.revision_id == revision.id)
     ).all()
     uploads = {r.kind: r for r in rows}
+    from decimal import Decimal
+
+    from app.core.config import get_settings
+    from app.db.models_processing import LlmAttempt, ProcessingArtifact, ProcessingTask
+    from app.services.processing.orchestration import environment_ready
+
+    task = (
+        db.get(ProcessingTask, workflow.current_task_id)
+        if workflow.current_task_id
+        else None
+    )
+    session = db.scalar(
+        select(m.ProcessingReviewSession).where(
+            m.ProcessingReviewSession.revision_id == revision.id
+        )
+    )
+    approvals = db.scalars(
+        select(m.ProcessingStageApproval)
+        .where(m.ProcessingStageApproval.revision_id == revision.id)
+        .order_by(
+            m.ProcessingStageApproval.created_at.desc(),
+            m.ProcessingStageApproval.id.desc(),
+        )
+    ).all()
+    latest_gates = {}
+    for approval in approvals:
+        latest_gates.setdefault(approval.stage, approval)
+    attempts = db.scalars(
+        select(LlmAttempt)
+        .join(ProcessingTask, ProcessingTask.id == LlmAttempt.task_id)
+        .where(ProcessingTask.workflow_id == workflow.id)
+    ).all()
+    usage = {
+        "known_usd": str(
+            sum((row.charged_usd or Decimal(0) for row in attempts), Decimal(0))
+        ),
+        "reserved_usd": str(
+            sum(
+                (row.reserved_usd for row in attempts if row.charged_usd is None),
+                Decimal(0),
+            )
+        ),
+        "has_unknown_charges": any(row.billing_status == "unknown" for row in attempts),
+    }
     batch = (
         listening.get_current_batch(db, workflow.exam_paper_id)
         if workflow.exam_paper_id
@@ -344,7 +418,10 @@ def workflow_data(db, workflow):
         "result_hash": revision.final_result_hash,
         "current_batch_id": batch.id if batch else None,
         "is_student_visible": visible,
-        "usage": {"known_usd": "0", "reserved_usd": "0", "has_unknown_charges": False},
+        "usage": usage,
+        "stages": revision.stage_fingerprints,
+        "review_session_id": session.id if session else None,
+        "review_session_version": session.row_version if session else None,
         **{
             key: getattr(workflow, key)
             for key in (
@@ -364,26 +441,69 @@ def workflow_data(db, workflow):
         "materials": materials,
         "error_generation_summary": {},
         "progress": {
-            "stage": "materials",
-            "completed_count": sum(r["state"] == "ready" for r in materials),
-            "total_count": 3,
-            "elapsed_ms": 0,
+            "stage": task.stage if task else "materials",
+            "completed_count": db.scalar(
+                select(func.count())
+                .select_from(ProcessingArtifact)
+                .where(
+                    ProcessingArtifact.task_id == task.id,
+                    ProcessingArtifact.stage == "workflow_candidate",
+                )
+            )
+            if task
+            else sum(r["state"] == "ready" for r in materials),
+            "total_count": task.request.get("expected_question_count") if task else 3,
+            "elapsed_ms": max(
+                0,
+                int(
+                    (
+                        (now if task.state == "running" else task.updated_at)
+                        - task.created_at
+                    ).total_seconds()
+                    * 1000
+                ),
+            )
+            if task
+            else 0,
             "checkpoint": None,
         },
-        "gates": [],
-        "issues": [],
+        "gates": [
+            {
+                "kind": stage,
+                "state": latest_gates[stage].decision
+                if stage in latest_gates
+                else "pending",
+                "dependency_hash": projection["dependency_hash"],
+            }
+            for stage, projection in revision.stage_fingerprints.items()
+            if stage in {"align", "source", "sample"}
+        ],
+        "issues": [
+            {
+                "code": issue.get("issue_code", "PROCESSING_FAILED"),
+                "message": issue.get("message", "阶段未完成"),
+                "retryable": issue.get("retryable", False),
+            }
+            for issue in task.issues
+        ]
+        if task
+        else [],
         "allowed_actions": [
             {
                 "action": "reserve_upload",
-                "enabled": False,
+                "enabled": revision.materials_frozen_at is None,
                 "blocked_reason": "材料已冻结，请创建子修订"
                 if revision.materials_frozen_at
-                else "上传接口接入待完成",
+                else None,
             },
             {
                 "action": "start",
-                "enabled": False,
-                "blocked_reason": "工作流 Worker 接入待完成",
+                "enabled": (
+                    not revision.materials_frozen_at
+                    and all(row["state"] == "ready" for row in materials)
+                    and environment_ready(get_settings())
+                ),
+                "blocked_reason": "须备齐三份材料并配置处理环境",
             },
         ],
         "created_at": workflow.created_at,

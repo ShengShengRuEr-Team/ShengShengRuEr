@@ -119,6 +119,8 @@ class ErrorQuestionRelation(Base):
         ),
     )
     id = Column(BigInteger, primary_key=True)
+    rule_version = Column(String(32), nullable=False, default="legacy", server_default="legacy")
+    business_eligible = Column(Boolean, nullable=False, default=False, server_default="false")
     batch_id = Column(BigInteger, ForeignKey("import_batches.id"), nullable=False)
     relation_kind = Column(String(32), nullable=False)
     relation_code = Column(String(64), nullable=False)

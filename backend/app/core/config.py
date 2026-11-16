@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     deepseek_api_key: SecretStr | None = None
     m3_lease_seconds: int = Field(default=120, ge=30)
     m3_heartbeat_seconds: int = Field(default=10, ge=1)
+    m3_upload_max_bytes: int = Field(default=536870912, gt=0, le=536870912)
+    m3_upload_lease_seconds: int = Field(default=120, ge=30)
+    m3_upload_heartbeat_seconds: int = Field(default=10, ge=1)
     m3_sample_budget_usd: float = Field(default=0.50, gt=0, le=0.50)
     m3_run_budget_usd: float = Field(default=2.0, gt=0, le=2.0)
     m3_total_budget_usd: float = Field(default=5.0, gt=0, le=5.0)
@@ -57,6 +60,14 @@ class Settings(BaseSettings):
     def m3_path(self, field: str) -> Path:
         path = Path(getattr(self, field))
         return (path if path.is_absolute() else BASE_DIR / path).resolve()
+
+    @model_validator(mode="after")
+    def finite_lease_intervals(self):
+        if self.m3_heartbeat_seconds * 2 >= self.m3_lease_seconds:
+            raise ValueError("处理心跳须小于租约时长的一半")
+        if self.m3_upload_heartbeat_seconds * 2 >= self.m3_upload_lease_seconds:
+            raise ValueError("上传心跳须小于租约时长的一半")
+        return self
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
@@ -77,9 +88,7 @@ class Settings(BaseSettings):
     def validate_jwt_secret_key(cls, value: SecretStr) -> SecretStr:
         secret = value.get_secret_value().strip()
         if len(secret) < MIN_JWT_SECRET_LENGTH:
-            raise ValueError(
-                f"JWT_SECRET_KEY 至少需要 {MIN_JWT_SECRET_LENGTH} 个字符"
-            )
+            raise ValueError(f"JWT_SECRET_KEY 至少需要 {MIN_JWT_SECRET_LENGTH} 个字符")
         if secret.lower() in JWT_PLACEHOLDER_VALUES or "change_me" in secret.lower():
             raise ValueError("JWT_SECRET_KEY 不能使用占位值")
         return SecretStr(secret)

@@ -24,7 +24,7 @@ def align(normalized, rows, settings):
                     "end": row.search_end_ms / 1000,
                 }
                 for row in references
-            ]
+            ],
         },
         settings,
     )
@@ -148,8 +148,9 @@ def _refine_weak_windows(normalized, rows, result, settings):
             and following["start_ms"] is not None
             else end + 2000
         )
-        retry_start, retry_end = max(0, min(start, left)), min(
-            duration, max(end, right)
+        retry_start, retry_end = (
+            max(0, min(start, left)),
+            min(duration, max(end, right)),
         )
         row["search_attempts"] = [
             {

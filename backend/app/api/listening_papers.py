@@ -5,7 +5,7 @@
 是否存在该卷。音频访问权限与试卷访问条件一致。
 """
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, get_current_user
@@ -49,7 +49,9 @@ def list_listening_papers(
     return ok(PaperListData(items=items))
 
 
-@router.get("/listening-papers/{exam_paper_id}", response_model=ApiResponse[PaperDetailStudent])
+@router.get(
+    "/listening-papers/{exam_paper_id}", response_model=ApiResponse[PaperDetailStudent]
+)
 def get_listening_paper(
     exam_paper_id: int,
     current_user: CurrentUser = Depends(get_current_user),
@@ -66,6 +68,7 @@ def get_listening_paper(
 def get_listening_paper_audio(
     exam_paper_id: int,
     request: Request,
+    expected_batch_id: int | None = Query(default=None, gt=0),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
@@ -74,12 +77,19 @@ def get_listening_paper_audio(
         paper = repo.get_paper(db, exam_paper_id)
         if paper is None:
             raise not_found()
+        batch = repo.get_current_batch(db, exam_paper_id)
     else:
-        visible, paper, _ = repo.student_access(db, exam_paper_id)
+        visible, paper, batch = repo.student_access(db, exam_paper_id)
         if not visible:
             raise not_found()
 
-    audio = repo.get_audio(db, paper.playback_audio_id)
+    if expected_batch_id is not None and (not batch or batch.id != expected_batch_id):
+        from app.services.processing.workflows import conflict
+
+        raise conflict("CURRENT_BATCH_CHANGED", "正式批次已变化，请整体刷新详情")
+    audio = repo.get_audio(
+        db, batch.audio_id if batch and batch.audio_id else paper.playback_audio_id
+    )
     if audio is None:
         raise not_found("试卷未绑定音频")
     audio_path = settings.audio_storage_path / audio.storage_key

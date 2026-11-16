@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
-from app.schemas_processing import NonEmpty, Sha256, StrictModel
+from app.schemas_processing import NonEmpty, ReferenceSegment, Sha256, StrictModel
 
 
 class ListeningPages(StrictModel):
@@ -58,6 +58,112 @@ class UploadReserve(WorkflowPreconditions):
 class UploadCancel(WorkflowPreconditions):
     expected_upload_version: int = Field(gt=0, strict=True)
     reason: NonEmpty = Field(max_length=2000)
+
+
+class WorkflowAction(WorkflowPreconditions):
+    reason: NonEmpty = Field(max_length=2000)
+
+
+class StageApprovalItem(StrictModel):
+    reference: NonEmpty
+    decision: Literal["approved", "changes_required"]
+    reason: NonEmpty = Field(max_length=2000)
+
+
+class StageApprovalRequest(WorkflowPreconditions):
+    stage: Literal["align", "source", "sample"]
+    expected_stage_dependency_hash: Sha256
+    artifact_hash: Sha256
+    decision: Literal["approved", "changes_required"]
+    items: list[StageApprovalItem] = Field(min_length=1, max_length=500)
+    review_basis: Literal["itemized", "user_confirmation"] = "itemized"
+    approval_reference: NonEmpty | None = None
+
+
+class ContinueRequest(WorkflowPreconditions):
+    stage: Literal["align", "source", "sample"]
+    expected_stage_dependency_hash: Sha256
+
+
+class RetryOperationRequest(WorkflowAction):
+    retry_of_operation_id: UUID
+
+
+class ReviewDecision(StrictModel):
+    reference: NonEmpty
+    decision: Literal["approved", "changes_required"]
+
+
+class ReviewItemRequest(StrictModel):
+    question_src_id: NonEmpty
+    content: Literal["approved", "changes_required"]
+    primary_skills: list[ReviewDecision]
+    answer_evidence: list[ReviewDecision]
+    error_causes: list[ReviewDecision]
+    empty_errors_confirmed: bool
+    note: str = Field(default="", max_length=4000)
+    issues: list[dict] = Field(default_factory=list, max_length=30)
+
+
+class ReviewSaveRequest(WorkflowPreconditions):
+    expected_result_hash: Sha256
+    expected_session_version: int = Field(gt=0, strict=True)
+    items: list[ReviewItemRequest] = Field(min_length=1, max_length=25)
+
+
+class ReviewSubmitRequest(WorkflowPreconditions):
+    expected_result_hash: Sha256
+    expected_session_version: int = Field(gt=0, strict=True)
+    audio_confirmed: bool
+    approval_reference: NonEmpty = Field(max_length=2000)
+
+
+class PublishRequest(WorkflowPreconditions):
+    expected_result_hash: Sha256
+    review_session_id: UUID
+    expected_current_batch_id: int | None = Field(default=None, gt=0, strict=True)
+    retry_of_operation_id: UUID | None = None
+
+
+class ReprocessPreview(WorkflowPreconditions):
+    expected_result_hash: Sha256
+    question_src_ids: list[NonEmpty] = Field(min_length=1, max_length=100)
+    feedback: NonEmpty = Field(max_length=4000)
+
+
+class ReprocessRequest(ReprocessPreview):
+    expected_plan_hash: Sha256
+
+
+class SourceChange(StrictModel):
+    question_src_id: NonEmpty
+    field: Literal[
+        "question_text",
+        "option_a",
+        "option_b",
+        "option_c",
+        "option_d",
+        "correct_option",
+        "explanation_text",
+    ]
+    expected_value: str
+    value: NonEmpty = Field(max_length=20000)
+    material_id: int = Field(gt=0, strict=True)
+    page: int = Field(gt=0, strict=True)
+    locator: NonEmpty = Field(max_length=2000)
+
+
+class SourceCorrectionRequest(WorkflowPreconditions):
+    expected_result_hash: Sha256
+    reason: NonEmpty = Field(max_length=2000)
+    changes: list[SourceChange] = Field(min_length=1, max_length=100)
+
+
+class AlignmentCorrectionRequest(WorkflowPreconditions):
+    expected_alignment_artifact_hash: Sha256
+    reason: NonEmpty = Field(max_length=2000)
+    source_basis: NonEmpty = Field(max_length=2000)
+    reference_segments: list[ReferenceSegment] = Field(min_length=1, max_length=1000)
 
 
 class WorkflowEnvelope[T](StrictModel):
@@ -163,6 +269,9 @@ class WorkflowDetailDto(WorkflowSummaryDto):
     issues: list[dict]
     allowed_actions: list[AllowedActionDto]
     usage: WorkflowUsageDto
+    stages: dict
+    review_session_id: UUID | None
+    review_session_version: int | None
 
 
 class RevisionSummaryDto(StrictModel):
