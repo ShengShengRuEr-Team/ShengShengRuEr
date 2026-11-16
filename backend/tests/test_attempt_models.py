@@ -269,9 +269,15 @@ def test_a2_tables_exist_and_existing_tables_untouched(db):
     assert len(MODULE2_TABLES) == 11
 
 
-def test_a2_alembic_version_is_0005(db):
+def test_a2_alembic_version_is_current_single_head(db):
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    scripts = ScriptDirectory.from_config(Config("alembic.ini"))
     version = db.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert version == "0005_attempt_system"
+    assert version == scripts.get_current_head()
+    ancestors = {revision.revision for revision in scripts.walk_revisions()}
+    assert {"0005_attempt_system", "0006_module3_invariants"} <= ancestors
 
 
 @pytest.mark.parametrize(

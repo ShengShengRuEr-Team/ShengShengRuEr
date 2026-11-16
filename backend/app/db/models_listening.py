@@ -38,7 +38,8 @@ class AudioFile(Base):
     __tablename__ = "audio_files"
     __table_args__ = (
         CheckConstraint(
-            "review_status IN ('待审核', '需修改', '待确认', '已通过')", name="review_status"
+            "review_status IN ('待审核', '需修改', '待确认', '已通过')",
+            name="review_status",
         ),
     )
 
@@ -49,14 +50,18 @@ class AudioFile(Base):
     )
     storage_key: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     duration_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    format: Mapped[str] = mapped_column(String(16), nullable=False, default="", server_default="")
+    format: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="", server_default=""
+    )
     mime_type: Mapped[str] = mapped_column(String(64), nullable=False)
     file_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     is_current: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )
     # 16 表基线：音频版本与派生关系（原始/剪辑/降噪/转码）。
-    version_no: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    version_no: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1"
+    )
     variant_type: Mapped[str] = mapped_column(
         String(32), nullable=False, default="原始", server_default="原始"
     )
@@ -70,17 +75,29 @@ class AudioFile(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
+    source_paper_id = mapped_column(
+        BigInteger, ForeignKey("exam_papers.id"), nullable=True
+    )
+    derived_from_audio_id = mapped_column(
+        BigInteger, ForeignKey("audio_files.id"), nullable=True
+    )
+    notes = mapped_column(Text, nullable=True)
+    attributes_json = mapped_column(JSONB, nullable=True)
+
 
 class ExamPaper(Base):
     __tablename__ = "exam_papers"
     __table_args__ = (
         CheckConstraint(
-            "review_status IN ('待审核', '需修改', '待确认', '已通过')", name="review_status"
+            "review_status IN ('待审核', '需修改', '待确认', '已通过')",
+            name="review_status",
         ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    exam_paper_code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    exam_paper_code: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False
+    )
     exam_level: Mapped[str] = mapped_column(String(32), nullable=False)
     exam_year: Mapped[int] = mapped_column(Integer, nullable=False)
     exam_month: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -94,10 +111,16 @@ class ExamPaper(Base):
     # 该套选定原卷的应有题量：首次导入时固定，后续批次的题量与题序都对照它校验，
     # 避免「末尾整题缺失」这类不完整数据被当成整卷（验收报告 F02）。
     expected_question_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    expected_question_count_source: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    expected_question_count_source: Mapped[dict | None] = mapped_column(
+        JSONB, nullable=True
+    )
     # 16 表基线：来源说明与题号/选项映射来源。
-    source: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
-    mapping_source: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    source: Mapped[str] = mapped_column(
+        Text, nullable=False, default="", server_default=""
+    )
+    mapping_source: Mapped[str] = mapped_column(
+        Text, nullable=False, default="", server_default=""
+    )
     collector: Mapped[str] = mapped_column(
         String(64), nullable=False, default="", server_default=""
     )
@@ -114,13 +137,15 @@ class ExamPaper(Base):
         onupdate=func.now(),
     )
 
+    notes = mapped_column(Text, nullable=True)
+    attributes_json = mapped_column(JSONB, nullable=True)
+
 
 class ImportBatch(Base):
     __tablename__ = "import_batches"
     __table_args__ = (
-        CheckConstraint(
-            "status IN ('pending', 'active', 'failed')", name="status"
-        ),
+        UniqueConstraint("exam_paper_id", "result_fingerprint"),
+        CheckConstraint("status IN ('pending', 'active', 'failed')", name="status"),
         # 每套试卷至多一个当前批次（部分唯一索引）。
         Index(
             "uq_import_batches_one_current",
@@ -144,6 +169,12 @@ class ImportBatch(Base):
     is_current: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+    result_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    profile_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    check_profile: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="legacy", server_default="legacy"
+    )
+    result_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     source_manifest_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     source_manifest: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     imported_at: Mapped[datetime | None] = mapped_column(
@@ -157,8 +188,11 @@ class ImportBatch(Base):
 class ContentGroup(Base):
     __tablename__ = "content_groups"
     __table_args__ = (
+        UniqueConstraint("id", "batch_id"),
+        UniqueConstraint("batch_id", "content_group_code"),
         CheckConstraint(
-            "review_status IN ('待审核', '需修改', '待确认', '已通过')", name="review_status"
+            "review_status IN ('待审核', '需修改', '待确认', '已通过')",
+            name="review_status",
         ),
     )
 
@@ -167,8 +201,12 @@ class ContentGroup(Base):
         BigInteger, ForeignKey("import_batches.id", ondelete="CASCADE"), nullable=False
     )
     content_group_code: Mapped[str] = mapped_column(String(64), nullable=False)
-    group_name: Mapped[str] = mapped_column(String(255), nullable=False, default="", server_default="")
-    exam_level_scope: Mapped[str] = mapped_column(String(16), nullable=False, default="", server_default="")
+    group_name: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="", server_default=""
+    )
+    exam_level_scope: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="", server_default=""
+    )
     content_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
     collector: Mapped[str] = mapped_column(
         String(64), nullable=False, default="", server_default=""
@@ -180,13 +218,25 @@ class ContentGroup(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
+    basis_paper_id = mapped_column(
+        BigInteger, ForeignKey("exam_papers.id"), nullable=True
+    )
+    equivalence_basis = mapped_column(Text, nullable=True)
+    status = mapped_column(String(32), nullable=True)
+    notes = mapped_column(Text, nullable=True)
+    attributes_json = mapped_column(JSONB, nullable=True)
+    # Composite ownership is enforced by the migration.
+
 
 class Passage(Base):
     __tablename__ = "passages"
     __table_args__ = (
+        UniqueConstraint("id", "batch_id"),
+        UniqueConstraint("batch_id", "passage_code", name="uq_passages_batch_code"),
         UniqueConstraint("batch_id", "passage_index"),
         CheckConstraint(
-            "review_status IN ('待审核', '需修改', '待确认', '已通过')", name="review_status"
+            "review_status IN ('待审核', '需修改', '待确认', '已通过')",
+            name="review_status",
         ),
     )
 
@@ -202,10 +252,16 @@ class Passage(Base):
     )
     passage_code: Mapped[str] = mapped_column(String(64), nullable=False)
     passage_index: Mapped[int] = mapped_column(Integer, nullable=False)
-    passage_type: Mapped[str] = mapped_column(String(32), nullable=False, default="", server_default="")
-    topic: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    passage_type: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="", server_default=""
+    )
+    topic: Mapped[str] = mapped_column(
+        Text, nullable=False, default="", server_default=""
+    )
     # 16 表基线：场景与口音（口音为标注字段，未判定时记「未判定」）。
-    scene: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    scene: Mapped[str] = mapped_column(
+        Text, nullable=False, default="", server_default=""
+    )
     accent: Mapped[str] = mapped_column(
         String(32), nullable=False, default="未判定", server_default="未判定"
     )
@@ -223,14 +279,26 @@ class Passage(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
+    genre_id = mapped_column(
+        BigInteger, ForeignKey("classification_dicts.id"), nullable=True
+    )
+    genre_note = mapped_column(Text, nullable=True)
+    genre_confidence = mapped_column(String(32), nullable=True)
+    genre_review_status = mapped_column(String(32), nullable=True)
+    notes = mapped_column(Text, nullable=True)
+    attributes_json = mapped_column(JSONB, nullable=True)
+    # Composite ownership is enforced by the migration.
+
 
 class TranscriptSegment(Base):
     __tablename__ = "transcript_segments"
     __table_args__ = (
+        UniqueConstraint("id", "batch_id"),
         UniqueConstraint("passage_id", "segment_index"),
         CheckConstraint("segment_type IN ('body', 'question')", name="segment_type"),
         CheckConstraint(
-            "review_status IN ('待审核', '需修改', '待确认', '已通过')", name="review_status"
+            "review_status IN ('待审核', '需修改', '待确认', '已通过')",
+            name="review_status",
         ),
     )
 
@@ -244,7 +312,9 @@ class TranscriptSegment(Base):
     segment_index: Mapped[int] = mapped_column(Integer, nullable=False)
     segment_type: Mapped[str] = mapped_column(String(32), nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
-    speaker_code: Mapped[str] = mapped_column(String(64), nullable=False, default="", server_default="")
+    speaker_code: Mapped[str] = mapped_column(
+        String(64), nullable=False, default="", server_default=""
+    )
     start_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
     end_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
     collector: Mapped[str] = mapped_column(
@@ -257,16 +327,25 @@ class TranscriptSegment(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
+    notes = mapped_column(Text, nullable=True)
+    attributes_json = mapped_column(JSONB, nullable=True)
+    # Composite ownership is enforced by the migration.
+
 
 class Question(Base):
     __tablename__ = "questions"
     __table_args__ = (
-        CheckConstraint("correct_option IN ('A', 'B', 'C', 'D')", name="correct_option"),
+        UniqueConstraint("id", "batch_id"),
+        UniqueConstraint("batch_id", "question_code"),
+        CheckConstraint(
+            "correct_option IN ('A', 'B', 'C', 'D')", name="correct_option"
+        ),
         CheckConstraint(
             "content_state IN ('待补齐', '可用', '停用')", name="content_state"
         ),
         CheckConstraint(
-            "review_status IN ('待审核', '需修改', '待确认', '已通过')", name="review_status"
+            "review_status IN ('待审核', '需修改', '待确认', '已通过')",
+            name="review_status",
         ),
     )
 
@@ -279,7 +358,9 @@ class Question(Base):
     )
     question_code: Mapped[str] = mapped_column(String(64), nullable=False)
     question_segment_id: Mapped[int | None] = mapped_column(
-        BigInteger, ForeignKey("transcript_segments.id", ondelete="SET NULL"), nullable=True
+        BigInteger,
+        ForeignKey("transcript_segments.id", ondelete="SET NULL"),
+        nullable=True,
     )
     # 来源卷全卷题号（16 表基线 question_index）；目标卷题号见 presentations.question_no。
     question_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -306,13 +387,21 @@ class Question(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
+    source_paper_id = mapped_column(
+        BigInteger, ForeignKey("exam_papers.id"), nullable=True
+    )
+    notes = mapped_column(Text, nullable=True)
+    attributes_json = mapped_column(JSONB, nullable=True)
+    # Composite ownership is enforced by the migration.
+
 
 class Presentation(Base):
     __tablename__ = "presentations"
     __table_args__ = (
         UniqueConstraint("batch_id", "question_no"),
         CheckConstraint(
-            "review_status IN ('待审核', '需修改', '待确认', '已通过')", name="review_status"
+            "review_status IN ('待审核', '需修改', '待确认', '已通过')",
+            name="review_status",
         ),
     )
 
@@ -330,7 +419,9 @@ class Presentation(Base):
     option_mapping_state: Mapped[str] = mapped_column(
         String(16), nullable=False, default="未知", server_default="未知"
     )
-    mapping_source: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    mapping_source: Mapped[str] = mapped_column(
+        Text, nullable=False, default="", server_default=""
+    )
     option_letter_mapping: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     collector: Mapped[str] = mapped_column(
         String(64), nullable=False, default="", server_default=""
@@ -342,9 +433,18 @@ class Presentation(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
+    notes = mapped_column(Text, nullable=True)
+    attributes_json = mapped_column(JSONB, nullable=True)
+    # Composite ownership is enforced by the migration.
+
 
 class ContentCheck(Base):
     __tablename__ = "content_checks"
+    result_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    rule_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    check_profile: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="legacy", server_default="legacy"
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     exam_paper_id: Mapped[int] = mapped_column(
@@ -378,11 +478,15 @@ class PaperVisibility(Base):
     confirmed_by: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     cancelled_by: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -408,7 +512,9 @@ class VisibilityAuditLog(Base):
     operator_user_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    reason: Mapped[str] = mapped_column(String(255), nullable=False, default="", server_default="")
+    reason: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="", server_default=""
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
