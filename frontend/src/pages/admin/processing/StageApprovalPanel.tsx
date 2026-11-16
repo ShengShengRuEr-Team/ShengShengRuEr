@@ -25,6 +25,8 @@ export default function StageApprovalPanel({workflow, stage, busy, command}: {
   const projection = workflow.stages[stage]
   const gate = workflow.gates.find(gate => gate.kind === stage)
   const approved = gate?.state === 'approved' && gate.dependency_hash === projection?.dependency_hash
+  const selectedCount = items.filter(item => checked[item._src_id]).length
+  const allSelected = items.length > 0 && selectedCount === items.length
   useEffect(() => {
     const controller = new AbortController()
     async function load() {
@@ -51,6 +53,12 @@ export default function StageApprovalPanel({workflow, stage, busy, command}: {
       <Alert type="info" showIcon title="确认只保存审核依据；继续处理需另行点击" description={stage === 'align' ? '请结合原音逐句核听。此处记录人工确认，不冒充独立毫秒精度测量。' : '请结合原件、题目与证据逐项核对。任何新内容结果仍须整套重新审核。'} />
       {error && <Alert type="error" title={error} />}
       {audio&&<div className="processing-stage-audio"><Typography.Text>{audio.label}</Typography.Text><audio key={audio.url} src={audio.url} controls preload="metadata" style={{width:'100%'}}/></div>}
+      {!approved && <Space wrap>
+        <Checkbox checked={allSelected} indeterminate={selectedCount > 0 && !allSelected} disabled={busy || !items.length}
+          onChange={event => setChecked(Object.fromEntries(items.map(item => [item._src_id, event.target.checked])))}>
+          {allSelected ? '取消全选' : '全选'}</Checkbox>
+        <Typography.Text type="secondary" aria-live="polite">已选 {selectedCount} / {items.length} 项</Typography.Text>
+      </Space>}
       {!approved && items.map((item,index) => <div className="processing-stage-item" key={item._src_id}>
         <Checkbox checked={Boolean(checked[item._src_id])} onChange={event => setChecked(value => ({...value,[item._src_id]:event.target.checked}))}>
           第 {index+1} 项：{item.text ?? item.question_text}</Checkbox>
