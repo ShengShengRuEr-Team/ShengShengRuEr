@@ -6,6 +6,24 @@ import type { Projection, WorkflowDetail } from '../../../api/processing-types'
 
 interface StageItem {_src_id: string; segment_type?: string; text?: string; question_text?: string; start_ms?: number; end_ms?: number}
 type StageData = Projection & {items: StageItem[]; next_cursor: number | null; total: number}
+
+function BulkReviewBasis({disabled, apply}: {
+  disabled: boolean; apply: (basis: string, onlyEmpty: boolean) => void
+}) {
+  const [basis, setBasis] = useState('')
+  const unavailable = disabled || !basis.trim()
+  return <Space orientation="vertical" size={8} style={{width:'100%'}}>
+    <Typography.Text strong>统一核对依据</Typography.Text>
+    <Input.TextArea aria-label="统一核对依据" placeholder="填写适用于这些项目的实际原件定位、核听或证据核对依据"
+      autoSize={{minRows:2,maxRows:5}} value={basis} disabled={disabled} onChange={event => setBasis(event.target.value)} />
+    <Space wrap>
+      <Button disabled={unavailable} onClick={() => apply(basis.trim(), false)}>应用到全部</Button>
+      <Button disabled={unavailable} onClick={() => apply(basis.trim(), true)}>只填空白项</Button>
+      <Typography.Text type="secondary">应用到全部会替换已填写的依据；有差异的项可单独修改。</Typography.Text>
+    </Space>
+  </Space>
+}
+
 export default function StageApprovalPanel({workflow, stage, busy, command}: {
   workflow: WorkflowDetail; stage: string; busy: boolean
   command: (action: string, path: string, body: Record<string, unknown>) => Promise<unknown>
@@ -27,6 +45,15 @@ export default function StageApprovalPanel({workflow, stage, busy, command}: {
   const approved = gate?.state === 'approved' && gate.dependency_hash === projection?.dependency_hash
   const selectedCount = items.filter(item => checked[item._src_id]).length
   const allSelected = items.length > 0 && selectedCount === items.length
+  const notedCount = items.filter(item => notes[item._src_id]?.trim()).length
+  function applyBasis(basis: string, onlyEmpty: boolean) {
+    setNotes(previous => {
+      const next = {...previous}
+      for (const item of items) if (!onlyEmpty || !previous[item._src_id]?.trim()) next[item._src_id] = basis
+      return next
+    })
+    setError('')
+  }
   useEffect(() => {
     const controller = new AbortController()
     async function load() {
@@ -58,7 +85,9 @@ export default function StageApprovalPanel({workflow, stage, busy, command}: {
           onChange={event => setChecked(Object.fromEntries(items.map(item => [item._src_id, event.target.checked])))}>
           {allSelected ? '取消全选' : '全选'}</Checkbox>
         <Typography.Text type="secondary" aria-live="polite">已选 {selectedCount} / {items.length} 项</Typography.Text>
+        <Typography.Text type="secondary" aria-live="polite">已填写依据 {notedCount} / {items.length} 项</Typography.Text>
       </Space>}
+      {!approved && <BulkReviewBasis disabled={busy || !items.length} apply={applyBasis} />}
       {!approved && items.map((item,index) => <div className="processing-stage-item" key={item._src_id}>
         <Checkbox checked={Boolean(checked[item._src_id])} onChange={event => setChecked(value => ({...value,[item._src_id]:event.target.checked}))}>
           第 {index+1} 项：{item.text ?? item.question_text}</Checkbox>
