@@ -17,7 +17,12 @@ from app.api import (
     auth,
     listening_papers,
 )
-from app.api.admin_platform import me, sessions as admin_sessions, users as admin_users
+from app.api.admin_platform import (
+    logs as admin_logs,
+    me,
+    sessions as admin_sessions,
+    users as admin_users,
+)
 from app.core.errors import AppError
 from app.core.request_context import (
     bind_request_id,
@@ -116,6 +121,7 @@ app.include_router(admin.router, prefix="/api/v1")
 app.include_router(admin_users.router, prefix="/api/v1")
 app.include_router(me.router, prefix="/api/v1")
 app.include_router(admin_sessions.router, prefix="/api/v1")
+app.include_router(admin_logs.router, prefix="/api/v1")
 app.include_router(listening_papers.router, prefix="/api/v1")
 app.include_router(admin_listening_papers.router, prefix="/api/v1")
 app.include_router(attempts.router, prefix="/api/v1")

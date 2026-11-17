@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Mapping
 
+from app.core import admin_enums as enums
 from app.core.config import get_settings
 from app.core.request_context import current_request_id
 from app.core.security import utc_now
@@ -41,37 +42,38 @@ FALLBACK_MAX_TOTAL_BYTES = 100 * 1024 * 1024
 
 INSTANCE_ID = uuid.uuid4()
 
-# 事件类型（主文档 §7.1）。T02 接入登录/退出，其余由后续卡片使用同一通道。
-EVENT_LOGIN_SUCCEEDED = "LOGIN_SUCCEEDED"
-EVENT_LOGIN_FAILED = "LOGIN_FAILED"
-EVENT_LOGOUT = "LOGOUT"
-EVENT_USER_CREATED = "USER_CREATED"
-EVENT_PROFILE_UPDATED = "PROFILE_UPDATED"
-EVENT_USER_STATUS_CHANGED = "USER_STATUS_CHANGED"
-EVENT_PASSWORD_RESET = "PASSWORD_RESET"
-EVENT_SELF_PASSWORD_CHANGED = "SELF_PASSWORD_CHANGED"
-EVENT_SESSION_REVOKED = "SESSION_REVOKED"
-EVENT_JOB_PAUSED = "JOB_PAUSED"
-EVENT_JOB_RESUMED = "JOB_RESUMED"
-EVENT_JOB_TRIGGERED = "JOB_TRIGGERED"
-EVENT_JOB_FINISHED = "JOB_FINISHED"
-EVENT_CACHE_CLEAR_STARTED = "CACHE_CLEAR_STARTED"
-EVENT_CACHE_CLEARED = "CACHE_CLEARED"
-EVENT_EXPORT_COMPLETED = "EXPORT_COMPLETED"
-EVENT_EXPORT_FAILED = "EXPORT_FAILED"
-EVENT_DOC_GET_DEBUG = "DOC_GET_DEBUG"
-
-FAILURE_UNKNOWN_ACCOUNT = "UNKNOWN_ACCOUNT"
-FAILURE_BAD_PASSWORD = "BAD_PASSWORD"
-FAILURE_DISABLED = "DISABLED"
-
-RESULT_SUCCESS = "SUCCESS"
-RESULT_FAILURE = "FAILURE"
-
 #: 审计通道：登录事件落 admin_login_events，操作事件落 admin_audit_events。
 #: 降级文件记录同样带 channel，便于区分两类事件。
 CHANNEL_LOGIN = "login"
 CHANNEL_AUDIT = "audit"
+
+# 事件类型与结果枚举的唯一来源是 app.core.admin_enums；这里保留同名模块级
+# 常量，供既有调用方（T02/T03 及后续卡）继续以 audit.EVENT_* 访问。
+EVENT_LOGIN_SUCCEEDED = enums.EVENT_LOGIN_SUCCEEDED
+EVENT_LOGIN_FAILED = enums.EVENT_LOGIN_FAILED
+EVENT_LOGOUT = enums.EVENT_LOGOUT
+EVENT_USER_CREATED = enums.EVENT_USER_CREATED
+EVENT_PROFILE_UPDATED = enums.EVENT_PROFILE_UPDATED
+EVENT_USER_STATUS_CHANGED = enums.EVENT_USER_STATUS_CHANGED
+EVENT_PASSWORD_RESET = enums.EVENT_PASSWORD_RESET
+EVENT_SELF_PASSWORD_CHANGED = enums.EVENT_SELF_PASSWORD_CHANGED
+EVENT_SESSION_REVOKED = enums.EVENT_SESSION_REVOKED
+EVENT_JOB_PAUSED = enums.EVENT_JOB_PAUSED
+EVENT_JOB_RESUMED = enums.EVENT_JOB_RESUMED
+EVENT_JOB_TRIGGERED = enums.EVENT_JOB_TRIGGERED
+EVENT_JOB_FINISHED = enums.EVENT_JOB_FINISHED
+EVENT_CACHE_CLEAR_STARTED = enums.EVENT_CACHE_CLEAR_STARTED
+EVENT_CACHE_CLEARED = enums.EVENT_CACHE_CLEARED
+EVENT_EXPORT_COMPLETED = enums.EVENT_EXPORT_COMPLETED
+EVENT_EXPORT_FAILED = enums.EVENT_EXPORT_FAILED
+EVENT_DOC_GET_DEBUG = enums.EVENT_DOC_GET_DEBUG
+
+FAILURE_UNKNOWN_ACCOUNT = enums.FAILURE_UNKNOWN_ACCOUNT
+FAILURE_BAD_PASSWORD = enums.FAILURE_BAD_PASSWORD
+FAILURE_DISABLED = enums.FAILURE_DISABLED
+
+RESULT_SUCCESS = enums.RESULT_SUCCESS
+RESULT_FAILURE = enums.RESULT_FAILURE
 
 #: 每种事件的 summary 白名单；未登记的事件类型拒绝写入。
 SUMMARY_WHITELIST: dict[str, frozenset[str]] = {
@@ -503,6 +505,21 @@ def persist_audit_failure(event: AuditEvent) -> None:
     """业务拒绝/操作失败事件：独立事务写入 admin_audit_events。"""
 
     _persist_independent(event, channel=CHANNEL_AUDIT)
+
+
+def filter_summary(
+    event_type: str, summary: Mapping[str, Any] | None
+) -> dict[str, Any]:
+    """读取侧再按白名单过滤一次，防御历史脏数据或未来误写。"""
+
+    allowed = SUMMARY_WHITELIST.get(event_type)
+    if allowed is None or not summary:
+        return {}
+    return {
+        key: value
+        for key, value in summary.items()
+        if key in allowed and key.lower() not in FORBIDDEN_SUMMARY_KEYS
+    }
 
 
 def audit_storage_health() -> dict[str, Any]:
