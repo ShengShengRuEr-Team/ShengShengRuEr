@@ -68,6 +68,11 @@ FAILURE_DISABLED = "DISABLED"
 RESULT_SUCCESS = "SUCCESS"
 RESULT_FAILURE = "FAILURE"
 
+#: 审计通道：登录事件落 admin_login_events，操作事件落 admin_audit_events。
+#: 降级文件记录同样带 channel，便于区分两类事件。
+CHANNEL_LOGIN = "login"
+CHANNEL_AUDIT = "audit"
+
 #: 每种事件的 summary 白名单；未登记的事件类型拒绝写入。
 SUMMARY_WHITELIST: dict[str, frozenset[str]] = {
     EVENT_LOGIN_SUCCEEDED: frozenset({"session_id", "auth_version"}),
@@ -290,8 +295,9 @@ class AuditEvent:
             run_id=self.run_id,
         )
 
-    def fallback_record(self) -> dict[str, Any]:
+    def fallback_record(self, channel: str) -> dict[str, Any]:
         return {
+            "channel": channel,
             "event_id": str(self.event_id),
             "request_id": str(self.request_id),
             "event_type": self.event_type,
@@ -416,11 +422,22 @@ def reset_fallback_writer() -> None:
         _writer = None
 
 
-def _persist_independent(event: AuditEvent) -> None:
-    """失败事件用独立 Session 提交；DB 失败转降级文件，再失败转 critical。"""
+def _persist_independent(event: AuditEvent, *, channel: str) -> None:
+    """失败事件用独立 Session 提交；DB 失败转降级文件，再失败转 critical。
+
+    `channel` 决定写哪张表：登录事件只进 admin_login_events，操作事件只进
+    admin_audit_events，绝不混写（否则会撞登录表的 reason_code 约束）。
+    """
+
+    if channel not in (CHANNEL_LOGIN, CHANNEL_AUDIT):
+        raise ValueError(f"未知审计通道：{channel}")
 
     try:
-        row = event.login_row()
+        row = (
+            event.login_row()
+            if channel == CHANNEL_LOGIN
+            else event.audit_row()
+        )
         with SessionLocal() as db:
             db.add(row)
             db.commit()
@@ -428,7 +445,9 @@ def _persist_independent(event: AuditEvent) -> None:
         return
     except Exception as exc:  # noqa: BLE001 - 失败通道必须接住所有异常
         logger.warning(
-            "AUDIT_DB_WRITE_FAILED event_id=%s request_id=%s error_type=%s",
+            "AUDIT_DB_WRITE_FAILED channel=%s event_id=%s request_id=%s"
+            " error_type=%s",
+            channel,
             event.event_id,
             event.request_id,
             type(exc).__name__,
@@ -436,10 +455,12 @@ def _persist_independent(event: AuditEvent) -> None:
         HEALTH.mark_db_failure("AUDIT_DB_WRITE_FAILED")
 
     try:
-        record = event.fallback_record()
+        record = event.fallback_record(channel)
     except Exception as exc:  # noqa: BLE001
         logger.error(
-            "AUDIT_FALLBACK_SERIALIZE_FAILED event_id=%s error_type=%s",
+            "AUDIT_FALLBACK_SERIALIZE_FAILED channel=%s event_id=%s"
+            " error_type=%s",
+            channel,
             event.event_id,
             type(exc).__name__,
         )
@@ -453,7 +474,8 @@ def _persist_independent(event: AuditEvent) -> None:
     HEALTH.mark_critical("AUDIT_STORAGE_UNAVAILABLE")
     # 固定错误码 + request_id，不输出业务内容。
     logger.error(
-        "AUDIT_STORAGE_CRITICAL request_id=%s event_id=%s",
+        "AUDIT_STORAGE_CRITICAL channel=%s request_id=%s event_id=%s",
+        channel,
         event.request_id,
         event.event_id,
     )
@@ -472,15 +494,15 @@ def enqueue_audit_event(db: Any, event: AuditEvent) -> None:
 
 
 def persist_login_failure(event: AuditEvent) -> None:
-    """登录失败事件：独立事务，失败不覆盖原始 401。"""
+    """登录失败事件：独立事务写入 admin_login_events，失败不覆盖原始 401。"""
 
-    _persist_independent(event)
+    _persist_independent(event, channel=CHANNEL_LOGIN)
 
 
 def persist_audit_failure(event: AuditEvent) -> None:
-    """业务拒绝/操作失败事件：独立事务，失败不覆盖原始错误码。"""
+    """业务拒绝/操作失败事件：独立事务写入 admin_audit_events。"""
 
-    _persist_independent(event)
+    _persist_independent(event, channel=CHANNEL_AUDIT)
 
 
 def audit_storage_health() -> dict[str, Any]:

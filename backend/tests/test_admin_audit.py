@@ -226,6 +226,83 @@ def test_failure_audit_uses_independent_commit() -> None:
     assert audit.audit_storage_health()["last_db_success_at"] is not None
 
 
+def test_operation_failure_goes_to_audit_table(client: TestClient) -> None:
+    """操作失败事件必须落 admin_audit_events，不得混写登录表。"""
+
+    audit = _audit()
+    _, AdminAuditEvent = _models()
+    SessionLocal = _session_local()
+    with SessionLocal() as db:
+        login_before = db.execute(
+            text("SELECT count(*) FROM admin_login_events")
+        ).scalar()
+
+    event = audit.AuditEvent(
+        event_type=audit.EVENT_USER_STATUS_CHANGED,
+        result=audit.RESULT_FAILURE,
+        reason_code="last_active_admin",
+        target_type="user",
+        target_id="42",
+        actor_name="admin",
+        summary_values={"from_status": "active", "to_status": "disabled"},
+    )
+    audit.persist_audit_failure(event)
+
+    with SessionLocal() as db:
+        row = db.scalar(
+            select(AdminAuditEvent).where(
+                AdminAuditEvent.request_id == event.request_id
+            )
+        )
+        assert row is not None
+        assert row.event_id == event.event_id
+        assert row.event_type == "USER_STATUS_CHANGED"
+        assert row.result == "FAILURE"
+        assert row.reason_code == "last_active_admin"
+        assert row.summary == {"from_status": "active", "to_status": "disabled"}
+        login_after = db.execute(
+            text("SELECT count(*) FROM admin_login_events")
+        ).scalar()
+
+    # 登录表不新增，也不存在同 request_id 的登录事件。
+    assert login_after == login_before
+    assert _login_event(event.request_id) is None
+
+
+def test_operation_failure_db_down_falls_back_with_channel_audit(
+    monkeypatch, reset_audit_state
+) -> None:
+    """操作通道降级记录的 channel 必须是 audit。"""
+
+    audit = _audit()
+
+    def _boom():
+        raise OperationalError("SELECT 1", {}, Exception("db down"))
+
+    monkeypatch.setattr(audit, "SessionLocal", _boom)
+
+    event = audit.AuditEvent(
+        event_type=audit.EVENT_EXPORT_FAILED,
+        result=audit.RESULT_FAILURE,
+        reason_code="export_timeout",
+        summary_values={"export_type": "users", "stage": "generate"},
+    )
+    audit.persist_audit_failure(event)
+
+    files = list(reset_audit_state.directory.glob("*.jsonl"))
+    assert len(files) == 1
+    record = json.loads(files[0].read_text(encoding="utf-8").strip())
+    assert record["channel"] == "audit"
+    assert record["event_type"] == "EXPORT_FAILED"
+    assert record["reason_code"] == "export_timeout"
+    assert record["request_id"] == str(event.request_id)
+    assert "password" not in json.dumps(record["summary"])
+
+    health = audit.audit_storage_health()
+    assert health["state"] == "warning"
+    assert health["last_fallback_at"] is not None
+
+
 def test_success_audit_failure_blocks_login(
     client: TestClient, monkeypatch
 ) -> None:
@@ -284,6 +361,7 @@ def test_audit_db_down_falls_back_to_file(
     assert len(files) == 1
     content = files[0].read_text(encoding="utf-8")
     record = json.loads(content.strip())
+    assert record["channel"] == "login"
     assert record["request_id"] == str(request_id)
     assert record["event_type"] == "LOGIN_FAILED"
     assert record["reason_code"] == "BAD_PASSWORD"

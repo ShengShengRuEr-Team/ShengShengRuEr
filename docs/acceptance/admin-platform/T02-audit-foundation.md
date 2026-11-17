@@ -23,7 +23,7 @@
 | `backend/app/core/request_context.py` | request_id / event_id 上下文与单调时钟 |
 | `backend/app/services/admin/audit.py` | 审计事务服务、summary 白名单、降级文件、健康状态 |
 | `backend/app/services/admin/__init__.py` | 包标记 |
-| `backend/tests/test_admin_audit.py` | 18 例（见 §5） |
+| `backend/tests/test_admin_audit.py` | 20 例（见 §5） |
 
 ### 1.2 修改
 
@@ -127,11 +127,26 @@ keys=['auth_version', 'session_id'] bytes=237 limit=2048
 contains 'admin123': False / 'password_hash': False / 'eyJ': False / 'jti_hash': False
 ```
 
+### 3.1 通道分离（复核后修复）
+
+证据原文：`evidence/T02-channel-split.txt`。
+
+```text
+audit table rows: 6 -> 7            # USER_STATUS_CHANGED 落 admin_audit_events
+login table rows: 139 -> 139        # 登录表不新增
+audit row event_type=USER_STATUS_CHANGED result=FAILURE
+login row for same request_id: None
+fallback record: channel=login event_type=LOGIN_FAILED reason_code=BAD_PASSWORD
+fallback record: channel=audit event_type=EXPORT_FAILED reason_code=export_timeout
+```
+
+`alembic current / check`（测试库，`0007` 后）：`0007_admin_audit_events (head)`、`No new upgrade operations detected.`，原文 `evidence/T02-alembic-check.txt`。
+
 ## 4 全量测试与前端
 
 ```text
 $ python -m pytest -o addopts= -q -p no:warnings
-301 passed in 66.47s
+303 passed in 67.07s
 $ git status --short frontend
 （空）
 $ npm test -- --run
@@ -140,7 +155,7 @@ Test Files 18 passed (18) / Tests 129 passed (129)
 
 原文：`evidence/T02-backend-pytest.txt`、`evidence/T02-frontend-test.txt`。前端零改动。
 
-## 5 新增测试清单（`tests/test_admin_audit.py`，18 例）
+## 5 新增测试清单（`tests/test_admin_audit.py`，20 例）
 
 | 用例 | 覆盖点 |
 | --- | --- |
@@ -149,6 +164,8 @@ Test Files 18 passed (18) / Tests 129 passed (129)
 | `test_bad_password_event` | 密码错误事件 |
 | `test_disabled_account_event` | 停用账号事件（actor 有值） |
 | `test_failure_audit_uses_independent_commit` | 失败事件独立提交、立即可见 |
+| `test_operation_failure_goes_to_audit_table` | 操作失败事件只落 `admin_audit_events`，登录表不新增 |
+| `test_operation_failure_db_down_falls_back_with_channel_audit` | 操作通道降级记录 `channel=audit` |
 | `test_success_audit_failure_blocks_login` | 成功审计失败 → 500、不发 token、不留 session |
 | `test_audit_db_down_falls_back_to_file` | DB 故障 → JSONL 降级、原 401 保留、无敏感值 |
 | `test_audit_db_and_file_failure_goes_critical` | 双失败 → stderr 固定码 + critical |
@@ -167,6 +184,7 @@ Test Files 18 passed (18) / Tests 129 passed (129)
 
 1. **失败审计与登录行锁的自死锁**：停用账号路径在 `FOR UPDATE` 持锁后写独立审计事务，外键检查需要同一 `users` 行的 KEY SHARE，会被自身业务事务阻塞。修复：失败路径先 `db.rollback()` 释放锁，再写独立审计；审计异常不覆盖原始 401。
 2. **`AppError.headers` 可为 None**：统一异常处理器合并 `X-Request-ID` 时触发 `TypeError`，导致 45 个既有用例失败；改为 `**(exc.headers or {})` 后全量恢复 301 通过。这是回归过程中发现并修复的真实缺陷，已包含在最终测试结果中。
+3. **（复核反馈）失败通道未区分事件类型**：`_persist_independent()` 原先无条件调用 `login_row()`，`persist_audit_failure()` 会把操作失败事件写进 `admin_login_events`，撞 `reason_code` CHECK 后静默降级到文件。修复：按通道拆分（`CHANNEL_LOGIN`/`CHANNEL_AUDIT`），登录失败只写登录表、操作失败只写操作表，降级记录新增 `channel` 字段；新增 2 例测试（操作事件落表、降级 `channel=audit`），既有四类登录事件与降级用例保持不变。
 
 ## 7 未覆盖项
 
@@ -178,4 +196,4 @@ Test Files 18 passed (18) / Tests 129 passed (129)
 
 ## 8 结论
 
-**PASS**。0007 可往返且 `alembic check` 无漂移；四类登录事件与 LOGOUT 按事务边界落库；三级失败通道行为符合主文档 §7.2；后端 301 通过、前端 129 通过且零改动。
+**PASS**。0007 可往返且 `alembic check` 无漂移；四类登录事件与 LOGOUT 按事务边界落库；登录/操作两条审计通道分离，降级记录带 `channel`；三级失败通道行为符合主文档 §7.2；后端 303 通过、前端 129 通过且零改动。
