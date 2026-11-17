@@ -1,7 +1,10 @@
 """FastAPI 应用入口与全局装配。"""
 
+import asyncio
+import contextlib
 import logging
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -27,6 +30,7 @@ from app.api.admin_platform import (
     sessions as admin_sessions,
     users as admin_users,
 )
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.docs_debug_middleware import DocsDebugMiddleware
 from app.core.request_context import (
@@ -37,6 +41,49 @@ from app.core.request_context import (
 
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """按配置启动本实例采样任务；测试环境通过 ADMIN_MONITORING_ENABLED=false 关闭。"""
+
+    settings = get_settings()
+    service = None
+    task: asyncio.Task | None = None
+    if settings.admin_monitoring_enabled:
+        from app.services.admin.monitoring import (
+            INTERVAL_SECONDS,
+            MonitoringService,
+            set_monitoring_service,
+        )
+
+        service = MonitoringService()
+        set_monitoring_service(service)
+
+        async def _loop() -> None:
+            while True:
+                try:
+                    await asyncio.wait_for(
+                        asyncio.to_thread(service.collect), timeout=5.0
+                    )
+                except Exception:  # noqa: BLE001 - 采样失败不退出服务
+                    logger.exception("监控采样失败")
+                await asyncio.sleep(INTERVAL_SECONDS)
+
+        task = asyncio.create_task(_loop())
+
+    try:
+        yield
+    finally:
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+        if service is not None:
+            service.dispose()
+            from app.services.admin.monitoring import set_monitoring_service
+
+            set_monitoring_service(None)
+
+
 app = FastAPI(
     title="英语四六级听力错题与推荐系统 - 模块一",
     version="1.0.0",
@@ -44,6 +91,7 @@ app = FastAPI(
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
+    lifespan=lifespan,
 )
 
 app.add_middleware(

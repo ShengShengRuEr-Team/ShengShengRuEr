@@ -44,6 +44,17 @@ class Settings(BaseSettings):
     # 首页汇总的进程内 TTL 缓存开关（默认开启；关闭时状态显示 not_configured）。
     admin_dashboard_cache_enabled: bool = True
 
+    # 15 秒采样服务开关；测试环境关闭，避免 TestClient 留下后台线程。
+    admin_monitoring_enabled: bool = True
+
+    # TLS 证据：站点 origin 与可信代理（默认空 = 不信任任何代理头）。
+    public_origin: str = ""
+    trusted_proxy_cidrs: str = ""
+    proxy_header_mode: Literal["forwarded", "x_forwarded"] = "forwarded"
+
+    # 模块三只读观测（默认关闭；本仓库无模块三表）。
+    admin_module3_observation_enabled: bool = False
+
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
         env_file_encoding="utf-8",
@@ -69,6 +80,13 @@ class Settings(BaseSettings):
         if secret.lower() in JWT_PLACEHOLDER_VALUES or "change_me" in secret.lower():
             raise ValueError("JWT_SECRET_KEY 不能使用占位值")
         return SecretStr(secret)
+
+    @field_validator("proxy_header_mode")
+    @classmethod
+    def validate_proxy_header_mode(cls, value: str) -> str:
+        if value not in {"forwarded", "x_forwarded"}:
+            raise ValueError("PROXY_HEADER_MODE 只允许 forwarded 或 x_forwarded")
+        return value
 
     @field_validator("jwt_algorithm")
     @classmethod
