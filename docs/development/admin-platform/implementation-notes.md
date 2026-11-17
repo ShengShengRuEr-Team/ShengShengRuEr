@@ -162,3 +162,20 @@ python -m pytest tests/test_admin_constants.py -q    # 生成物与后端枚举�
 - `persistAuthorization=false`、`validatorUrl=null`、`supportedSubmitMethods` 默认 `[]`；同时具备 `admin:docs:debug` 才显示「启用调试」，启用后仅 `get`。
 - requestInterceptor：按 method + 模板 + 同源校验，注入 Bearer 与调试标记；非白名单本地拒绝。
 - 资源由 Vite 打包（`import 'swagger-ui-dist/swagger-ui.css'` + 动态 import bundle），不硬编码根路径/localhost；卸载时清空容器与引用。
+
+## 15 T07 留存调度口径与实现要点
+
+| 项 | 口径 | 依据 |
+| --- | --- | --- |
+| 迁移 | 仅新增 0008 三张表，`down_revision=0007`，downgrade 可回 0007 | §5.3/§5.5 |
+| 种子 | 唯一任务定义一行；`next_scheduled_at` 迁移时置 NULL，进程启动/`ensure_next_scheduled` 计算并持久化（推定项，用户确认） | §5.3 |
+| 互斥 | 调度执行用专用连接 session 级 advisory lock（键 `918273645`，与管理员保护锁不同）；手动触发用 `pg_try_advisory_xact_lock` 与 QUEUED 插入同事务，HTTP 线程不持有 session 锁 | §10.2、用户约束 |
+| 锁顺序 | advisory 任务锁 → `admin_job_definitions` 行锁 → `admin_job_runs` 行 | §6.2/§10.2 |
+| 状态机 | QUEUED→RUNNING→SUCCEEDED/PARTIAL/FAILED（attempt=1 时 60 秒后同 run 重试，最多 2 次）/INTERRUPTED；INTERRUPTED 有剩余额度则同 run 重新排队 | §10.3 |
+| 补跑 | 只对最近一个 03:10 建 run；更早的按天差累计 `missed_slots`；已有同 slot/活动 run 不新建；暂停不累计，恢复把下次计划设为严格未来 | §10.3 |
+| 删除 | 白名单 5 张表；每批 ≤1000；批间提交；单 attempt ≤60 秒/≤50000 行；严格 `<`，相等保留；提交未知 → `counts_complete=false` | §5.4/§10.2 |
+| 控制 API | 暂停/恢复共用 `POST .../enabled`；重复值 200 `changed=false`；`job_running`/`scheduler_unavailable`/非白名单统一 **400**（文档口径，不用 409）；读取未知任务 404 | §10.1 |
+| 事件 | `JOB_PAUSED/RESUMED/TRIGGERED/FINISHED`（T02 白名单内）；配置/run 同事务，失败拒绝独立事务 | §7.1 |
+| 前端 | `/admin/monitor/jobs`（`admin:job:read`）；轮询 15 秒、`document.hidden` 停止；`/admin/monitor` 已在 T03 活动排除清单 | §10.1/§6.3 |
+
+实现注意：advisory 锁连接的 `SELECT pg_try_advisory_lock` 会开启事务，取得锁后必须 `commit()` 结束该事务，否则后续 `Session.commit()` 只是内部子事务、连接关闭时写入整体回滚（已在 T07b 修复并由测试锁定）。

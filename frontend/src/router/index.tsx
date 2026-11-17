@@ -6,6 +6,7 @@ import { ROUTES, homePathForRole } from '../constants/routes'
 import {
   PERM_DASHBOARD_READ,
   PERM_DOCS_READ,
+  PERM_JOB_READ,
   PERM_LOG_READ,
   PERM_SELF_READ,
   PERM_USER_READ,
@@ -29,6 +30,7 @@ const AdminOperationLogsPage = lazy(() => import('../pages/admin/OperationLogsPa
 const AdminUsersPage = lazy(() => import('../pages/admin/UsersPage'))
 const AdminProfilePage = lazy(() => import('../pages/admin/ProfilePage'))
 const AdminApiDocsPage = lazy(() => import('../pages/admin/ApiDocsPage'))
+const AdminMonitorJobsPage = lazy(() => import('../pages/admin/MonitorJobsPage'))
 const StudentHomePage = lazy(() => import('../pages/student/HomePage'))
 const StudentListeningPaperListPage = lazy(() => import('../pages/student/ListeningPaperListPage'))
 const StudentListeningPaperPage = lazy(() => import('../pages/student/ListeningPaperPage'))
@@ -123,6 +125,14 @@ export default function AppRouter() {
             element={
               <RequirePermission code={PERM_DOCS_READ}>
                 <AdminApiDocsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_MONITOR_JOBS}
+            element={
+              <RequirePermission code={PERM_JOB_READ}>
+                <AdminMonitorJobsPage />
               </RequirePermission>
             }
           />

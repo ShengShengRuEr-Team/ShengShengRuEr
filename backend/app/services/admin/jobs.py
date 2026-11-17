@@ -319,3 +319,201 @@ def tick(*, now: datetime | None = None) -> dict:
             return {"acquired": True, "executed": str(run.id)}
         finally:
             db.close()
+
+
+# --------------------------------------------------------------------------- #
+# 控制 API（T07c）
+# --------------------------------------------------------------------------- #
+
+from app.core.errors import bad_request  # noqa: E402
+from app.schemas_admin.jobs import (  # noqa: E402
+    JobDefinitionOut,
+    JobEnabledResult,
+    JobOverviewOut,
+    JobRunOut,
+    SchedulerInstanceOut,
+)
+from app.services.admin import events  # noqa: E402
+
+
+def scheduler_health(db: Session, now: datetime | None = None) -> str:
+    from sqlalchemy import func
+
+    from app.core.admin_jobs import HEARTBEAT_STALE_SECONDS
+    from app.db.models_admin import AdminJobSchedulerState
+
+    moment = now or utc_now()
+    latest = db.scalar(select(func.max(AdminJobSchedulerState.heartbeat_at)))
+    if latest is None:
+        return "not_configured"
+    return (
+        "ok"
+        if (moment - latest).total_seconds() <= HEARTBEAT_STALE_SECONDS
+        else "stale"
+    )
+
+
+def build_overview(db: Session, now: datetime | None = None) -> JobOverviewOut:
+    definition = jobs_repo.get_definition(db)
+    if definition is None:  # pragma: no cover - 迁移已 seed
+        raise RuntimeError("缺少任务定义")
+    schedulers = jobs_repo.list_schedulers(db)
+    return JobOverviewOut(
+        job=JobDefinitionOut(
+            job_id=definition.job_id,
+            enabled=definition.enabled,
+            timezone=definition.timezone,
+            next_scheduled_at=definition.next_scheduled_at,
+            last_scheduled_slot=definition.last_scheduled_slot,
+            last_run_id=definition.last_run_id,
+            active_run_id=definition.active_run_id,
+            missed_slots=definition.missed_slots,
+            updated_at=definition.updated_at,
+        ),
+        scheduler_health=scheduler_health(db, now),
+        instances=[
+            SchedulerInstanceOut(
+                instance_id=row.instance_id,
+                booted_at=row.booted_at,
+                heartbeat_at=row.heartbeat_at,
+                last_error_code=row.last_error_code,
+                state=row.state,
+                version=row.version,
+            )
+            for row in schedulers
+        ],
+    )
+
+
+def to_run_out(run: AdminJobRun) -> JobRunOut:
+    return JobRunOut(
+        id=run.id,
+        job_id=run.job_id,
+        trigger=run.trigger,
+        slot_key=run.slot_key,
+        actor_id=run.actor_id,
+        state=run.state,
+        queued_at=run.queued_at,
+        started_at=run.started_at,
+        finished_at=run.finished_at,
+        heartbeat_at=run.heartbeat_at,
+        attempt_count=run.attempt_count,
+        retry_at=run.retry_at,
+        retry_pending=run.retry_pending,
+        counts=dict(run.counts or {}),
+        counts_complete=run.counts_complete,
+        error_code=run.error_code,
+        created_at=run.created_at,
+    )
+
+
+def set_enabled(
+    db: Session,
+    *,
+    actor,
+    enabled: bool,
+    reason: str,
+    request_id,
+    ip,
+    user_agent,
+    started_at: float,
+) -> JobEnabledResult:
+    definition = jobs_repo.lock_definition(db)
+    changed = definition.enabled != enabled
+    if changed:
+        definition.enabled = enabled
+        if enabled:
+            definition.next_scheduled_at = next_run_after(utc_now())
+        events.enqueue_success(
+            db,
+            event_type=(
+                audit.EVENT_JOB_RESUMED if enabled else audit.EVENT_JOB_PAUSED
+            ),
+            actor=actor,
+            request_id=request_id,
+            ip=ip,
+            user_agent=user_agent,
+            started_at=started_at,
+            summary_values={"enabled": enabled},
+            target_type="job",
+            target_id=JOB_ID,
+        )
+    db.commit()
+    return JobEnabledResult(
+        job_id=definition.job_id,
+        enabled=definition.enabled,
+        changed=changed,
+    )
+
+
+def trigger_manual(
+    db: Session,
+    *,
+    actor,
+    reason: str,
+    request_id,
+    ip,
+    user_agent,
+    started_at: float,
+) -> uuid.UUID:
+    from sqlalchemy import func
+
+    now = utc_now()
+
+    def reject(code: str) -> Exception:
+        return events.reject(
+            db,
+            bad_request(
+                "调度进程不可用" if code == "scheduler_unavailable" else "任务正在运行"
+            ),
+            event_type=audit.EVENT_JOB_TRIGGERED,
+            actor=actor,
+            reason_code=code,
+            request_id=request_id,
+            ip=ip,
+            user_agent=user_agent,
+            started_at=started_at,
+            target_type="job",
+            target_id=JOB_ID,
+        )
+
+    if scheduler_health(db, now) != "ok":
+        raise reject("scheduler_unavailable")
+
+    # 事务级锁与 QUEUED 插入同事务：HTTP 线程不持有 session 级连接。
+    locked = db.scalar(
+        select(func.pg_try_advisory_xact_lock(ADVISORY_LOCK_KEY))
+    )
+    if not locked:
+        raise reject("job_running")
+
+    definition = jobs_repo.lock_definition(db)
+    if definition.active_run_id is not None or jobs_repo.active_run(db):
+        raise reject("job_running")
+
+    run = AdminJobRun(
+        id=uuid.uuid4(),
+        job_id=JOB_ID,
+        trigger="manual",
+        state=STATE_QUEUED,
+        queued_at=now,
+        actor_id=actor.id,
+        counts={},
+        counts_complete=True,
+    )
+    db.add(run)
+    definition.active_run_id = run.id
+    events.enqueue_success(
+        db,
+        event_type=audit.EVENT_JOB_TRIGGERED,
+        actor=actor,
+        request_id=request_id,
+        ip=ip,
+        user_agent=user_agent,
+        started_at=started_at,
+        summary_values={"run_id": str(run.id)},
+        target_type="job",
+        target_id=JOB_ID,
+    )
+    db.commit()
+    return run.id

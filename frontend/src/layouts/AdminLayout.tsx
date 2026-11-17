@@ -5,6 +5,7 @@ import {
   SolutionOutlined,
   TeamOutlined,
   FileTextOutlined,
+  ClockCircleOutlined,
   UserOutlined,
 } from '@ant-design/icons'
 import { Layout, Menu, Typography } from 'antd'
@@ -16,6 +17,7 @@ import { ROUTES } from '../constants/routes'
 import {
   PERM_DASHBOARD_READ,
   PERM_DOCS_READ,
+  PERM_JOB_READ,
   PERM_LOG_READ,
   PERM_SELF_READ,
   PERM_USER_READ,
@@ -69,6 +71,12 @@ const ADMIN_MENU: AdminMenuItem[] = [
     label: '接口文档',
     permission: PERM_DOCS_READ,
   },
+  {
+    key: ROUTES.ADMIN_MONITOR_JOBS,
+    icon: <ClockCircleOutlined />,
+    label: '任务监控',
+    permission: PERM_JOB_READ,
+  },
 ]
 
 /** 当前路由属于哪个菜单项：详情页也高亮「题库管理」。 */
@@ -90,6 +98,9 @@ function resolveSelectedKey(pathname: string): string {
   }
   if (pathname.startsWith(ROUTES.ADMIN_API_DOCS)) {
     return ROUTES.ADMIN_API_DOCS
+  }
+  if (pathname.startsWith(ROUTES.ADMIN_MONITOR_JOBS)) {
+    return ROUTES.ADMIN_MONITOR_JOBS
   }
   return ROUTES.ADMIN_HOME
 }

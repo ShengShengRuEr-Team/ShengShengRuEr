@@ -10,6 +10,7 @@ export const ROUTES = {
   ADMIN_USERS: '/admin/users',
   ADMIN_PROFILE: '/admin/profile',
   ADMIN_API_DOCS: '/admin/tools/api',
+  ADMIN_MONITOR_JOBS: '/admin/monitor/jobs',
   STUDENT_HOME: '/student',
   STUDENT_LISTENING_PAPERS: '/student/listening-papers',
   STUDENT_LISTENING_PAPER_DETAIL: '/student/listening-papers/:examPaperId',

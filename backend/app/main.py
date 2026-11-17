@@ -21,6 +21,7 @@ from app.api.admin_platform import (
     dashboard as admin_dashboard,
     docs as admin_docs,
     exports as admin_exports,
+    jobs as admin_jobs,
     logs as admin_logs,
     me,
     sessions as admin_sessions,
@@ -133,6 +134,7 @@ app.include_router(admin_logs.router, prefix="/api/v1")
 app.include_router(admin_exports.router, prefix="/api/v1")
 app.include_router(admin_dashboard.router, prefix="/api/v1")
 app.include_router(admin_docs.router, prefix="/api/v1")
+app.include_router(admin_jobs.router, prefix="/api/v1")
 app.include_router(listening_papers.router, prefix="/api/v1")
 app.include_router(admin_listening_papers.router, prefix="/api/v1")
 app.include_router(attempts.router, prefix="/api/v1")

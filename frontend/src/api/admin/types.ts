@@ -137,3 +137,55 @@ export interface DashboardDto {
   cache: DashboardCacheDto
   cards: DashboardCardsDto
 }
+
+
+/* ---------- 留存调度（T07） ---------- */
+
+export interface JobDefinitionDto {
+  job_id: string
+  enabled: boolean
+  timezone: string
+  next_scheduled_at: string | null
+  last_scheduled_slot: string | null
+  last_run_id: string | null
+  active_run_id: string | null
+  missed_slots: number
+  updated_at: string
+}
+
+export interface SchedulerInstanceDto {
+  instance_id: string
+  booted_at: string
+  heartbeat_at: string
+  last_error_code: string | null
+  state: string | null
+  version: number
+}
+
+export interface JobOverviewDto {
+  job: JobDefinitionDto
+  scheduler_health: 'ok' | 'stale' | 'not_configured' | string
+  instances: SchedulerInstanceDto[]
+}
+
+export interface JobRunDto {
+  id: string
+  job_id: string
+  trigger: string
+  slot_key: string | null
+  actor_id: number | null
+  state: string
+  queued_at: string | null
+  started_at: string | null
+  finished_at: string | null
+  heartbeat_at: string | null
+  attempt_count: number
+  retry_at: string | null
+  retry_pending: boolean
+  counts: Record<string, number>
+  counts_complete: boolean
+  error_code: string | null
+  created_at: string
+}
+
+export type JobRunPageDto = PageResult<JobRunDto>
