@@ -9,14 +9,15 @@
 认证使用独立短 Session：只读校验完成后立即关闭，不提交业务 Session。
 """
 
+import logging
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from hashlib import sha256
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.admin_permissions import has_permission
@@ -34,6 +35,68 @@ from app.db.models import Role, TokenRevocation, User, UserRole
 from app.db.models_admin import AuthSession
 
 bearer_scheme = HTTPBearer(auto_error=False)
+
+logger = logging.getLogger(__name__)
+
+#: 活动节流：最近活动时间最多每 30 秒刷新一次，且绝不延长 expires_at。
+ACTIVITY_MIN_INTERVAL_SECONDS = 30
+ACTIVITY_EXPLICIT_HEADER = "x-admin-activity"
+
+#: 监控、首页、日志、私有 schema 与探针不计入活动（主文档 §6.3）。
+EXCLUDED_ACTIVITY_PREFIXES: tuple[str, ...] = (
+    "/api/v1/admin/monitor",
+    "/api/v1/admin/dashboard",
+    "/api/v1/admin/logs",
+    "/api/v1/admin/openapi.json",
+    "/health",
+)
+
+#: 管理列表页的自动刷新默认不保活，只有显式标记才刷新活动时间。
+EXPLICIT_ONLY_ACTIVITY_PREFIXES: tuple[str, ...] = ("/api/v1/admin/users",)
+
+
+def _activity_allowed(request: Request) -> bool:
+    path = request.url.path
+    if any(path.startswith(prefix) for prefix in EXCLUDED_ACTIVITY_PREFIXES):
+        return False
+    explicit = (
+        request.headers.get(ACTIVITY_EXPLICIT_HEADER, "").strip().lower()
+        == "explicit"
+    )
+    if request.method == "GET" and any(
+        path.startswith(prefix) for prefix in EXPLICIT_ONLY_ACTIVITY_PREFIXES
+    ):
+        return explicit
+    return True
+
+
+def _touch_activity(session_id: uuid.UUID) -> None:
+    """独立短事务做条件更新；失败只记 warning，不影响请求。"""
+
+    now = utc_now()
+    activity_db = None
+    try:
+        activity_db = SessionLocal()
+        activity_db.execute(
+            update(AuthSession)
+            .where(
+                AuthSession.id == session_id,
+                AuthSession.last_activity_at
+                <= now - timedelta(seconds=ACTIVITY_MIN_INTERVAL_SECONDS),
+            )
+            .values(last_activity_at=now)
+        )
+        activity_db.commit()
+    except Exception as exc:  # noqa: BLE001 - 活动写失败不得阻塞请求
+        # 不输出异常正文：数据库错误可能带业务内容，日志只留固定文案与类型。
+        logger.warning(
+            "会话活动时间更新失败 error_type=%s", type(exc).__name__
+        )
+        if activity_db is not None:
+            activity_db.rollback()
+    finally:
+        if activity_db is not None:
+            activity_db.close()
 
 
 @dataclass(frozen=True)
@@ -83,6 +146,7 @@ def _claims_from_credentials(
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     settings: Settings = Depends(get_settings),
 ) -> CurrentUser:
@@ -125,6 +189,9 @@ def get_current_user(
         roles = _load_roles(auth_db, user.id)
     finally:
         auth_db.close()
+
+    if _activity_allowed(request):
+        _touch_activity(claims.session_id)
 
     return CurrentUser(
         id=user.id,

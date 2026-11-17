@@ -110,3 +110,14 @@ def has_permission(roles: Iterable[str], code: str) -> bool:
     """判断角色集合是否拥有指定权限码。"""
 
     return code in permissions_for_roles(roles)
+
+
+def role_snapshot(roles: Iterable[str]) -> str | None:
+    """审计用单值角色快照：admin 优先，其次 student，无已知角色为 None。"""
+
+    role_set = set(roles)
+    if ROLE_ADMIN in role_set:
+        return ROLE_ADMIN
+    if ROLE_STUDENT in role_set:
+        return ROLE_STUDENT
+    return None

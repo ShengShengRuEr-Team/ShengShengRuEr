@@ -87,3 +87,16 @@ npm run typecheck
 ```
 
 迁移往返在独立库 `shengshengruer_migration_test` 另行执行并记录。
+
+## 8 T03 口径推定记录（按文档 §4.1/§4.3/§6.2–§6.3 推定，验收时复核）
+
+| 项 | 推定口径 | 依据 |
+| --- | --- | --- |
+| `PATCH /admin/users/{id}` 同昵称 | 200 返回用户对象，仍写 `PROFILE_UPDATED`，`summary.changed_fields=[]`；**不返回 400** | §4.3「必须且只接收 nickname；返回更新后用户」与「昵称相同可 changed=false，但不能跳过必要审计」；固定 DTO 无 `changed` 字段，故 changed 只体现于审计摘要 |
+| 新建用户默认角色 | `student` | §4.3 创建接口「role（默认student）」 |
+| 分页允许值 | `page_size` 仅 10/20/50/100，默认 20；`page>=1` | §4.1 |
+| 写操作 404 的失败审计 | 记 `FAILURE`（`reason_code=user_not_found`/`session_not_found`）；读接口不记 | 2026-11-17 用户确认 |
+| 最后管理员保护 | 锁内 `count`；因「停用本人 400」+ 权限链，API 层实际不可达，作为防御性分支在服务层用例覆盖 | §6.2、AC-03 |
+| 活动节流排除范围 | `/admin/monitor/*`、`/admin/dashboard`、`/admin/logs`、`/admin/openapi.json`、`/health/*`；`GET /admin/users` 需 `X-Admin-Activity: explicit` 才刷新 | §6.3 |
+| 撤会话计数 | 只统计「未撤销且未过期」的会话 | §5.4、§6.2 |
+| T03 迁移 | 零迁移（`users.auth_version`、`auth_sessions` 已在 0006）；若实测需加索引/字段先停下确认 | §5.1、§15 T03 |
