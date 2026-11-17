@@ -2,7 +2,8 @@
 
 from fastapi import APIRouter, Depends
 
-from app.api.deps import CurrentUser, require_admin
+from app.api.deps import CurrentUser, require_permission
+from app.core.admin_permissions import PERM_DASHBOARD_READ
 from app.core.errors import ok
 from app.schemas import AdminOverviewData, ApiResponse
 
@@ -11,11 +12,12 @@ router = APIRouter(prefix="/admin", tags=["管理端"])
 
 @router.get("/overview", response_model=ApiResponse[AdminOverviewData])
 def admin_overview(
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_permission(PERM_DASHBOARD_READ)),
 ) -> dict:
     """返回管理端首页占位信息。
 
-    学生 token 调用返回 403，用于验证「页面隐藏与后端接口权限保持一致」。
+    学生 token 返回 401/403 顺序固定：无 token 401、非管理员 403、
+    管理员但缺少 `admin:dashboard:read` 403。
     """
 
     display_name = current_user.nickname or current_user.username

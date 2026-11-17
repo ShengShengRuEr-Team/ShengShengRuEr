@@ -1,0 +1,73 @@
+﻿
+> shengshengruer-frontend@0.1.0 build
+> tsc -b && vite build
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 3232 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                     1.51 kB │ gzip:   0.57 kB
+dist/assets/index-DSFpUeUV.css                     10.03 kB │ gzip:   2.83 kB
+dist/assets/validateMessagesContext-B190941B.js     0.15 kB │ gzip:   0.14 kB
+dist/assets/LoginLogsPage-B1_Flgd2.js               0.16 kB │ gzip:   0.15 kB
+dist/assets/OperationLogsPage-4oEwGH9d.js           0.16 kB │ gzip:   0.16 kB
+dist/assets/collapse-evkw6DSZ.js                    0.23 kB │ gzip:   0.20 kB
+dist/assets/adminLabels-4lydCGFW.js                 0.27 kB │ gzip:   0.23 kB
+dist/assets/rolldown-runtime-XKyaHtl9.js            0.72 kB │ gzip:   0.42 kB
+dist/assets/context-zwgC5Rct.js                     0.80 kB │ gzip:   0.49 kB
+dist/assets/HomePage-Bmg1xhVy.js                    1.17 kB │ gzip:   0.76 kB
+dist/assets/PaperStatusTags-xX_nIW9J.js             1.21 kB │ gzip:   0.55 kB
+dist/assets/useClosable-v2SFed5I.js                 1.25 kB │ gzip:   0.66 kB
+dist/assets/HomePage-BODGYBpI.js                    1.40 kB │ gzip:   0.85 kB
+dist/assets/modal-CE5oG2lD.js                       1.42 kB │ gzip:   0.77 kB
+dist/assets/ExclamationCircleFilled-Cc_qDUgr.js     1.52 kB │ gzip:   0.69 kB
+dist/assets/passwordRules-Bqwq_b7Y.js               1.59 kB │ gzip:   0.75 kB
+dist/assets/format-CQuT7ka1.js                      1.81 kB │ gzip:   0.84 kB
+dist/assets/useBreakpoint-BDUoi_On.js               1.86 kB │ gzip:   0.89 kB
+dist/assets/useAuth-NkRct0i4.js                     1.89 kB │ gzip:   0.86 kB
+dist/assets/LoginPage-CrqF2sgr.js                   2.92 kB │ gzip:   1.61 kB
+dist/assets/Input-DtsodRnq.js                       3.49 kB │ gzip:   1.77 kB
+dist/assets/ProfilePage-BMTN598O.js                 3.77 kB │ gzip:   1.65 kB
+dist/assets/ListeningPaperListPage-dUq2ER32.js      3.97 kB │ gzip:   1.94 kB
+dist/assets/useForm-DB5i8f7A.js                     4.72 kB │ gzip:   2.11 kB
+dist/assets/ListeningPaperListPage-WFdzm99o.js      6.17 kB │ gzip:   2.79 kB
+dist/assets/config-provider-KpZoxy9m.js             6.58 kB │ gzip:   2.66 kB
+dist/assets/ReloadOutlined-CWebnj77.js              6.87 kB │ gzip:   3.18 kB
+dist/assets/alert-BZIuBAFp.js                       7.17 kB │ gzip:   3.14 kB
+dist/assets/checkbox-DsXBVp7C.js                    7.44 kB │ gzip:   3.10 kB
+dist/assets/spin-BTSZpAth.js                        7.51 kB │ gzip:   3.12 kB
+dist/assets/descriptions-BAsVwazB.js                7.90 kB │ gzip:   2.81 kB
+dist/assets/tag-DAvdvuL8.js                         8.57 kB │ gzip:   3.35 kB
+dist/assets/storage-Bygr9Drt.js                     8.59 kB │ gzip:   2.59 kB
+dist/assets/LogsView-2wE3vbZH.js                    9.83 kB │ gzip:   3.79 kB
+dist/assets/input-BRcgzznJ.js                      11.87 kB │ gzip:   5.34 kB
+dist/assets/UsersPage-DzZPaXfa.js                  11.96 kB │ gzip:   3.73 kB
+dist/assets/ListeningPaperDetailPage-CNYQwzBk.js   12.77 kB │ gzip:   4.55 kB
+dist/assets/drawer-CRxKy40D.js                     14.45 kB │ gzip:   5.59 kB
+dist/assets/form-B4zC1jH8.js                       24.35 kB │ gzip:   9.49 kB
+dist/assets/AudioPlayer-DDCN6sDy.js                31.08 kB │ gzip:  11.51 kB
+dist/assets/ForbiddenPage-C1oFsW7D.js              35.88 kB │ gzip:  11.69 kB
+dist/assets/EllipsisOutlined-BxPzPsgJ.js           36.24 kB │ gzip:  12.52 kB
+dist/assets/ListeningPaperPage-D9l6tY6p.js         45.24 kB │ gzip:  13.62 kB
+dist/assets/card-CF-veNEg.js                       47.20 kB │ gzip:  14.48 kB
+dist/assets/button-IVBK7bAC.js                     58.67 kB │ gzip:  19.67 kB
+dist/assets/select-DZ5s5H6p.js                     70.11 kB │ gzip:  23.93 kB
+dist/assets/index-DkfBkffF.js                     133.74 kB │ gzip:  43.74 kB
+dist/assets/table-CFbdvdJD.js                     187.49 kB │ gzip:  57.92 kB
+dist/assets/jsx-runtime-7Pt_xyLl.js               513.46 kB │ gzip: 170.78 kB
+
+node.exe : [plugin builtin:vite-reporter] 
+所在位置 行:1 字符: 1
++ & "D:\node/node.exe" "D:\node/node_modules/npm/bin/npm-cli.js" run bu ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([plugin builtin:vite-reporter] :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeS
+plitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 23.30s
+

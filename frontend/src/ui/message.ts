@@ -18,3 +18,12 @@ export function showError(content: string): void {
   }
   console.error(content)
 }
+
+/** 写操作成功提示；实例未就绪时退化为控制台输出。 */
+export function showSuccess(content: string): void {
+  if (messageApi) {
+    void messageApi.success(content)
+    return
+  }
+  console.info(content)
+}

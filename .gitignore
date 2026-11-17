@@ -59,6 +59,7 @@ logs/
 tmp/
 temp/
 .cache/
+backend/var/
 *.db
 *.sqlite
 *.sqlite3

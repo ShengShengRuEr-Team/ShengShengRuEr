@@ -1,0 +1,1010 @@
+﻿
+> shengshengruer-frontend@0.1.0 test
+> vitest run --run
+
+
+ RUN  v5.1.0 D:/ShengShengRuEr/ShengShengRuEr/frontend
+
+ ✓ src/hooks/useMonitorPolling.test.tsx (2 tests) 58ms
+ ✓ src/attempt/storage.test.ts (16 tests) 30ms
+ ✓ src/attempt/submit.test.ts (16 tests) 24ms
+ ✓ src/ui/Can.test.tsx (2 tests) 66ms
+ ✓ src/api/rawClient.test.ts (6 tests) 21ms
+ ✓ src/auth/AuthContext.recovery.test.tsx (4 tests) 418ms
+ ✓ src/attempt/codec.test.ts (14 tests) 18ms
+ ✓ src/api/adapters.test.ts (9 tests) 13ms
+ ✓ src/attempt/retention.test.ts (5 tests) 11ms
+ ✓ src/api/admin/users.test.ts (3 tests) 11ms
+ ✓ src/attempt/payload.test.ts (6 tests) 13ms
+ ✓ src/utils/docsDebug.test.ts (3 tests) 9ms
+ ✓ src/attempt/errors.test.ts (7 tests) 11ms
+ ✓ src/utils/passwordRules.test.ts (7 tests) 12ms
+ ✓ src/generated/adminConstants.test.ts (3 tests) 11ms
+ ✓ src/test/smoke.test.ts (1 test) 8ms
+ ✓ src/router/basename.test.ts (1 test) 4ms
+node.exe : stderr | src/pages/student/attempt/PendingPanel.test.tsx > C-07 PendingPanel > 冻结态：无答题卡/进度/所选，显示静态上次已答计数
+所在位置 行:1 字符: 1
++ & "D:\node/node.exe" "D:\node/node_modules/npm/bin/npm-cli.js" test - ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (stderr | src/pa...度/所选，显示静态上次已答计数:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+
+stderr | src/pages/student/attempt/PendingPanel.test.tsx > C-07 PendingPanel > 同键重试需勾选风险确认后才可执行
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/attempt/PendingPanel.test.tsx > C-07 PendingPanel > 同键重试需勾选风险确认后才可执行
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/attempt/SubmitConfirmModal.test.tsx > C-03 SubmitConfirmModal > 显示计数、仅一次与全部未答强提示，不列题号
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/attempt/DraftBanner.test.tsx > C-04 DraftBanner > 恢复态显示保存时间/已答数/隐私说明
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/attempt/PendingPanel.test.tsx > C-07 PendingPanel > 同键重试需勾选风险确认后才可执行
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/attempt/DraftBanner.test.tsx > C-04 DraftBanner > 重新开始仅在有回调且允许时渲染
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/attempt/SubmitConfirmModal.test.tsx > C-03 SubmitConfirmModal > 取消不提交；确认触发一次
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/attempt/DraftBanner.test.tsx > C-04 DraftBanner > pending 态不显示重新开始
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/attempt/DraftBanner.test.tsx > C-04 DraftBanner > 存储不可用提示刷新后可能无法恢复
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+ ✓ src/pages/student/attempt/DraftBanner.test.tsx (4 tests) 821ms
+   ✓ C-04 DraftBanner (4)
+     ✓ 恢复态显示保存时间/已答数/隐私说明 458ms
+     ✓ 重新开始仅在有回调且允许时渲染 310ms
+stderr | src/pages/student/attempt/PendingPanel.test.tsx > C-07 PendingPanel > 同键重试需勾选风险确认后才可执行
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/attempt/PendingPanel.test.tsx > C-07 PendingPanel > 强警告清除：未勾选风险时禁用，勾选后才可清除
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/attempt/PendingPanel.test.tsx > C-07 PendingPanel > 强警告清除：未勾选风险时禁用，勾选后才可清除
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/attempt/SubmitConfirmModal.test.tsx > C-03 SubmitConfirmModal > 提交中按钮禁用/加载，不提供取消提交
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+ ✓ src/pages/student/attempt/SubmitConfirmModal.test.tsx (3 tests) 1641ms
+   ✓ C-03 SubmitConfirmModal (3)
+     ✓ 显示计数、仅一次与全部未答强提示，不列题号 661ms
+     ✓ 取消不提交；确认触发一次 702ms
+stdout | src/pages/admin/MonitorPages.test.tsx > 监控页 > 缓存页清理需理由并提交实例与域
+无缓存条目，清理完成
+
+ ✓ src/pages/admin/MonitorPages.test.tsx (3 tests) 2136ms
+   ✓ 监控页 (3)
+     ✓ 状态用文字呈现且覆盖 unknown/stale/not_configured/not_applicable 401ms
+     ✓ 缓存页清理需理由并提交实例与域 1633ms
+stderr | src/pages/student/attempt/PendingPanel.test.tsx > C-07 PendingPanel > 强警告清除：未勾选风险时禁用，勾选后才可清除
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stdout | src/pages/admin/ProfilePage.test.tsx > 个人中心页 > 修改昵称调用接口
+昵称已保存
+
+stderr | src/pages/student/attempt/PendingPanel.test.tsx > C-07 PendingPanel > 强警告清除：未勾选风险时禁用，勾选后才可清除
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+
+stderr | src/pages/student/attempt/PendingPanel.test.tsx > C-07 PendingPanel > 信封损坏：只提供查询/强警告清除，不提供重试提交
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+
+stderr | src/pages/student/attempt/PendingPanel.test.tsx > C-07 PendingPanel > 矛盾响应：禁止重试提交，可重新查询
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+
+ ✓ src/pages/student/attempt/PendingPanel.test.tsx (5 tests) 2850ms
+   ✓ C-07 PendingPanel (5)
+     ✓ 冻结态：无答题卡/进度/所选，显示静态上次已答计数 533ms
+     ✓ 同键重试需勾选风险确认后才可执行 1248ms
+     ✓ 强警告清除：未勾选风险时禁用，勾选后才可清除 851ms
+stdout | src/pages/admin/ProfilePage.test.tsx > 个人中心页 > 改密成功清本地认证并跳登录，不重发请求
+密码已修改，请重新登录
+
+ ✓ src/pages/admin/ProfilePage.test.tsx (4 tests) 3398ms
+   ✓ 个人中心页 (4)
+     ✓ 展示本人信息 890ms
+     ✓ 修改昵称调用接口 1171ms
+     ✓ 改密成功清本地认证并跳登录，不重发请求 741ms
+     ✓ 旧密码错误 400 显示后端文案且停留在本页 593ms
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F01 损坏信封 + API-3 malformed 仍进入 pending-un
+recoverable，不放开编辑
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-05 页面容器与状态门禁 > API-3 true：只读汇总、清除草稿/信封、写提交标记
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F01b 无信封 malformed 冻结编辑（AC-48），重新查询 false
+ 后解除
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F01b 无信封 malformed 冻结编辑（AC-48），重新查询 false
+ 后解除
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F01b 无信封 malformed 冻结编辑（AC-48），重新查询 false
+ 后解除
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperListPage.test.tsx > C-09 列表入口四态 > 按本机草稿/信封/标记显示继续、待确认、已提交、开始
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-05 页面容器与状态门禁 > API-3 false + 普通草稿：恢复答案/标记/当前篇
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/attempt/SubmitSummaryPanel.test.tsx > C-05/C-06 SubmitSummaryPanel > 本机缓存必须标注「本机保存，仅供参考」
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+ ✓ src/pages/student/attempt/SubmitSummaryPanel.test.tsx (4 tests) 859ms
+   ✓ C-05/C-06 SubmitSummaryPanel (4)
+     ✓ 显示正确数/率/估分/时间/编号，不显示逐题与未答数 591ms
+ ✓ src/layouts/AdminLayout.test.tsx (2 tests) 11ms
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 渲染用户列表并显示角色/状态标签
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 渲染用户列表并显示角色/状态标签
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+ ✓ src/pages/student/attempt/AnswerSheet.test.tsx (3 tests) 1068ms
+   ✓ C-02 AnswerSheet (3)
+     ✓ 按篇分组、状态文字、当前题高亮 749ms
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F02 手动查询返回矛盾状态后冻结编辑与交卷
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+ ✓ src/pages/student/attempt/QuestionCard.test.tsx (4 tests) 1403ms
+   ✓ C-01 QuestionCard (4)
+     ✓ 整行点选、清除、标记回调 997ms
+stderr | src/pages/student/ListeningPaperListPage.test.tsx > C-09 列表入口四态 > 按本机草稿/信封/标记显示继续、待确认、已提交、开始
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F02 手动查询返回矛盾状态后冻结编辑与交卷
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/admin/LoginLogsPage.test.tsx > 登录日志页 > 加载列表并按标签展示
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/student/ListeningPaperListPage.test.tsx > C-09 列表入口四态 > 清理过期文案，不提供「查看听力」
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+
+stderr | src/pages/student/ListeningPaperPage.extra.test.tsx > FE-06 补充：结果分支与多标签兜底 > E08：写 e08 无时间标记并转只读，随后查询补全汇总
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/admin/LoginLogsPage.test.tsx > 登录日志页 > 加载列表并按标签展示
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 无读权限时不发请求
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-05 页面容器与状态门禁 > API-3 false + 信封：pending 冻结，无答题卡/进度/交卷
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.extra.test.tsx > FE-06 补充：结果分支与多标签兜底 > E08：写 e08 无时间标记并转只读，随后查询补全汇总
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperListPage.test.tsx > C-09 列表入口四态 > 清理过期文案，不提供「查看听力」
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+
+ ✓ src/pages/student/ListeningPaperListPage.test.tsx (2 tests) 2384ms
+   ✓ C-09 列表入口四态 (2)
+     ✓ 按本机草稿/信封/标记显示继续、待确认、已提交、开始 2058ms
+     ✓ 清理过期文案，不提供「查看听力」 320ms
+ ✓ src/pages/admin/ApiDocsPage.test.tsx (4 tests) 1499ms
+   ✓ 接口文档页 (4)
+     ✓ 加载受保护 schema 并初始化本地 Swagger UI 615ms
+     ✓ 有 docs:debug 时可启用调试并只允许 GET 509ms
+     ✓ schema 加载失败显示错误与重试，不回退公开入口 306ms
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-05 页面容器与状态门禁 > API-3 404 + 本机标记：只读且不展示汇总、不提供重开
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/admin/LoginLogsPage.test.tsx > 登录日志页 > 加载失败显示错误与重试，不显示表格数据
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/admin/LoginLogsPage.test.tsx > 登录日志页 > 加载失败显示错误与重试，不显示表格数据
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 加载失败显示错误与重试
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 加载失败显示错误与重试
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F02 手动查询返回矛盾状态后冻结编辑与交卷
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F02 手动查询返回矛盾状态后冻结编辑与交卷
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+ ✓ src/pages/admin/HomePage.test.tsx (4 tests) 2445ms
+   ✓ 管理端首页 (4)
+     ✓ 渲染汇总卡片、采集时间与缓存状态 1537ms
+     ✓ 加载失败显示错误与重试，不显示 0 卡片 389ms
+     ✓ 刷新失败保留旧数据并标记可能已过期 424ms
+stderr | src/pages/student/ListeningPaperPage.extra.test.tsx > FE-06 补充：结果分支与多标签兜底 > E08：写 e08 无时间标记并转只读，随后查询补全汇总
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/ListeningPaperPage.extra.test.tsx > FE-06 补充：结果分支与多标签兜底 > E08：写 e08 无时间标记并转只读，随后查询补全汇总
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 未知 400：保留信封、冻结编辑、不自动新键
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 未知 400：保留信封、冻结编辑、不自动新键
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F02 手动查询返回矛盾状态后冻结编辑与交卷
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.extra.test.tsx > FE-06 补充：结果分支与多标签兜底 > E09 false：查询为未提交后清信封，回到可作答（下次新键）
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F02 手动查询返回矛盾状态后冻结编辑与交卷
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.extra.test.tsx > FE-06 补充：结果分支与多标签兜底 > E09 false：查询为未提交后清信封，回到可作答（下次新键）
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/admin/LoginLogsPage.test.tsx > 登录日志页 > 导出按钮调用下载并保存文件
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/admin/LoginLogsPage.test.tsx > 登录日志页 > 导出按钮调用下载并保存文件
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 未知 400：保留信封、冻结编辑、不自动新键
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stdout | src/pages/admin/MonitorJobsPage.test.tsx > 任务监控页 > 立即执行需要理由并调用接口
+已排队（QUEUED），等待调度执行
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 未知 400：保留信封、冻结编辑、不自动新键
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 筛选写入 URL 并重新请求
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 筛选写入 URL 并重新请求
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 筛选写入 URL 并重新请求
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 筛选写入 URL 并重新请求
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F03 E09 后 API-3 false 先恢复冻结答案，再清信封
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F03 E09 后 API-3 false 先恢复冻结答案，再清信封
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.extra.test.tsx > FE-06 补充：结果分支与多标签兜底 > E09 false：查询为未提交后清信封，回到可作答（下次新键）
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/ListeningPaperPage.extra.test.tsx > FE-06 补充：结果分支与多标签兜底 > E09 false：查询为未提交后清信封，回到可作答（下次新键）
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F03 E09 后 API-3 false 先恢复冻结答案，再清信封
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 无创建权限时不显示创建按钮
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 无创建权限时不显示创建按钮
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/student/ListeningPaperPage.extra.test.tsx > FE-06 补充：结果分支与多标签兜底 > 矛盾响应：保护性冻结、保留信封、禁止重试提交
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 跨标签终态：storage 事件后冻结并丢弃草稿，不复活
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/admin/LoginLogsPage.test.tsx > 登录日志页 > 导出按钮调用下载并保存文件
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/admin/LoginLogsPage.test.tsx > 登录日志页 > 导出按钮调用下载并保存文件
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 跨标签终态：storage 事件后冻结并丢弃草稿，不复活
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 跨标签终态：storage 事件后冻结并丢弃草稿，不复活
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.extra.test.tsx > FE-06 补充：结果分支与多标签兜底 > 信封损坏：进入 pending-unrecoverable，不提供重
+试提交
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F03 E09 后 API-3 false 先恢复冻结答案，再清信封
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F03 E09 后 API-3 false 先恢复冻结答案，再清信封
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/admin/LoginLogsPage.test.tsx > 登录日志页 > 导出失败不保存文件
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/student/ListeningPaperPage.extra.test.tsx > FE-06 补充：结果分支与多标签兜底 > API-3 true 但汇总不可用：只读、不显示 0/伪时间
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/admin/LoginLogsPage.test.tsx > 登录日志页 > 导出失败不保存文件
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F04 重新开始需二次确认，取消旧 timer 后旧答案不再复活
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > API-3 500 + 本机标记：只读展示缓存并标注仅供参考
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F04 重新开始需二次确认，取消旧 timer 后旧答案不再复活
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 确认后提交成功：写入标记、删除草稿/信封、进入只读
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.extra.test.tsx > FE-06 补充：结果分支与多标签兜底 > 终态写入前检查（事件未处理兜底）：已有标记时保存不复活草稿
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 确认后提交成功：写入标记、删除草稿/信封、进入只读
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F04 重新开始需二次确认，取消旧 timer 后旧答案不再复活
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/admin/LoginLogsPage.test.tsx > 登录日志页 > 导出失败不保存文件
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+导出行数超限
+
+stderr | src/pages/admin/LoginLogsPage.test.tsx > 登录日志页 > 导出失败不保存文件
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+ ✓ src/pages/admin/LoginLogsPage.test.tsx (4 tests) 4916ms
+   ✓ 登录日志页 (4)
+     ✓ 加载列表并按标签展示 1533ms
+     ✓ 加载失败显示错误与重试，不显示表格数据 1150ms
+     ✓ 导出按钮调用下载并保存文件 1174ms
+     ✓ 导出失败不保存文件 1054ms
+stderr | src/pages/student/ListeningPaperPage.extra.test.tsx > FE-06 补充：结果分支与多标签兜底 > 终态写入前检查（事件未处理兜底）：已有标记时保存不复活草稿
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stdout | src/pages/admin/MonitorJobsPage.test.tsx > 任务监控页 > 暂停任务需要理由并调用接口
+已暂停任务
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F04 重新开始需二次确认，取消旧 timer 后旧答案不再复活
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 创建用户：前端校验后提交
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 创建用户：前端校验后提交
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.extra.test.tsx > FE-06 补充：结果分支与多标签兜底 > 终态写入前检查（事件未处理兜底）：已有标记时保存不复活草稿
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+ ✓ src/pages/student/ListeningPaperPage.extra.test.tsx (6 tests) 5511ms
+   ✓ FE-06 补充：结果分支与多标签兜底 (6)
+     ✓ E08：写 e08 无时间标记并转只读，随后查询补全汇总 2684ms
+     ✓ E09 false：查询为未提交后清信封，回到可作答（下次新键） 1238ms
+     ✓ API-3 true 但汇总不可用：只读、不显示 0/伪时间 302ms
+     ✓ 终态写入前检查（事件未处理兜底）：已有标记时保存不复活草稿 929ms
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 确认后提交成功：写入标记、删除草稿/信封、进入只读
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 确认后提交成功：写入标记、删除草稿/信封、进入只读
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F04 重新开始需二次确认，取消旧 timer 后旧答案不再复活
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 双击确认只发送一次（AC-11）
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 双击确认只发送一次（AC-11）
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+ ✓ src/pages/admin/MonitorJobsPage.test.tsx (5 tests) 6451ms
+   ✓ 任务监控页 (5)
+     ✓ 展示任务配置、心跳与执行记录 1634ms
+     ✓ 立即执行需要理由并调用接口 1982ms
+     ✓ 暂停任务需要理由并调用接口 1759ms
+     ✓ 轮询间隔 15 秒且 hidden 时不刷新 472ms
+     ✓ 加载失败显示错误与重试 600ms
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 双击确认只发送一次（AC-11）
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 创建用户：前端校验后提交
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > API-1 404 E03：从信封重建草稿，保留答案并清旧信封（AC-14/AC-50）
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F05 站内卸载前 flush 最后一次作答
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > API-1 404 E03：从信封重建草稿，保留答案并清旧信封（AC-14/AC-50）
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F05 站内卸载前 flush 最后一次作答
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F06 同题数换批也提示“汇总对应提交时版本”
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F08A 冲突后一致 false 解除普通草稿冻结并恢复可作答
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > API-1 404 E03：从信封重建草稿，保留答案并清旧信封（AC-14/AC-50）
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > API-1 404 E03：从信封重建草稿，保留答案并清旧信封（AC-14/AC-50）
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F08A 冲突后一致 false 解除普通草稿冻结并恢复可作答
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F08A 冲突后一致 false 解除普通草稿冻结并恢复可作答
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > API-1 404 E03：从信封重建草稿，保留答案并清旧信封（AC-14/AC-50）
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > API-1 404 E03：从信封重建草稿，保留答案并清旧信封（AC-14/AC-50）
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F08B pending 冲突后一致 false 解除重试禁用且保留信封
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F08B pending 冲突后一致 false 解除重试禁用且保留信封
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F08B pending 冲突后一致 false 解除重试禁用且保留信封
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 存储不可用：先弹确认框，未确认不发送请求
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F09 手动查询 malformed 必须冻结可编辑页面
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 存储不可用：先弹确认框，未确认不发送请求
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F09 手动查询 malformed 必须冻结可编辑页面
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > F09 手动查询 malformed 必须冻结可编辑页面
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 存储不可用：先弹确认框，未确认不发送请求
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/student/ListeningPaperPage.test.tsx > FE-06 提交流程 > 存储不可用：先弹确认框，未确认不发送请求
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+
+ ✓ src/pages/student/ListeningPaperPage.test.tsx (12 tests) 9701ms
+   ✓ FE-05 页面容器与状态门禁 (5)
+     ✓ API-3 true：只读汇总、清除草稿/信封、写提交标记 997ms
+     ✓ API-3 false + 普通草稿：恢复答案/标记/当前篇 1456ms
+     ✓ API-3 false + 信封：pending 冻结，无答题卡/进度/交卷 326ms
+   ✓ FE-06 提交流程 (7)
+     ✓ 未知 400：保留信封、冻结编辑、不自动新键 1325ms
+     ✓ 跨标签终态：storage 事件后冻结并丢弃草稿，不复活 942ms
+     ✓ 确认后提交成功：写入标记、删除草稿/信封、进入只读 1082ms
+     ✓ 双击确认只发送一次（AC-11） 874ms
+     ✓ API-1 404 E03：从信封重建草稿，保留答案并清旧信封（AC-14/AC-50） 1441ms
+     ✓ 存储不可用：先弹确认框，未确认不发送请求 891ms
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > 补充：初次加载矛盾状态（无信封）冻结且提供查询入口
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+stderr | src/pages/student/ListeningPaperPage.review.test.tsx > PR16 独立验收回归 > 补充：API-3 true 且汇总不可用提供“查询提交状态”入口
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.
+Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.
+Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+
+ ✓ src/pages/student/ListeningPaperPage.review.test.tsx (12 tests) 10413ms
+   ✓ PR16 独立验收回归 (12)
+     ✓ F01 损坏信封 + API-3 malformed 仍进入 pending-unrecoverable，不放开编辑 573ms
+     ✓ F01b 无信封 malformed 冻结编辑（AC-48），重新查询 false 后解除 923ms
+     ✓ F02 手动查询返回矛盾状态后冻结编辑与交卷 3089ms
+     ✓ F03 E09 后 API-3 false 先恢复冻结答案，再清信封 931ms
+     ✓ F04 重新开始需二次确认，取消旧 timer 后旧答案不再复活 2185ms
+     ✓ F05 站内卸载前 flush 最后一次作答 455ms
+     ✓ F08A 冲突后一致 false 解除普通草稿冻结并恢复可作答 749ms
+     ✓ F08B pending 冲突后一致 false 解除重试禁用且保留信封 315ms
+     ✓ F09 手动查询 malformed 必须冻结可编辑页面 675ms
+stdout | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 创建用户：前端校验后提交
+创建成功
+
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 创建用户：前端校验后提交
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 启停同状态提示“状态未变化”且不当作错误
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 启停同状态提示“状态未变化”且不当作错误
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+Not implemented: Window's getComputedStyle() method: with pseudo-elements
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 启停同状态提示“状态未变化”且不当作错误
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+stderr | src/pages/admin/UsersPage.test.tsx > 用户管理页 > 启停同状态提示“状态未变化”且不当作错误
+Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+
+ ✓ src/pages/admin/UsersPage.test.tsx (7 tests) 13757ms
+   ✓ 用户管理页 (7)
+     ✓ 渲染用户列表并显示角色/状态标签 1624ms
+     ✓ 无读权限时不发请求 508ms
+     ✓ 加载失败显示错误与重试 1354ms
+     ✓ 筛选写入 URL 并重新请求 421ms
+     ✓ 无创建权限时不显示创建按钮 1317ms
+     ✓ 创建用户：前端校验后提交 5363ms
+     ✓ 启停同状态提示“状态未变化”且不当作错误 3167ms
+
+ Test Files  35 passed (35)
+      Tests  193 passed (193)
+   Start at  15:48:01
+   Duration  34.74s (import 61%, environment 18%, tests 16%, setup 5%)
+
+

@@ -1,0 +1,13 @@
+﻿$ git status --short
+?? docs/requirements/admin-platform/
+$ git log --oneline -3
+3609186 Merge pull request #16 from ShengShengRuEr-Team/feature/attempt-system
+8eb795b fix(attempt): 二次整改 PR16 F08/F09（冲突后恢复与 malformed 冻结）
+e67d616 fix(attempt): 整改 PR16 独立验收 7 个问题（F01–F07）
+$ git branch --show-current
+feature/admin-platform
+$ git rev-parse HEAD
+3609186a9a98787bfe4bbc9943b7162896a2d80f
+$ git remote -v
+origin	https://github.com/ShengShengRuEr-Team/ShengShengRuEr.git (fetch)
+origin	https://github.com/ShengShengRuEr-Team/ShengShengRuEr.git (push)

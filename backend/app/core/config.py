@@ -38,6 +38,23 @@ class Settings(BaseSettings):
     # 模块二：音频受控目录（storage_key 的相对根；音频本体不入库，不进 Git）。
     audio_storage_dir: str = "var/audio"
 
+    # 管理端审计降级文件目录（受控持久卷；相对值基于 backend/ 解析）。
+    admin_audit_fallback_dir: str = "var/admin-audit-fallback"
+
+    # 首页汇总的进程内 TTL 缓存开关（默认开启；关闭时状态显示 not_configured）。
+    admin_dashboard_cache_enabled: bool = True
+
+    # 15 秒采样服务开关；测试环境关闭，避免 TestClient 留下后台线程。
+    admin_monitoring_enabled: bool = True
+
+    # TLS 证据：站点 origin 与可信代理（默认空 = 不信任任何代理头）。
+    public_origin: str = ""
+    trusted_proxy_cidrs: str = ""
+    proxy_header_mode: Literal["forwarded", "x_forwarded"] = "forwarded"
+
+    # 模块三只读观测（默认关闭；本仓库无模块三表）。
+    admin_module3_observation_enabled: bool = False
+
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
         env_file_encoding="utf-8",
@@ -64,6 +81,13 @@ class Settings(BaseSettings):
             raise ValueError("JWT_SECRET_KEY 不能使用占位值")
         return SecretStr(secret)
 
+    @field_validator("proxy_header_mode")
+    @classmethod
+    def validate_proxy_header_mode(cls, value: str) -> str:
+        if value not in {"forwarded", "x_forwarded"}:
+            raise ValueError("PROXY_HEADER_MODE 只允许 forwarded 或 x_forwarded")
+        return value
+
     @field_validator("jwt_algorithm")
     @classmethod
     def validate_jwt_algorithm(cls, value: str) -> str:
@@ -79,6 +103,12 @@ class Settings(BaseSettings):
     def audio_storage_path(self) -> Path:
         """音频受控目录的绝对路径（相对值基于 backend/ 解析）。"""
         path = Path(self.audio_storage_dir)
+        return path if path.is_absolute() else (BASE_DIR / path)
+
+    @property
+    def admin_audit_fallback_path(self) -> Path:
+        """审计降级目录的绝对路径（相对值基于 backend/ 解析）。"""
+        path = Path(self.admin_audit_fallback_dir)
         return path if path.is_absolute() else (BASE_DIR / path)
 
 

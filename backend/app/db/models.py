@@ -13,6 +13,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Integer,
     String,
     func,
 )
@@ -25,6 +26,7 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = (
         CheckConstraint("status IN ('active', 'disabled')", name="status"),
+        CheckConstraint("auth_version >= 0", name="auth_version"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -35,6 +37,10 @@ class User(Base):
     )
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, default="active", server_default="active"
+    )
+    # 认证版本：只在成功停用/改密/重置时递增；存量数据默认 0。
+    auth_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

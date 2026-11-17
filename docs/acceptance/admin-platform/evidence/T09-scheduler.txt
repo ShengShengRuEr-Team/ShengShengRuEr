@@ -1,0 +1,7 @@
+scheduler heartbeat ok=True health=ok instances=1
+trigger: 200 body={"code":200,"msg":"已排队","data":{"run_id":"45e6bd78-1b07-422f-9e8f-8d45fd53aab9","state":"QUEUED"}}
+run state=SUCCEEDED attempt=1 counts_complete=True
+pause=200 changed=True resume=200 changed=True
+62s after stop health=stale (expect stale)
+restart heartbeat ok=True health=ok
+processes terminated

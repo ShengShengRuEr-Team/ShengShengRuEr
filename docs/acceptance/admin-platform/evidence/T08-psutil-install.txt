@@ -1,0 +1,15 @@
+﻿Collecting psutil==7.2.2
+  Downloading psutil-7.2.2-cp37-abi3-win_amd64.whl.metadata (22 kB)
+Downloading psutil-7.2.2-cp37-abi3-win_amd64.whl (137 kB)
+Installing collected packages: psutil
+Successfully installed psutil-7.2.2
+python.exe : 
+所在位置 行:3 字符: 8
++ $out = & .\.venv\Scripts\python.exe -m pip install psutil==7.2.2 2>&1 ...
++        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[notice] A new release of pip is available: 26.2.1 -> 26.3
+[notice] To update, run: D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Scripts\python.exe -m pip install --upgrade pip
+

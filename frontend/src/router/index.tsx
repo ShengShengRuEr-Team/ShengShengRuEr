@@ -3,10 +3,20 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { ROLES } from '../constants/permissions'
 import { ROUTES, homePathForRole } from '../constants/routes'
+import {
+  PERM_DASHBOARD_READ,
+  PERM_DOCS_READ,
+  PERM_JOB_READ,
+  PERM_MONITOR_READ,
+  PERM_LOG_READ,
+  PERM_SELF_READ,
+  PERM_USER_READ,
+} from '../generated/adminConstants'
 import AdminLayout from '../layouts/AdminLayout'
 import StudentLayout from '../layouts/StudentLayout'
 import FullPageLoading from '../ui/FullPageLoading'
 import RequireAuth from './RequireAuth'
+import RequirePermission from './RequirePermission'
 import RequireRole from './RequireRole'
 
 // 路由级代码分割：页面单独成 chunk，首屏只加载登录页与守卫。
@@ -16,6 +26,14 @@ const ForbiddenPage = lazy(() => import('../pages/ForbiddenPage'))
 const AdminHomePage = lazy(() => import('../pages/admin/HomePage'))
 const AdminListeningPaperListPage = lazy(() => import('../pages/admin/ListeningPaperListPage'))
 const AdminListeningPaperDetailPage = lazy(() => import('../pages/admin/ListeningPaperDetailPage'))
+const AdminLoginLogsPage = lazy(() => import('../pages/admin/LoginLogsPage'))
+const AdminOperationLogsPage = lazy(() => import('../pages/admin/OperationLogsPage'))
+const AdminUsersPage = lazy(() => import('../pages/admin/UsersPage'))
+const AdminProfilePage = lazy(() => import('../pages/admin/ProfilePage'))
+const AdminApiDocsPage = lazy(() => import('../pages/admin/ApiDocsPage'))
+const AdminMonitorJobsPage = lazy(() => import('../pages/admin/MonitorJobsPage'))
+const AdminMonitorPage = lazy(() => import('../pages/admin/MonitorPage'))
+const AdminMonitorCachePage = lazy(() => import('../pages/admin/MonitorCachePage'))
 const StudentHomePage = lazy(() => import('../pages/student/HomePage'))
 const StudentListeningPaperListPage = lazy(() => import('../pages/student/ListeningPaperListPage'))
 const StudentListeningPaperPage = lazy(() => import('../pages/student/ListeningPaperPage'))
@@ -57,7 +75,14 @@ export default function AppRouter() {
             </RequireAuth>
           }
         >
-          <Route index element={<AdminHomePage />} />
+          <Route
+            index
+            element={
+              <RequirePermission code={PERM_DASHBOARD_READ}>
+                <AdminHomePage />
+              </RequirePermission>
+            }
+          />
           <Route
             path={ROUTES.ADMIN_LISTENING_PAPERS}
             element={<AdminListeningPaperListPage />}
@@ -65,6 +90,94 @@ export default function AppRouter() {
           <Route
             path={ROUTES.ADMIN_LISTENING_PAPER_DETAIL}
             element={<AdminListeningPaperDetailPage />}
+          />
+          <Route
+            path={ROUTES.ADMIN_LOGIN_LOGS}
+            element={
+              <RequirePermission code={PERM_LOG_READ}>
+                <AdminLoginLogsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_OPERATION_LOGS}
+            element={
+              <RequirePermission code={PERM_LOG_READ}>
+                <AdminOperationLogsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_USERS}
+            element={
+              <RequirePermission code={PERM_USER_READ}>
+                <AdminUsersPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_PROFILE}
+            element={
+              <RequirePermission code={PERM_SELF_READ}>
+                <AdminProfilePage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_API_DOCS}
+            element={
+              <RequirePermission code={PERM_DOCS_READ}>
+                <AdminApiDocsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_MONITOR_DATABASE}
+            element={
+              <RequirePermission code={PERM_MONITOR_READ}>
+                <AdminMonitorPage kind="database" />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_MONITOR_SERVER}
+            element={
+              <RequirePermission code={PERM_MONITOR_READ}>
+                <AdminMonitorPage kind="server" />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_MONITOR_TRANSPORT}
+            element={
+              <RequirePermission code={PERM_MONITOR_READ}>
+                <AdminMonitorPage kind="transport" />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_MONITOR_OAUTH}
+            element={
+              <RequirePermission code={PERM_MONITOR_READ}>
+                <AdminMonitorPage kind="oauth" />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_MONITOR_CACHE}
+            element={
+              <RequirePermission code={PERM_MONITOR_READ}>
+                <AdminMonitorCachePage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_MONITOR_JOBS}
+            element={
+              <RequirePermission code={PERM_JOB_READ}>
+                <AdminMonitorJobsPage />
+              </RequirePermission>
+            }
           />
         </Route>
 

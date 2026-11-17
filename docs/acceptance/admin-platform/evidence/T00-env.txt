@@ -1,0 +1,81 @@
+﻿$ python -V (backend/.venv)
+Python 3.13.16
+$ node -v; npm -v
+v24.14.0
+11.9.0
+$ pip freeze (backend/.venv)
+alembic==1.20.0
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.16.0
+bcrypt==5.0.0
+certifi==2026.10.23
+click==8.5.1
+colorama==0.4.6
+fastapi==0.143.0
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.20
+iniconfig==2.3.1
+Mako==1.4.3
+MarkupSafe==3.0.4
+opentelemetry-api==1.45.2
+packaging==26.3
+pluggy==1.7.0
+psycopg==3.3.6
+psycopg-binary==3.3.6
+pydantic==2.14.1
+pydantic-settings==2.16.2
+pydantic_core==2.50.1
+Pygments==2.21.0
+PyJWT==2.15.1
+pytest==9.2.0
+pytest-asyncio==1.4.1
+python-dotenv==1.2.4
+SQLAlchemy==2.1.4
+starlette==1.10.0
+typing-inspection==0.4.5
+typing_extensions==4.16.0
+tzdata==2026.6
+uvicorn==0.54.0
+$ frontend/package.json
+{
+  "name": "shengshengruer-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ant-design/icons": "6.3.4",
+    "antd": "6.6.8",
+    "axios": "1.21.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-router-dom": "7.18.5"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "jsdom": "28.1.0",
+    "playwright-core": "1.56.1",
+    "typescript": "6.0.3",
+    "vite": "8.3.5",
+    "vitest": "5.1.0"
+  }
+}
+

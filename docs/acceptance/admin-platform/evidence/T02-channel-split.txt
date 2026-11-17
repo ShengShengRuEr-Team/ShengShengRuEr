@@ -1,0 +1,9 @@
+AUDIT_DB_WRITE_FAILED channel=login event_id=7655b6f8-3401-4100-9d77-326ca10a620b request_id=eef67095-cf36-4625-87dc-9c835666ae3f error_type=OperationalError
+AUDIT_DB_WRITE_FAILED channel=audit event_id=871699a6-6396-4351-81dc-e35952634bda request_id=cb8b33ea-cb2e-4230-801e-41de8eefdcd1 error_type=OperationalError
+audit table rows: 6 -> 7
+login table rows: 139 -> 139
+audit row event_type=USER_STATUS_CHANGED result=FAILURE
+login row for same request_id: None
+fallback files=['audit-current.jsonl']
+fallback record: channel=login event_type=LOGIN_FAILED reason_code=BAD_PASSWORD
+fallback record: channel=audit event_type=EXPORT_FAILED reason_code=export_timeout

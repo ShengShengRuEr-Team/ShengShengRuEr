@@ -299,6 +299,11 @@ def t07_users(client):
 
     with SessionLocal() as session:
         for user_id in created:
+            # 顺序适配：auth_sessions 对 users 是 RESTRICT 外键，必须先删会话。
+            session.execute(
+                text("DELETE FROM auth_sessions WHERE user_id = :user"),
+                {"user": user_id},
+            )
             session.execute(
                 text("DELETE FROM token_revocations WHERE user_id = :user"),
                 {"user": user_id},
@@ -529,8 +534,15 @@ def test_module1_auth_regression(client, student_token, t07_users):
 
     info = client.get("/api/v1/getInfo", headers=auth_headers(student_token))
     assert info.status_code == 200, info.text
-    assert set(info.json()["data"]) == {"user", "roles", "is_admin"}
+    assert set(info.json()["data"]) == {
+        "user",
+        "roles",
+        "is_admin",
+        "permissions",
+    }
     assert info.json()["data"]["is_admin"] is False
+    # 契约升级：主文档 §4.2 要求 getInfo 新增 permissions，student 为空集。
+    assert info.json()["data"]["permissions"] == []
 
     assert client.get("/api/v1/getInfo").status_code == 401
 

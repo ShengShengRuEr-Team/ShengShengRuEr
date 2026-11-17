@@ -1,0 +1,66 @@
+﻿
+> shengshengruer-frontend@0.1.0 build
+> tsc -b && vite build
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 3222 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                     1.41 kB │ gzip:   0.55 kB
+dist/assets/index-DSFpUeUV.css                     10.03 kB │ gzip:   2.83 kB
+dist/assets/LoginLogsPage-D_zdCDKH.js               0.16 kB │ gzip:   0.15 kB
+dist/assets/OperationLogsPage-5PLjAiT-.js           0.16 kB │ gzip:   0.15 kB
+dist/assets/collapse-evkw6DSZ.js                    0.23 kB │ gzip:   0.20 kB
+dist/assets/rolldown-runtime-XKyaHtl9.js            0.72 kB │ gzip:   0.42 kB
+dist/assets/context-Bu2zqM-N.js                     0.80 kB │ gzip:   0.48 kB
+dist/assets/HomePage-Cjhx_5Zu.js                    1.17 kB │ gzip:   0.77 kB
+dist/assets/PaperStatusTags-B3hfBR0c.js             1.21 kB │ gzip:   0.55 kB
+dist/assets/useClosable-qUc2JbfW.js                 1.25 kB │ gzip:   0.66 kB
+dist/assets/HomePage-Br0IirUc.js                    1.40 kB │ gzip:   0.84 kB
+dist/assets/ExclamationCircleFilled-DWaE0pSc.js     1.52 kB │ gzip:   0.70 kB
+dist/assets/format-BuQJJqGc.js                      1.81 kB │ gzip:   0.84 kB
+dist/assets/useAuth-hmTHmK7K.js                     1.83 kB │ gzip:   0.85 kB
+dist/assets/useBreakpoint-BZnzFMGn.js               1.86 kB │ gzip:   0.89 kB
+dist/assets/Input-BxHLh1Yd.js                       3.49 kB │ gzip:   1.77 kB
+dist/assets/ListeningPaperListPage-BULpfHcG.js      3.97 kB │ gzip:   1.94 kB
+dist/assets/useForm-CGbxYton.js                     4.72 kB │ gzip:   2.11 kB
+dist/assets/ListeningPaperListPage-DmMtzzkh.js      6.17 kB │ gzip:   2.78 kB
+dist/assets/config-provider-D6yBt9zC.js             6.56 kB │ gzip:   2.66 kB
+dist/assets/ReloadOutlined-BJA-3zTY.js              6.87 kB │ gzip:   3.18 kB
+dist/assets/alert-sl8QQbcT.js                       7.17 kB │ gzip:   3.14 kB
+dist/assets/checkbox-C9JRnY56.js                    7.44 kB │ gzip:   3.10 kB
+dist/assets/spin-BSNVR3S-.js                        7.55 kB │ gzip:   3.14 kB
+dist/assets/descriptions-CpCGyMVe.js                7.90 kB │ gzip:   2.81 kB
+dist/assets/tag-BQ2zileM.js                         8.57 kB │ gzip:   3.36 kB
+dist/assets/storage-CNj0tw-T.js                     8.59 kB │ gzip:   2.59 kB
+dist/assets/LogsView-CBWW3G3m.js                    9.94 kB │ gzip:   3.83 kB
+dist/assets/input-ibLpE_yq.js                      11.87 kB │ gzip:   5.35 kB
+dist/assets/ListeningPaperDetailPage-BltrUniX.js   12.73 kB │ gzip:   4.53 kB
+dist/assets/drawer-BRVIR2LU.js                     14.45 kB │ gzip:   5.58 kB
+dist/assets/LoginPage-Igrtjynj.js                  28.23 kB │ gzip:  11.09 kB
+dist/assets/AudioPlayer-Duk2khdn.js                32.32 kB │ gzip:  12.02 kB
+dist/assets/ForbiddenPage-BHzKqO7E.js              35.88 kB │ gzip:  11.69 kB
+dist/assets/EllipsisOutlined-B4DhoU4U.js           36.25 kB │ gzip:  12.52 kB
+dist/assets/ListeningPaperPage-COCJjU3W.js         45.21 kB │ gzip:  13.60 kB
+dist/assets/card-62qK12AU.js                       47.19 kB │ gzip:  14.48 kB
+dist/assets/button-BLtBIlFi.js                     58.67 kB │ gzip:  19.68 kB
+dist/assets/select-B-j0I0Np.js                     70.10 kB │ gzip:  23.91 kB
+dist/assets/index-Di5vvt6m.js                     129.56 kB │ gzip:  42.24 kB
+dist/assets/table-BQ_jtVCd.js                     187.48 kB │ gzip:  57.95 kB
+dist/assets/jsx-runtime-BTEauNof.js               513.41 kB │ gzip: 170.76 kB
+
+node.exe : [plugin builtin:vite-reporter] 
+所在位置 行:1 字符: 1
++ & "D:\node/node.exe" "D:\node/node_modules/npm/bin/npm-cli.js" run bu ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([plugin builtin:vite-reporter] :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeS
+plitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 604ms
+

@@ -1,0 +1,131 @@
+D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+AUDIT_DB_WRITE_FAILED event_id=4d2d65f0-9d6d-4649-a175-0f6bfa4f4e88 request_id=ef7ea212-a0a1-4608-b026-42f7dbab7039 error_type=OperationalError
+未处理异常: (builtins.Exception) db down
+[SQL: SELECT 1]
+(Background on this error at: https://sqlalche.me/e/21/e3q8)
+Traceback (most recent call last):
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\fastapi\telemetry\_asgi.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\starlette\middleware\base.py", line 203, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\app\main.py", line 55, in request_id_middleware
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\starlette\middleware\base.py", line 179, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\starlette\middleware\base.py", line 149, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\starlette\middleware\cors.py", line 91, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\starlette\middleware\cors.py", line 149, in simple_response
+    await self.app(scope, receive, send)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\starlette\routing.py", line 683, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\fastapi\routing.py", line 2786, in app
+    await route.handle(scope, receive, send)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\fastapi\routing.py", line 1817, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\fastapi\routing.py", line 2869, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\fastapi\routing.py", line 1843, in _handle_selected
+    await original_route.handle(scope, receive, send)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\fastapi\routing.py", line 1308, in handle
+    await effective_context.app(scope, receive, send)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\fastapi\routing.py", line 165, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\fastapi\routing.py", line 151, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\fastapi\routing.py", line 499, in app
+    solved_result = await solve_dependencies(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+    )
+    ^
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\fastapi\dependencies\utils.py", line 676, in solve_dependencies
+    solved = await run_in_threadpool(call, **solved_result.values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\starlette\concurrency.py", line 34, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\anyio\to_thread.py", line 65, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 2779, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\.venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 1124, in run
+    result = context.run(func, *args)
+  File "D:\ShengShengRuEr\ShengShengRuEr\backend\app\api\deps.py", line 94, in get_current_user
+    auth_db = SessionLocal()
+  File "D:\pytemp\t02_audit_evidence.py", line 221, in _boom_deps
+    raise OperationalError("SELECT 1", {}, Exception("db down"))
+sqlalchemy.exc.OperationalError: (builtins.Exception) db down
+[SQL: SELECT 1]
+(Background on this error at: https://sqlalche.me/e/21/e3q8)
+== 1. LOGIN_SUCCEEDED 与登录同事务 ==
+status=200 X-Request-ID=e4b782cd-95c5-4c88-aacf-66ce69d6d59b
+event_type=LOGIN_SUCCEEDED result=SUCCESS reason_code=None actor_user_id=1 username_attempted=admin role_snapshot=admin summary={'session_id': 'ef334df0-cf08-478d-8b8d-bc01e954bec4', 'auth_version': 0}
+
+== 2. UNKNOWN_ACCOUNT ==
+status=401
+event_type=LOGIN_FAILED result=FAILURE reason_code=UNKNOWN_ACCOUNT actor_user_id=None username_attempted=ghost_99169a role_snapshot=None summary={'failure_type': 'UNKNOWN_ACCOUNT'}
+
+== 3. BAD_PASSWORD ==
+status=401
+event_type=LOGIN_FAILED result=FAILURE reason_code=BAD_PASSWORD actor_user_id=1 username_attempted=admin role_snapshot=admin summary={'failure_type': 'BAD_PASSWORD'}
+
+== 4. DISABLED ==
+status=401
+event_type=LOGIN_FAILED result=FAILURE reason_code=DISABLED actor_user_id=16 username_attempted=t02_ev_fd835c8e role_snapshot=student summary={'failure_type': 'DISABLED'}
+
+== 5. DB 写失败 → 降级文件（原 401 不覆盖） ==
+status=401
+fallback files=['audit-current.jsonl']
+fallback record keys=["actor_name", "actor_user_id", "duration_ms", "event_id", "event_type", "ip", "occurred_at", "reason_code", "request_id", "result", "role_snapshot", "run_id", "summary", "target_id", "target_type", "user_agent", "username_attempted"]
+fallback event_type=LOGIN_FAILED reason_code=BAD_PASSWORD request_id=ef7ea212-a0a1-4608-b026-42f7dbab7039
+health={'state': 'warning', 'last_error_code': 'AUDIT_DB_WRITE_FAILED', 'last_error_at': datetime.datetime(2026, 11, 17, 4, 16, 56, 141394, tzinfo=datetime.timezone.utc), 'last_db_success_at': datetime.datetime(2026, 11, 17, 4, 16, 55, 941080, tzinfo=datetime.timezone.utc), 'last_fallback_at': datetime.datetime(2026, 11, 17, 4, 16, 56, 150921, tzinfo=datetime.timezone.utc)}
+
+== 6. DB 与文件都失败 → stderr + critical ==
+status=401
+health={'state': 'critical', 'last_error_code': 'AUDIT_STORAGE_UNAVAILABLE', 'last_error_at': datetime.datetime(2026, 11, 17, 4, 16, 56, 363902, tzinfo=datetime.timezone.utc), 'last_db_success_at': datetime.datetime(2026, 11, 17, 4, 16, 55, 941080, tzinfo=datetime.timezone.utc), 'last_fallback_at': datetime.datetime(2026, 11, 17, 4, 16, 56, 150921, tzinfo=datetime.timezone.utc)}
+log: AUDIT_DB_WRITE_FAILED event_id=653f2ffb-245d-4652-9edc-63367eed76f6 request_id=562f26f5-b30f-4ab2-bbe3-040d7ec71029 error_type=OperationalError
+log: AUDIT_FALLBACK_WRITE_FAILED error_type=FileExistsError
+log: AUDIT_STORAGE_CRITICAL request_id=562f26f5-b30f-4ab2-bbe3-040d7ec71029 event_id=653f2ffb-245d-4652-9edc-63367eed76f6
+
+== 7. request_id 头（成功/失败/500） ==
+200 header=f7a455c2-3c70-47d8-9b68-95b3a3a0e6ba
+401 header=e852eca8-39eb-4848-ad87-d280a158ac07
+500 header=c8315af4-c945-47af-9e76-b966e21c8f44
+
+== 8. summary 白名单与 2KiB 上限 ==
+keys=['auth_version', 'session_id'] bytes=237
+limit=2048
+
+== 9. 审计表敏感字段扫描 ==
+contains 'admin123': False
+contains 'password_hash': False
+contains 'eyJ': False
+contains 'jti_hash': False
+auth_sessions rows=119
+settings fallback dir=D:\ShengShengRuEr\ShengShengRuEr\backend\var\admin-audit-fallback
