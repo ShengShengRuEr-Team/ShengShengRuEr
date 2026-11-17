@@ -103,17 +103,17 @@ frontend/package.json / package-lock.json
 | `python -m pytest` | **265 passed**, 1 warning | `docs/acceptance/attempt-system/evidence/backend-pytest.txt` |
 | `ruff check`（本次新增/修改文件） | All checks passed | `evidence/ruff-changed.txt` |
 | `ruff check .`（全仓） | 178 = 基线 178（零新增；`services/attempts.py` 4 项为基线既有行） | `evidence/ruff-full.txt` |
-| `npm test` | **18 files / 126 tests passed**（含 PR16 定向回归 9 项） | `evidence/frontend-test.txt` |
+| `npm test` | **18 files / 129 tests passed**（含 PR16 定向回归 12 项） | `evidence/frontend-test.txt` |
 | `npm run typecheck` | 通过 | `evidence/frontend-typecheck.txt` |
 | `npm run build` | 通过（仅 chunk 体积提示） | `evidence/frontend-build.txt` |
-| 真实浏览器 E2E | **18/18 PASS**（含 PR16 F01/F02/F04/F05/F06/F07 与提交栏视口断言） | `screenshots/`、`e2e-results.json` |
+| 真实浏览器 E2E | **21/21 PASS**（含 PR16 F01/F02/F04/F05/F06/F07/F08/F09 与提交栏视口断言） | `screenshots/`、`e2e-results.json` |
 | 真实 API E2E | **23/23 PASS** | `e2e-api-results.json` |
 
 E2E 环境：独立库 `shengshengruer_e2e`、后端 `127.0.0.1:8000`、前端 `127.0.0.1:5173`、Playwright Core 1.56.1 驱动本机 Edge（未下载额外浏览器）。
 
 ## 5. 未覆盖与风险
 
-0. **PR16 独立验收整改（2026-11-16）**：F01 损坏信封保护、F02 手动查询冲突冻结、F03 E09 后答案恢复、F04 重新开始二次确认与 timer 取消、F05 站内卸载 flush、F06 同题数版本提示、F07 提交栏视口固定均已修复并回归；详见 `docs/acceptance/attempt-system/PR16-整改说明-20261116.md`。核心 BLOCKED（AC-35/AC-38/R-04/UX-01）仍未关闭。
+0. **PR16 独立验收整改（2026-11-16/17）**：一轮 F01–F07（损坏信封保护、手动 conflict 冻结、E09 恢复答案、重新开始二次确认、站内卸载 flush、同题数版本提示、提交栏视口固定）与二次 F08/F09（冲突后一致 false 恢复、手动 malformed 冻结）均已修复并回归；详见 `docs/acceptance/attempt-system/PR16-整改说明-20261116.md`、`PR16-二次整改说明-20261117.md`。核心 BLOCKED（AC-35/38/R-04/UX-01）仍未关闭。
 1. **核心项 BLOCKED**：AC-05（真实关闭再进入）、AC-35（pending+内容变化三组合页面级）、AC-38（后台挂起/即将关闭两态）、R-04（人工核听）、UX-01（签字）。
 2. **P-03 未确认**：自动重试关闭；`permanent/days` 分支仅单测。
 3. **其它 PARTIAL**：401 提交中、E04 页面换批、真实 500 注入、空卷提交、已提交换批版本提示、人工音频核听（见矩阵）。

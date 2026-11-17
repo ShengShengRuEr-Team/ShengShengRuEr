@@ -1,10 +1,10 @@
 # 作答系统验收矩阵（AC-01–AC-50 / B-01–B-16 / R-01–R-08 / E2E 1–20）
 
-> 日期：2026-11-16（含 PR #16 独立验收整改）  
-> 代码：`D:\ssre_V1\ShengShengRuEr`，分支 `feature/attempt-system`（PR #16；整改基于 `b47e901`，整改提交见 PR）  
+> 日期：2026-11-17（含 PR #16 二次独立验收整改）  
+> 代码：`D:\ssre_V1\ShengShengRuEr`，分支 `feature/attempt-system`（PR #16；基线 `main@846270b`）  
 > 需求 V1.2 / 开发 V1.1 / 原型图集 V1.1  
-> 判定口径：**PASS**＝按步骤可复现且符合预期；**PARTIAL**＝有自动化证据但缺规定场景（仅用于非报告口径项）；**FAIL**＝可复现不符；**BLOCKED**＝环境/证据/签字缺失，无法判定（本轮按 PR16 报告口径，证据不足即 BLOCKED，不用 PARTIAL 替代核心项）。  
-> 证据简称：`pytest`＝`backend/tests`（265 passed）；`U`＝`frontend/src/attempt/*.test.ts`；`C`＝`frontend/src/pages/student/attempt/*.test.tsx`；`P`＝`ListeningPaperPage*.test.tsx`；`R`＝`ListeningPaperPage.review.test.tsx`（PR16 定向回归 9 项）；`E2E`＝真实 Edge 浏览器脚本（18 项）；`API-E2E`＝真实服务脚本（23 项）。
+> 判定口径：**PASS**＝按步骤可复现且符合预期；**PARTIAL**＝有自动化证据但缺规定场景（仅用于非报告口径项）；**FAIL**＝可复现不符；**BLOCKED**＝环境/证据/签字缺失，无法判定（核心项证据不足即 BLOCKED，不用 PARTIAL 替代）。  
+> 证据简称：`pytest`＝`backend/tests`（265 passed）；`U`＝`frontend/src/attempt/*.test.ts`；`C`＝`frontend/src/pages/student/attempt/*.test.tsx`；`P`＝`ListeningPaperPage*.test.tsx`；`R`＝`ListeningPaperPage.review.test.tsx`（PR16 定向回归 12 项）；`E2E`＝真实 Edge 浏览器脚本（21 项）；`API-E2E`＝真实服务脚本（23 项）。
 
 ## 1. 功能与异常（AC-01–AC-50）
 
@@ -14,7 +14,7 @@
 | AC-02 | PASS | C-02 | 按篇分组、已答/未答/标记/当前、点击题号回调（跳篇+滚动） |
 | AC-03 | PASS | C-01；E2E | 标记/取消标记写草稿、答题卡显示、确认框标记数一致 |
 | AC-04 | PASS | E2E | 刷新后答案/标记/当前篇恢复；播放器组件从 0 秒重建 |
-| AC-05 | BLOCKED | E2E 多标签 B 重载；P | 缺少“真实关闭标签再进入”的完整场景证据（仅刷新/重载等价路径） |
+| AC-05 | PASS | 二轮独立报告真实关闭再进入；E2E 多标签 B 重载 | 真实关闭标签后新开标签进入同卷，答案恢复、音频从 0 开始（二轮报告证据） |
 | AC-06 | PASS | U storage | 键含 userId+examPaperId，A/B 用户互不可见 |
 | AC-07 | PASS | U codec/storage | 过期/损坏普通草稿删除不崩溃；损坏信封不被删除 |
 | AC-08 | BLOCKED | U payload/codec；页面 stale 分支 | 题目集合不一致不恢复旧答案，但页面级 stale 组合未完整实测 |
@@ -33,8 +33,8 @@
 | AC-21 | PASS | API-E2E；pytest | 401/403（管理员）/404（不可访问）顺序与不泄露 |
 | AC-22 | PASS | API-E2E；pytest | 字段白名单；true latest 非空且与 API-1 完全一致；false null |
 | AC-23 | PASS（整改） | E2E；R「F06」 | 已提交再进入：只读/汇总/播放器/中性导航；同题数旧汇总也显示版本提示 |
-| AC-24 | PASS | `evidence/` | pytest 265 passed、`npm test` 18 files/126 passed、typecheck/build 通过 |
-| AC-25 | PASS（整改） | 本文档集、验收交接、整改说明、需求同步 | 已回写 F01–F07 缺陷、证据与重判；旧文案清理；无首页继续卡片 |
+| AC-24 | PASS | `evidence/` | pytest 265 passed、`npm test` 18 files/129 passed、typecheck/build 通过 |
+| AC-25 | PASS（二次整改） | 本文档集、验收交接、整改说明、需求同步 | 已回写 F01–F09 缺陷、证据与重判；旧文案清理；无首页继续卡片 |
 | AC-26 | PASS（整改） | E2E-09；`e2e-07-1440/1280`、`e2e-08-1024.png` | 1440/1280/1024×768 实测提交栏 boundingBox 在视口内（y=715,h=53），页面底部留白防遮挡 |
 | AC-27 | PASS | E2E；API-E2E；pytest | 详情/API-3/页面均无答案/解析/正文；E2E 扫描 DOM 无受保护字段 |
 | AC-28 | PASS | C-07；U storage；pytest | 信封不参与 TTL/10 份淘汰；pending 无“重新开始”；强警告清除 |
@@ -56,8 +56,8 @@
 | AC-44 | PASS | E2E | 已提交无选中/标记/进度；刷新前后一致 |
 | AC-45 | PASS | API-E2E；pytest 模块二 | API-1/3 管理员 403；模块二学生视角按原规则 |
 | AC-46 | PASS（整改） | R「F01」；E2E-10；U codec/storage | 损坏信封 + API-3 malformed/conflict/not-submitted 均优先 `pending-unrecoverable`，不放开编辑 |
-| AC-47 | PASS（整改） | R「F02」「补充：初次加载矛盾」；E2E-11 | 初次与手动查询的矛盾响应均冻结编辑/交卷，保留草稿与现有记录，可再查 |
-| AC-48 | PASS（整改） | pytest Schema；U adapters；R「F01b」 | 前后端校验语义不变量与嵌套 ID；malformed 按 AC-48 冻结，服务端确认未提交后解除 |
+| AC-47 | PASS（二次整改） | R「F02」「F08A/F08B」；E2E-11/15/16 | 初次与手动查询的矛盾响应均冻结；一致 false 后按草稿/pending 分别恢复，保留信封与答案 |
+| AC-48 | PASS（二次整改） | pytest Schema；U adapters；R「F01b」「F09」 | 前后端校验语义不变量；malformed 首次加载与手动查询统一冻结，服务端确认未提交后解除 |
 | AC-49 | PASS | U storage/adapters；C-05；P | `submittedAt=null` 合法；页面不显示伪造时间、不回编辑 |
 | AC-50 | PASS | U submit；P「API-1 404 E03」；R「F03」 | 只留信封时先重建并读回成功才清信封；不兼容/写入失败保留冻结；E04 例外 |
 
@@ -82,7 +82,7 @@
 | B-15 | PASS | `test_status_schema_invariants_rejected` |
 | B-16 | PASS | 同上（嵌套 `exam_paper_id` 不一致被拒绝） |
 
-## 3. PR #16 独立验收整改记录（F01–F07）
+## 3. PR #16 独立验收整改记录（F01–F09）
 
 | 编号 | 问题 | 整改后验证 | 证据 |
 | --- | --- | --- | --- |
@@ -93,8 +93,10 @@
 | F05 | 站内返回丢失最后作答 | PASS：卸载 flush；返回列表再进入恢复选中 | R「F05」；E2E-13 |
 | F06 | 同题数换批缺版本提示 | PASS：有汇总即提示“汇总对应提交时版本” | R「F06」；E2E-14；`e2e-11-same-count-version-notice.png` |
 | F07 | 提交栏视口内不可见 | PASS：固定底部栏；1440/1280/1024×768 视口内坐标断言通过 | E2E-09；`e2e-07-1440.png`、`e2e-07-1280.png`、`e2e-08-1024.png` |
+| F08 | 冲突后一致 false 不能解除冻结（草稿/ pending） | PASS：草稿恢复可编辑；pending 保留信封并解除同键重试禁用；损坏信封仍保护 | R「F08A/F08B」；E2E-15/16；`e2e-12`、`e2e-13` 截图 |
+| F09 | 手动查询 malformed 仍可编辑 | PASS：与首次加载统一冻结，交卷禁用，可再查 | R「F09」；E2E-17；`e2e-14-manual-malformed-frozen.png` |
 
-> 整改说明全文：`docs/acceptance/attempt-system/PR16-整改说明-20261116.md`。
+> 整改说明全文：`docs/acceptance/attempt-system/PR16-整改说明-20261116.md`；二次整改：`PR16-二次整改说明-20261117.md`。
 
 ## 4. 回归（R-01–R-08）
 
@@ -138,10 +140,10 @@
 
 核心清单（开发文档 §5.2 / 需求 §11.5）：AC-01–05、AC-11/12、AC-16/17、AC-24、AC-25、AC-34/35/38/40/43/46/47/48/49/50、B-01–B-03/B-13/B-15/B-16、R-01–R-08、UX-01 原型签字。
 
-- 核心项 PASS：AC-01–04、AC-11/12、AC-16/17、AC-24/25、AC-34、AC-40、AC-43、AC-46–50、B-01–03、B-13、B-15/16、R-01–03、R-05–08。
-- 核心项 BLOCKED：**AC-05、AC-35、AC-38、R-04、UX-01**（AC-05 为真实关闭再进入证据不足）。
+- 核心项 PASS：AC-01–05、AC-11/12、AC-16/17、AC-24/25、AC-34、AC-40、AC-43、AC-46–50、B-01–03、B-13、B-15/16、R-01–03、R-05–08。
+- 核心项 BLOCKED：**AC-35、AC-38、R-04、UX-01**（真实组合/人工核听/签字证据不足）。
 - 非核心 BLOCKED：AC-08/13/15/29；E2E 6/7/8/9/10/13/14/15/17/19/20。
-- 核心项 FAIL：无。
+- 非核心 PARTIAL：无；核心项 FAIL：无。
 
-> **整改后结论：F01–F07 已修复并有回归证据；但按需求 §11.5，核心项仍有 BLOCKED（AC-35/AC-38/R-04/UX-01），不得判整轮“通过”。**  
-> 下一步：验收人按整改说明 §5 复跑，补齐 AC-35/AC-38、R-04 人工核听、UX-01 签字后重判；F06 的真实管理员换批证据亦需补跑。
+> **二次整改后结论：F01–F09 均已修复并有回归证据；AC-05 由二次独立报告补齐。但按需求 §11.5，核心项仍有 BLOCKED（AC-35/AC-38/R-04/UX-01），不得判整轮“通过”。**  
+> 下一步：验收人复跑 F08/F09 修复，补齐 AC-35/AC-38、R-04 人工核听、UX-01 签字后重判；F06 的真实管理员换批证据亦需补跑。

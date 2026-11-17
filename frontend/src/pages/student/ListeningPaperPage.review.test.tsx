@@ -253,6 +253,99 @@ describe('PR16 独立验收回归', () => {
     ).toBeInTheDocument()
   })
 
+  it('F08A 冲突后一致 false 解除普通草稿冻结并恢复可作答', async () => {
+    vi.mocked(getListeningPaper).mockResolvedValue(makeDetail())
+    vi.mocked(getAttemptStatus)
+      .mockResolvedValueOnce({
+        kind: 'status-conflict',
+        reason: 'true-without-count',
+        examPaperId: 1,
+        attemptCount: 0,
+      })
+      .mockResolvedValueOnce(notSubmitted())
+    attemptStorage.writeDraft(makeDraft())
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(
+      (await screen.findAllByText(/提交状态自相矛盾/)).length,
+    ).toBeGreaterThan(0)
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '查询提交状态' }))
+
+    expect(
+      await screen.findByText(/服务端确认尚未提交，已解除冻结/),
+    ).toBeInTheDocument()
+    expect((await screen.findAllByRole('radiogroup')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /交\s*卷/ })).toBeEnabled()
+    expect(
+      await screen.findByRole('radio', { name: /选项 C.*已选/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('F08B pending 冲突后一致 false 解除重试禁用且保留信封', async () => {
+    vi.mocked(getListeningPaper).mockResolvedValue(makeDetail())
+    vi.mocked(getAttemptStatus)
+      .mockResolvedValueOnce({
+        kind: 'status-conflict',
+        reason: 'false-with-count',
+        examPaperId: 1,
+        attemptCount: 2,
+      })
+      .mockResolvedValueOnce(notSubmitted())
+    attemptStorage.writeEnvelopeVerified(makeEnvelope())
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(
+      (await screen.findAllByText(/提交状态自相矛盾/)).length,
+    ).toBeGreaterThan(0)
+    const retry = screen.getByRole('button', { name: '重试提交（同键）' })
+    expect(retry).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: '查询提交状态' }))
+
+    expect(
+      await screen.findByText(/已保留原提交编号与冻结答案/),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: '重试提交（同键）' }),
+    ).toBeEnabled()
+    expect(attemptStorage.readEnvelope(7, 1).kind).toBe('valid')
+  })
+
+  it('F09 手动查询 malformed 必须冻结可编辑页面', async () => {
+    vi.mocked(getListeningPaper).mockResolvedValue(makeDetail())
+    vi.mocked(getAttemptStatus)
+      .mockResolvedValueOnce({
+        kind: 'status-unavailable',
+        reason: 'server',
+        httpStatus: 500,
+      })
+      .mockResolvedValueOnce({
+        kind: 'status-unavailable',
+        reason: 'malformed',
+      })
+    attemptStorage.writeDraft(makeDraft())
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(
+      await screen.findByText(/无法确认提交状态/),
+    ).toBeInTheDocument()
+    expect((await screen.findAllByRole('radiogroup')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /交\s*卷/ })).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: '查询提交状态' }))
+
+    expect(
+      await screen.findByText(/已冻结编辑，请重新查询提交状态/),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /交\s*卷/ })).toBeDisabled()
+  })
+
   it('补充：初次加载矛盾状态（无信封）冻结且提供查询入口', async () => {
     vi.mocked(getListeningPaper).mockResolvedValue(makeDetail())
     vi.mocked(getAttemptStatus).mockResolvedValue({

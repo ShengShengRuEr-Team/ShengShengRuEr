@@ -8,4 +8,4 @@ venv\Lib\site-packages\fastapi\testclient.py:1
     from starlette.testclient import TestClient as TestClient  # noqa
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-265 passed, 1 warning in 66.59s (0:01:06)
+265 passed, 1 warning in 87.16s (0:01:27)

@@ -335,7 +335,175 @@ async function main() {
     record('E2E-11 F02 手动查询矛盾冻结', 'PASS', '无可交互选项，交卷禁用')
     await page.unroute('**/attempt-status')
 
-    // 13. F04：二次确认后取消旧 timer，旧答案不再复活
+    // 13. F08A：冲突后手动查询一致 false，普通草稿必须解除冻结
+    async function fulfillStatus(route, data, status = 200) {
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: status, msg: '查询成功', data }),
+      })
+    }
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.getByRole('radio').first().waitFor({ timeout: 20000 })
+    await page.getByRole('radio', { name: /选项 B：Question 1 option B/ }).click()
+    await page.waitForTimeout(450)
+    let statusPhase = 'boot'
+    await page.route('**/attempt-status', (route) =>
+      statusPhase === 'boot'
+        ? fulfillStatus(route, {
+            exam_paper_id: thirdPaperId,
+            submitted: true,
+            attempt_count: 0,
+            latest_attempt: null,
+          })
+        : fulfillStatus(route, {
+            exam_paper_id: thirdPaperId,
+            submitted: false,
+            attempt_count: 0,
+            latest_attempt: null,
+          }),
+    )
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.getByText(/提交状态自相矛盾/).first().waitFor({ timeout: 20000 })
+    if ((await page.getByRole('radiogroup').count()) !== 0) {
+      throw new Error('F08A 冲突冻结后仍出现可交互选项')
+    }
+    statusPhase = 'query'
+    await page.getByRole('button', { name: '查询提交状态' }).click()
+    await page.getByText(/已解除冻结，可继续作答/).waitFor({ timeout: 20000 })
+    if ((await page.getByRole('radiogroup').count()) === 0) {
+      throw new Error('F08A 一致 false 后未恢复可作答')
+    }
+    if (!(await page.getByRole('button', { name: /交\s*卷/ }).isEnabled())) {
+      throw new Error('F08A 一致 false 后交卷仍禁用')
+    }
+    if (
+      (await page.getByRole('radio', { name: /选项 B.*已选/ }).count()) === 0
+    ) {
+      throw new Error('F08A 一致 false 后草稿答案未恢复')
+    }
+    await shot(page, 'e2e-12-conflict-then-false-unfrozen.png')
+    record('E2E-15 F08A 冲突后 false 解除冻结', 'PASS', '选项恢复、交卷可用')
+    await page.unroute('**/attempt-status')
+
+    // 14. F08B：pending 冲突后一致 false 解除同键重试禁用并保留信封
+    const questionIds = await page
+      .locator('[id^="question-"]')
+      .evaluateAll((elements) =>
+        elements
+          .map((element) => element.id)
+          .filter((id) => /^question-\d+$/.test(id))
+          .map((id) => Number(id.replace('question-', ''))),
+      )
+    await page.evaluate(
+      ({ uid, pid, ids }) => {
+        for (const key of Object.keys(window.localStorage)) {
+          if (key.startsWith('ssre.attempt')) {
+            window.localStorage.removeItem(key)
+          }
+        }
+        const envelope = {
+          schemaVersion: 1,
+          userId: uid,
+          examPaperId: pid,
+          state: 'pending',
+          key: '22222222-3333-4444-8555-666666666666',
+          frozenPayload: {
+            loaded_question_ids: ids,
+            answers: [{ question_id: ids[0], selected_option: 'A' }],
+          },
+          requestedAt: new Date().toISOString(),
+        }
+        window.localStorage.setItem(
+          `ssre.attemptEnvelope.v1.${uid}.${pid}`,
+          JSON.stringify(envelope),
+        )
+      },
+      { uid: userId, pid: thirdPaperId, ids: questionIds },
+    )
+    statusPhase = 'boot'
+    await page.route('**/attempt-status', (route) =>
+      statusPhase === 'boot'
+        ? fulfillStatus(route, {
+            exam_paper_id: thirdPaperId,
+            submitted: false,
+            attempt_count: 2,
+            latest_attempt: null,
+          })
+        : fulfillStatus(route, {
+            exam_paper_id: thirdPaperId,
+            submitted: false,
+            attempt_count: 0,
+            latest_attempt: null,
+          }),
+    )
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.getByText(/提交状态自相矛盾/).first().waitFor({ timeout: 20000 })
+    const retryButton = page.getByRole('button', { name: '重试提交（同键）' })
+    if (!(await retryButton.isDisabled())) {
+      throw new Error('F08B 冲突时同键重试未禁用')
+    }
+    statusPhase = 'query'
+    await page.getByRole('button', { name: '查询提交状态' }).click()
+    await page.getByText(/已保留原提交编号与冻结答案/).waitFor({ timeout: 20000 })
+    if (!(await retryButton.isEnabled())) {
+      throw new Error('F08B 一致 false 后同键重试仍禁用')
+    }
+    const envelopeStillThere = await page.evaluate(
+      ({ uid, pid }) =>
+        window.localStorage.getItem(`ssre.attemptEnvelope.v1.${uid}.${pid}`),
+      { uid: userId, pid: thirdPaperId },
+    )
+    if (envelopeStillThere === null) {
+      throw new Error('F08B 一致 false 后合法 pending 信封被清理')
+    }
+    await shot(page, 'e2e-13-pending-conflict-then-false-retry.png')
+    record('E2E-16 F08B pending 冲突后 false 恢复重试', 'PASS', '原信封保留、重试可用')
+    await page.unroute('**/attempt-status')
+    await page.evaluate(() => {
+      for (const key of Object.keys(window.localStorage)) {
+        if (key.startsWith('ssre.attempt')) {
+          window.localStorage.removeItem(key)
+        }
+      }
+    })
+
+    // 15. F09：手动查询 malformed 必须冻结可编辑页面
+    statusPhase = 'boot'
+    await page.route('**/attempt-status', (route) =>
+      statusPhase === 'boot'
+        ? route.fulfill({
+            status: 500,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              code: 500,
+              msg: '服务器内部错误',
+              data: null,
+            }),
+          })
+        : fulfillStatus(route, {}),
+    )
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.getByText(/无法确认提交状态/).waitFor({ timeout: 20000 })
+    if ((await page.getByRole('radiogroup').count()) === 0) {
+      throw new Error('F09 500 降级后普通草稿未保持可编辑')
+    }
+    await page.getByRole('radio', { name: /选项 B：Question 1 option B/ }).click()
+    await page.waitForTimeout(450)
+    statusPhase = 'query'
+    await page.getByRole('button', { name: '查询提交状态' }).click()
+    await page.getByText(/已冻结编辑，请重新查询提交状态/).waitFor({ timeout: 20000 })
+    if ((await page.getByRole('radiogroup').count()) !== 0) {
+      throw new Error('F09 手动 malformed 后仍可编辑')
+    }
+    if (await page.getByRole('button', { name: /交\s*卷/ }).isEnabled()) {
+      throw new Error('F09 手动 malformed 后交卷仍可用')
+    }
+    await shot(page, 'e2e-14-manual-malformed-frozen.png')
+    record('E2E-17 F09 手动 malformed 冻结', 'PASS', '选项 0、交卷禁用')
+    await page.unroute('**/attempt-status')
+
+    // 16. F04：二次确认后取消旧 timer，旧答案不再复活
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.reload({ waitUntil: 'networkidle' })
     await page.getByRole('radio').first().waitFor({ timeout: 20000 })

@@ -97,7 +97,7 @@
   {
     "name": "API-1 同键同 payload 幂等回放",
     "status": "PASS",
-    "detail": "code=66cbac05-5e6d-4c23-98d6-469e9e4ec347"
+    "detail": "code=18967183-576d-4285-8100-b95e213ff006"
   },
   {
     "name": "API-1 同键异 payload E09",

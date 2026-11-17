@@ -17,7 +17,7 @@
 [PASS] API-3 语义不变量 — submitted === (attempt_count > 0)
 [PASS] API-3 学生隔离（B 无提交） — count=0
 [PASS] API-1 首次提交 200 — 200
-[PASS] API-1 同键同 payload 幂等回放 — code=66cbac05-5e6d-4c23-98d6-469e9e4ec347
+[PASS] API-1 同键同 payload 幂等回放 — code=18967183-576d-4285-8100-b95e213ff006
 [PASS] API-1 同键异 payload E09 — 400 提交键已用于其他提交，请使用新键
 [PASS] API-1 异键限次 E08 — 400 本轮同一试卷仅允许提交一次
 [PASS] API-3 已提交与 API-1 汇总一致 — count=1

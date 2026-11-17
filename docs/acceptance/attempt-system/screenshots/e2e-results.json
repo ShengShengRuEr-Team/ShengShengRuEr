@@ -71,6 +71,21 @@
       "detail": "无可交互选项，交卷禁用"
     },
     {
+      "name": "E2E-15 F08A 冲突后 false 解除冻结",
+      "status": "PASS",
+      "detail": "选项恢复、交卷可用"
+    },
+    {
+      "name": "E2E-16 F08B pending 冲突后 false 恢复重试",
+      "status": "PASS",
+      "detail": "原信封保留、重试可用"
+    },
+    {
+      "name": "E2E-17 F09 手动 malformed 冻结",
+      "status": "PASS",
+      "detail": "选项 0、交卷禁用"
+    },
+    {
       "name": "E2E-12 F04 重新开始不复活",
       "status": "PASS",
       "detail": "草稿为空且刷新后无选中答案"
@@ -114,6 +129,19 @@
     "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
     "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
     "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
+    "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
+    "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
+    "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
+    "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
+    "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",
     "Warning: [antd: Space] `direction` is deprecated. Please use `orientation` instead.",
     "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead.",
     "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.",

@@ -461,27 +461,52 @@ export default function StudentListeningPaperPage() {
                   '服务端尚无成功提交记录，请重新提交（将生成新的提交编号）。',
               })
             }
-          } else if (
-            modeRef.current === 'answering' &&
-            frozenRef.current &&
-            !conflictRef.current
-          ) {
-            // F02 兜底：malformed 保护冻结后，服务端确认未提交可解除冻结。
-            setFrozen(false)
-            setStatusUnknown(false)
-            setNotice('服务端确认尚未提交，已解除冻结，可继续作答。')
           } else {
-            setNotice('服务端尚无成功提交记录；可使用原提交编号重试。')
+            // F08：一致、合法的 false 必须解除此前的 conflict/frozen，
+            // 并按普通草稿 / pending 信封 / 受保护信封分别恢复可继续的状态。
+            const wasProtected = conflictRef.current || frozenRef.current
+            setConflict(false)
+            setStatusUnknown(false)
+            if (modeRef.current === 'answering') {
+              setFrozen(false)
+              setNotice(
+                wasProtected
+                  ? '服务端确认尚未提交，已解除冻结，可继续作答。'
+                  : '服务端尚无成功提交记录；可继续作答或使用原提交编号重试。',
+              )
+            } else if (modeRef.current === 'pending') {
+              // 保留原 key/frozenPayload 与冻结答案；仅解除冲突导致的禁用。
+              setNotice(
+                '服务端确认尚未提交；已保留原提交编号与冻结答案，可手动同键重试。',
+              )
+            } else if (modeRef.current === 'unrecoverable') {
+              // 损坏信封仍按独立保护规则处理，不因 false 放开或清理。
+              setStatusUnknown(true)
+              setNotice(
+                '服务端确认尚未提交；本机提交记录损坏，仍按受保护状态处理。',
+              )
+            } else {
+              setNotice('服务端尚无成功提交记录；本机状态保持不变。')
+            }
           }
         } else if (result.kind === 'status-conflict') {
           // F02：任何来源的矛盾响应都必须冻结编辑/交卷，而不只是改文案。
           setConflict(true)
           setStatusUnknown(true)
           setFrozen(true)
-        } else if (result.reason === 'not-accessible') {
-          setNotice('当前试卷不可访问，无法确认最新状态')
-        } else {
-          setNotice('无法从服务端确认提交状态，请稍后重试。')
+        } else if (result.kind === 'status-unavailable') {
+          if (result.reason === 'malformed') {
+            // F09：手动查询与首次加载采用同一套 malformed 冻结策略（AC-48）。
+            setFrozen(true)
+            setStatusUnknown(true)
+            setNotice(
+              '服务端提交状态不可信；已冻结编辑，请重新查询提交状态后再继续作答。',
+            )
+          } else if (result.reason === 'not-accessible') {
+            setNotice('当前试卷不可访问，无法确认最新状态')
+          } else {
+            setNotice('无法从服务端确认提交状态，请稍后重试。')
+          }
         }
       } catch (error) {
         if (error instanceof ApiError && error.status === 403) {

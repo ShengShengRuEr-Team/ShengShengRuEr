@@ -8,7 +8,8 @@
 
 | 文档 | 用途 |
 | --- | --- |
-| [PR16 整改说明](PR16-整改说明-20261116.md) | **本次整改先读**：F01–F07 修复、复验命令、未关闭项 |
+| [PR16 二次整改说明](PR16-二次整改说明-20261117.md) | **二次整改先读**：F08/F09 修复、复验命令、未关闭项 |
+| [PR16 一轮整改说明](PR16-整改说明-20261116.md) | F01–F07 修复、复验命令 |
 | [验收交接](验收交接文档.md) | **验收人入口**：结论、环境、快速复核、BLOCKED 裁定项 |
 | [验收矩阵](acceptance-matrix.md) | AC-01–AC-50、B-01–B-16、R-01–R-08、E2E 1–20、F01–F07 逐项结果与证据 |
 | [任务卡回填](report.md) | 每张任务卡的实际改动、未提交差异、测试、未覆盖项、下一步 |
@@ -43,7 +44,7 @@ $env:DATABASE_URL = ($u -replace '@127\.0\.0\.1:5432/','@127.0.0.1:5433/')
 
 ```powershell
 # 前端（frontend 目录）
-npm test          # 预期 18 files / 126 tests passed（含 PR16 定向回归 9 项）
+npm test          # 预期 18 files / 129 tests passed（含 PR16 定向回归 12 项）
 npm run typecheck # 预期退出 0、无输出
 npm run build     # 预期 built in …（仅 chunk 体积提示）
 ```
@@ -84,8 +85,8 @@ npm run dev
 ```powershell
 cd frontend
 node scripts\e2e_attempt.mjs
-# 预期 18 项 PASS（登录/列表四态/门禁/选择标记/刷新恢复/提交汇总/只读/
-# 受保护字段/多标签终态/1440+1280+1024 提交栏视口/PR16 F01/F02/F04/F05/F06/管理员）
+# 预期 21 项 PASS（登录/列表四态/门禁/选择标记/刷新恢复/提交汇总/只读/
+# 受保护字段/多标签终态/1440+1280+1024 提交栏视口/PR16 F01/F02/F04/F05/F06/F08/F09/管理员）
 
 cd ..\backend
 .\venv\Scripts\python.exe scripts\e2e_attempt_api.py

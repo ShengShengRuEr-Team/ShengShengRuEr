@@ -121,10 +121,10 @@
 
 - 状态：**PASS**
 - 实际改动：重写 `pages/student/ListeningPaperPage.tsx`：详情→本机信封/草稿→API-3 门禁；五类页态（作答/pending/pending-unrecoverable/已提交/不可访问）；冲突冻结；API-3 404 不展示汇总；已提交清内存答案并中性导航
-- 测试：`ListeningPaperPage.test.tsx`（12 项）+ `ListeningPaperPage.extra.test.tsx`（6 项）+ `ListeningPaperPage.review.test.tsx`（PR16 定向回归 9 项）；E2E
+- 测试：`ListeningPaperPage.test.tsx`（12 项）+ `ListeningPaperPage.extra.test.tsx`（6 项）+ `ListeningPaperPage.review.test.tsx`（PR16 定向回归 12 项）；E2E
 - 未覆盖：E04/401 页面级真实场景
 - 下一步：补浏览器场景（见矩阵 BLOCKED）
-- PR16 整改：F01（损坏信封优先保护）、F02（手动查询冲突冻结）、F06（同题数版本提示）、malformed 冻结、查询入口
+- PR16 整改：一轮 F01（损坏信封优先保护）、F02（手动查询冲突冻结）、F06（同题数版本提示）、malformed 冻结、查询入口；二次 F08（冲突后 false 恢复）、F09（手动 malformed 冻结）
 
 ### FE-06 提交编排/pending/多标签/终态
 
@@ -155,7 +155,7 @@
 ### QA-01 前端单元/组件测试
 
 - 状态：**PASS**
-- 测试：18 files / 126 tests（含 PR16 定向回归 9 项）
+- 测试：18 files / 129 tests（含 PR16 定向回归 12 项）
 - 证据：`evidence/frontend-test.txt`
 - 未覆盖：真实布局/音频（jsdom 限制，E2E 补主链路）
 - 下一步：持续补 BLOCKED 场景
@@ -171,8 +171,8 @@
 ### QA-03 E2E/验收/回填
 
 - 状态：**BLOCKED（部分核心证据不足）**
-- 证据：真实浏览器 18/18 PASS；真实 API 23/23 PASS；PR16 F01–F07 已整改并回归；AC-01–AC-50、B、R、E2E 1–20 见矩阵
-- 未覆盖：AC-05/35/38、R-04、UX-01 等真实组合/人工核听/签字；F06 真实换批
+- 证据：真实浏览器 21/21 PASS；真实 API 23/23 PASS；PR16 F01–F09 已整改并回归；AC-01–AC-50、B、R、E2E 1–20 见矩阵
+- 未覆盖：AC-35/38、R-04、UX-01 等真实组合/人工核听/签字；F06 真实换批
 - 下一步：验收负责人复跑整改场景，补齐 BLOCKED 证据后重判整轮
 
 ### DOC-01B1 验收前文档同步
@@ -229,7 +229,8 @@
 
 ### 2.3 未提交差异
 
-- 本次整改提交（相对 `b47e901`）：**34 files changed, 1427 insertions(+), 362 deletions(-)**，含 `handoff.md` → `验收交接文档.md` 重命名、PR16 定向回归、E2E 脚本扩展、证据与截图更新。
+- 二次整改提交（相对 `e67d616`）：**26 files changed, 780 insertions(+), 252 deletions(-)**（代码、定向回归、E2E、文档与证据）。
+- 一轮整改提交（相对 `b47e901`）：34 files changed，含 `handoff.md` → `验收交接文档.md` 重命名。
 - 未推送至 `develop`（分支保护，须走 PR）；未改动 API-1 契约/迁移；未读取或输出密钥明文。
 
 ## 3. 测试命令与结果
@@ -239,10 +240,10 @@
 | `python -m pytest`（`DATABASE_URL` 端口覆盖为 5433） | **265 passed**, 1 warning | `evidence/backend-pytest.txt` |
 | `ruff check <本次新增/修改文件>` | All checks passed | `evidence/ruff-changed.txt` |
 | `ruff check .` | 178 = 基线 178（本次零新增；`services/attempts.py` 4 项为基线既有行） | `evidence/ruff-full.txt` |
-| `npm test` | **18 files / 126 tests passed**（含 PR16 定向回归 9 项） | `evidence/frontend-test.txt` |
+| `npm test` | **18 files / 129 tests passed**（含 PR16 定向回归 12 项） | `evidence/frontend-test.txt` |
 | `npm run typecheck` | 通过 | `evidence/frontend-typecheck.txt` |
 | `npm run build` | 通过（仅 chunk 体积提示） | `evidence/frontend-build.txt` |
-| 真实浏览器 E2E | **18/18 PASS**（含 F01/F02/F04/F05/F06/F07 视口断言） | `evidence/browser-e2e.txt`、`screenshots/e2e-results.json` |
+| 真实浏览器 E2E | **21/21 PASS**（含 F01/F02/F04/F05/F06/F07/F08/F09 视口断言） | `evidence/browser-e2e.txt`、`screenshots/e2e-results.json` |
 | 真实 API E2E | **23/23 PASS** | `evidence/api-e2e.txt`、`e2e-api-results.json` |
 
 E2E 环境：独立库 `shengshengruer_e2e`、后端 `127.0.0.1:8000`、前端 `127.0.0.1:5173`、Playwright Core 1.56.1 驱动本机 Edge（未下载额外浏览器）。
@@ -273,7 +274,7 @@ E2E 环境：独立库 `shengshengruer_e2e`、后端 `127.0.0.1:8000`、前端 `
 
 ## 6. PR16 独立验收整改记录
 
-> 依据《PR16 独立验收报告_20261116.md》；详见 [PR16-整改说明-20261116.md](PR16-整改说明-20261116.md)。
+> 依据《PR16 独立验收报告_20261116.md》《PR16 二次独立验收报告_20261117.md》；详见 [一轮整改说明](PR16-整改说明-20261116.md) 与 [二次整改说明](PR16-二次整改说明-20261117.md)。
 
 | 问题 | 严重级 | 修复摘要 | 回归证据 |
 | --- | --- | --- | --- |
@@ -284,7 +285,9 @@ E2E 环境：独立库 `shengshengruer_e2e`、后端 `127.0.0.1:8000`、前端 `
 | F05 SPA 离开丢最后作答 | P2 | 卸载 flush | R「F05」；E2E-13 |
 | F06 同题数换批缺版本提示 | P2 | 有汇总即提示版本 | R「F06」；E2E-14 |
 | F07 提交栏视口不可见 | P2 | 固定底部栏 + 页面留白 + 视口断言 | E2E-09；1440/1280/1024 截图 |
+| F08 冲突后一致 false 不能解除冻结 | P2 | 手动 false 分支按 answering/pending/unrecoverable 分别恢复；pending 保留信封并解除重试禁用 | R「F08A/F08B」；E2E-15/16 |
+| F09 手动查询 malformed 仍可编辑 | P2 | 手动 malformed 与首次加载统一冻结（AC-48） | R「F09」；E2E-17 |
 
 补充处理：冲突/冻结页查询入口、汇总不可用页查询入口、无信封 malformed 统一冻结（AC-48）、冲突文案去重。
 
-本次整改后：前端 18 files / 126 tests；浏览器 E2E 18/18；API E2E 23/23；pytest 265。仍存在核心 BLOCKED（AC-05/35/38、R-04、UX-01），不代签、不判整轮通过。
+两次整改后：前端 18 files / 129 tests；浏览器 E2E 21/21；API E2E 23/23；pytest 265。AC-05 已由二次独立报告补齐；仍存在核心 BLOCKED（AC-35/38、R-04、UX-01），不代签、不判整轮通过。
