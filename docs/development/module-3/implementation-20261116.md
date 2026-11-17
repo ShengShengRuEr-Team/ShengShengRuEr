@@ -27,6 +27,7 @@
 14. 修复独立生成 Worker 未注册认证模型导致心跳及失败落库异常的问题，心跳异常写日志。显式重试逐题重验已保存的成功响应，复用有效候选且保留原调用/费用和祖先产物引用；无效候选才重新生成。仅运行实现兼容变化时建立新修订，来源/核听审批保留实际引用，不复制小样或最终审核；提示词、字典、校验或选项算法身份变化仍拒绝此恢复路径。最终审核递归校验多次重试的响应来源，拒绝伪造引用。
 15. 按2026-11-17用户补充，未知计费改为持续显示的指标，不再单独阻断显式重试。原未知状态/预留保留，仍按预留额参与跨任务/跨库预算，不能清零或伪称已核实扣款；无法读取累计账本、预算超限、执行权失效仍阻断。页面仅在当前处理/发布失败或停止时启用重试，已完成生成后历史失败记录不会继续显示为可重试。
 16. 技能展示补全中文名称：后端只读投影按冻结字典补充 `skill_name`；前端构建从同一字典提取精简名称映射，兼容仅返回技能编码的运行中API，内容区和审核勾选项的主要/辅助技能均显示编码及名称，不改变候选或最终内容哈希。第5题的 S22 现显示“直接说明的原因与目的提取”，两个桌面尺寸实际验证通过。
+17. 整套审核增加覆盖全部25题的全选/取消、可编辑建议模板一键填入全部或只填空白、保存全部意见。全选覆盖内容、技能、答案与错因证据及合法空错因确认，保留个别意见和退回问题；只填空白不会覆盖非空整套依据。仍可逐题调整，批量准备只写当前版本本地草稿，显式保存按原接口每批至多25项、携带最终哈希及连续审核版本。刷新保留草稿和用户填写的核听/依据，旧版本保留冲突副本且不自动应用。保存中禁止继续编辑，完整覆盖和全部意见已保存后才允许用户显式提交；没有自动勾选核听、自动提交或发布。
 
 操作及恢复方式见 [统一管理端操作说明](continuation-runbook.md)。
 
@@ -45,12 +46,14 @@
 | 进度显示交互 | 两种桌面尺寸验证真实页面读取及合成活动状态：5/8页显示62%，计时走秒/暂停/刷新保留，不定步骤不显示虚假百分比，无处理命令；截图检查通过 |
 | 静态检查 | 受影响后端 Ruff、页面机械检测及 git diff --check 通过 |
 | 费用指标与技能名称补充 | 费用/恢复定向29项通过，含未知费用保留、允许显式重试、本地与跨库预留仍触发预算限制；随后技能只读投影定向1项通过；前端build及36项交互断言通过，真实技能名称两种桌面尺寸正确、无页面错误 |
+| 25题批量审核补充 | 前端build通过；1440×900、1280×720合成25题交互93项断言通过，覆盖完整逐题引用、空错因、保留个别意见、部分选中、全清/全选、统一依据、刷新恢复、一次保存25题及CAS失败保留输入，无自动提交/生成/发布；既有36项交互回归通过。真实25题页面只读确认新按钮，无审核写入或模型调用 |
 
 忽略目录中的详细证据：
 
 - `backend/var/verification/20261117T013914Z-1877e4e1/summary.json`、`pytest.xml`、`asr.json`、`ocr.json`（包含恢复及费用策略修复；数据库清理通过）。
 - `backend/var/verification/continuation-9d008002145c/summary.json`、`pytest.xml`。
 - `backend/var/verification/continuation-2881b2bcd503/summary.json`（29项费用/恢复），`continuation-199894451d3a/summary.json`（1项技能名称投影），`browser-cost-and-skills/summary.json`（36项交互）。
+- `backend/var/verification/bulk-final-review/summary.json`（93项批量审核）、两种桌面截图，`browser-bulk-regression/summary.json`（36项旧交互）；真实只读检查为 `real-continuation-d7c195cbe000/bulk-controls-real.json`。
 - `backend/var/verification/browser/`、`browser-confirm/`、`browser-progress-regression/summary.json`。
 - `backend/var/verification/real-continuation-d7c195cbe000/real-browser.json`。
 - `backend/var/verification/progress-browser/summary.json` 和两种视口截图；`select-all-browser.json`、`bulk-basis-browser.json`。

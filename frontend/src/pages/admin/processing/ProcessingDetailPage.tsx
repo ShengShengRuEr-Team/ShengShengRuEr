@@ -39,6 +39,7 @@ export default function ProcessingDetailPage() {
   },[workflowId,reload])
   const contentKey=workflow ? `${workflow.revision_id}:${workflow.result_hash ?? JSON.stringify(workflow.stages)}` : ''
   useEffect(()=>{if(!workflow)return;const controller=new AbortController()
+    setQuestions([])
     if(!Object.keys(workflow.stages).some(stage=>['source','sample','final'].includes(stage))){setQuestions([]);return}
     void getQuestions(workflow.workflow_id,workflow.revision_id,controller.signal).then(data=>setQuestions(data.items)).catch(cause=>{if(!controller.signal.aborted)setError(cause instanceof Error?cause.message:'题目读取失败')})
     return()=>controller.abort()
@@ -120,7 +121,7 @@ export default function ProcessingDetailPage() {
     {workflow.result_hash&&<ReprocessPanel key={workflow.revision_id} workflow={workflow} questions={questions} busy={busy||dirty} command={command}/>}
     {question?<div className="processing-review-grid"><Card title="题目与标注（只读）" extra={<Select aria-label="跳转题目" value={question.question_no} options={questions.map(item=>({value:item.question_no,label:`第 ${item.question_no} 题`}))} onChange={value=>{const next=new URLSearchParams(search);next.set('question',String(value));setSearch(next,{replace:true})}}/>}>
       <QuestionContent question={question} play={play}/></Card>
-      {workflow.review_session_id?<ReviewPanel key={`${workflow.review_session_id}:${workflow.result_hash}`} owner={owner} workflow={workflow} question={question} busy={busy} dirtyChanged={dirtyChanged} command={command}/>:<Card><Empty description="当前阶段尚未生成最终逐题审核会话"/></Card>}</div>:<Card><Empty description="来源处理完成后显示题目与标注"/></Card>}
+      {workflow.review_session_id?<ReviewPanel key={`${workflow.review_session_id}:${workflow.result_hash}`} owner={owner} workflow={workflow} question={question} questions={questions} busy={busy} dirtyChanged={dirtyChanged} command={command}/>:<Card><Empty description="当前阶段尚未生成最终逐题审核会话"/></Card>}</div>:<Card><Empty description="来源处理完成后显示题目与标注"/></Card>}
     <Modal title="创建材料子修订" open={revisionOpen} okText="创建新修订" cancelText="取消" confirmLoading={busy} onCancel={()=>setRevisionOpen(false)} onOk={()=>{if(reason.trim())void command('create_revision','revisions',{reason,document_mode:workflow.document_mode,listening_pages:workflow.listening_pages}).then(result=>{if(result){setRevisionOpen(false);setReason('')}})}}>
       <Typography.Paragraph>保留已验证原件引用，后续可替换材料。新修订会清空当前阶段结论，并在新最终结果生成后整套重新审核。</Typography.Paragraph>
       <Input.TextArea aria-label="材料修订原因" placeholder="填写实际修订原因" value={reason} maxLength={2000} onChange={event=>setReason(event.target.value)}/></Modal>
