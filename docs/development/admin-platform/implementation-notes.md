@@ -179,3 +179,14 @@ python -m pytest tests/test_admin_constants.py -q    # 生成物与后端枚举�
 | 前端 | `/admin/monitor/jobs`（`admin:job:read`）；轮询 15 秒、`document.hidden` 停止；`/admin/monitor` 已在 T03 活动排除清单 | §10.1/§6.3 |
 
 实现注意：advisory 锁连接的 `SELECT pg_try_advisory_lock` 会开启事务，取得锁后必须 `commit()` 结束该事务，否则后续 `Session.commit()` 只是内部子事务、连接关闭时写入整体回滚（已在 T07b 修复并由测试锁定）。
+
+
+## 16 T08 监控实现要点
+
+- 采样默认开启（`ADMIN_MONITORING_ENABLED`），测试环境关闭；DB 探针专用连接 `connect_timeout=2`/`statement_timeout=1500ms`，超时丢弃连接。
+- 失败保留 `last_success_at`，60 秒后 stale；阈值需连续 3 个有效样本；缺口给 `unknown/not_configured/not_applicable`，不伪造 0。
+- 缓存清理：STARTED 独立提交 → 持实例缓存锁删除 → CLEARED 独立提交；完成后审计失败返回 500 并标“结果未确认”。
+- TLS：`application = TransportEvidenceMiddleware(app)`；Uvicorn 固定 `--no-proxy-headers`；`PUBLIC_ORIGIN` 只是配置，不等于已验证。
+- `/health/ready` 只校验本期必需表/列，503 不返回连接信息；live 不连库。
+- 模块三只读默认关闭；缺表 `not_configured`，Worker 存活始终 unknown。
+- 调试白名单补登监控 GET，测试校验条目与真实路由/method/权限闭包一致。
