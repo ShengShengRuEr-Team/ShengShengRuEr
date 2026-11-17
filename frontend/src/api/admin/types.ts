@@ -107,3 +107,33 @@ export interface SelfPasswordResultDto {
   changed: boolean
   reauth_required: boolean
 }
+
+
+/* ---------- 首页汇总（T05） ---------- */
+
+export interface DashboardCacheDto {
+  enabled: boolean
+  status: 'hit' | 'miss' | 'not_configured'
+  ttl_seconds: number
+  cached_at: string | null
+  expires_at: string | null
+  age_seconds: number | null
+}
+
+export interface DashboardCardsDto {
+  paper_count: number
+  awaiting_visibility_count: number
+  failed_check_count: number
+  active_student_count: number
+  disabled_student_count: number
+  successful_attempts_7d: number
+}
+
+export interface DashboardDto {
+  as_of: string
+  window_start: string
+  window_end: string
+  timezone: string
+  cache: DashboardCacheDto
+  cards: DashboardCardsDto
+}

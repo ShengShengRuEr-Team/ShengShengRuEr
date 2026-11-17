@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # 管理端审计降级文件目录（受控持久卷；相对值基于 backend/ 解析）。
     admin_audit_fallback_dir: str = "var/admin-audit-fallback"
 
+    # 首页汇总的进程内 TTL 缓存开关（默认开启；关闭时状态显示 not_configured）。
+    admin_dashboard_cache_enabled: bool = True
+
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
         env_file_encoding="utf-8",

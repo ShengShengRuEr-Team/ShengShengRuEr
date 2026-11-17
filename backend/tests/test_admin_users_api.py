@@ -424,6 +424,8 @@ def test_last_active_admin_guard_at_service_level() -> None:
             raise AssertionError("最后管理员保护未生效")
         finally:
             db.rollback()
+            # 防御性恢复：若保护失效导致 admin 被停用，恢复状态避免污染后续用例。
+            set_user(admin_row.id, status="active")
 
 
 def datetime_now():

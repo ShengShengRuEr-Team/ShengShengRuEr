@@ -124,3 +124,22 @@ python scripts/generate_admin_constants.py          # 写入 frontend/src/genera
 python scripts/generate_admin_constants.py --check  # 不一致返回非零（CI/提交门禁）
 python -m pytest tests/test_admin_constants.py -q    # 生成物与后端枚举一致
 ```
+
+## 11 T05 口径与推定记录
+
+| 项 | 口径 | 依据 |
+| --- | --- | --- |
+| `paper_count` | `SELECT count(*) FROM exam_papers`；不限定当前批次 | 需求 §10.1 原文「exam_papers 按主键计数，同卷多个批次不重复计卷」；每卷一行，故不 JOIN 批次 |
+| 待确认 / 失败 | 仅统计唯一当前 `is_current` 且 `status='active'` 批次内的卷；检查按 `(checked_at DESC, id DESC)`、可见性按 `(updated_at DESC, id DESC)` 取最新 | 需求 §10.2 |
+| 学生计数 | student 角色且无 admin 角色，按用户去重，按 status 分列 | 需求 §10.1、DD-05 |
+| `successful_attempts_7d` | `attempts.submitted_at ∈ [北京时间今天00:00−6天, min(明天00:00, as_of))`；只数 attempts 行，不读 answers/rejections | 需求 §10.1 |
+| 缓存关闭状态 | `enabled=false, status=not_configured` | 主文档 §9.5「可选关闭配置需显示 not_configured」 |
+| 缓存 TTL | 固定 15 秒，单调时钟判断；`as_of` 为快照生成时刻 | §9.5 |
+| `/admin` 首页与菜单 | `RequirePermission(admin:dashboard:read)` | §11.3 页面读取权限 |
+| 菜单测试契约 | 「首页」原为无条件显示，现随 `admin:dashboard:read` 显隐；`AdminLayout.test.tsx` 对应用例同步更新（T05 起生效） | §4.2/§11.3 |
+
+## 12 T05 首页缓存与查询实现要点
+
+- 统计连接：`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY` 作为事务第一条语句，随后 `SET LOCAL statement_timeout='5000ms'`；单条 CTE SQL 计算全部卡片。
+- 缓存：`app/services/admin/dashboard_cache.py`，域 `admin_dashboard_summary`/键 `overview`，每进程 1 项，实例锁单飞，hits/misses 从启动累加，`instance_id` 每进程 UUID。
+- 失败（SQL/超时/异常）500，不写缓存、不返回部分计数。

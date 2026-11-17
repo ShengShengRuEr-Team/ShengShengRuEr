@@ -13,6 +13,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { ROUTES } from '../constants/routes'
 import {
+  PERM_DASHBOARD_READ,
   PERM_LOG_READ,
   PERM_SELF_READ,
   PERM_USER_READ,
@@ -29,7 +30,12 @@ interface AdminMenuItem {
 }
 
 const ADMIN_MENU: AdminMenuItem[] = [
-  { key: ROUTES.ADMIN_HOME, icon: <HomeOutlined />, label: '首页' },
+  {
+    key: ROUTES.ADMIN_HOME,
+    icon: <HomeOutlined />,
+    label: '首页',
+    permission: PERM_DASHBOARD_READ,
+  },
   { key: ROUTES.ADMIN_LISTENING_PAPERS, icon: <BookOutlined />, label: '题库管理' },
   {
     key: ROUTES.ADMIN_USERS,

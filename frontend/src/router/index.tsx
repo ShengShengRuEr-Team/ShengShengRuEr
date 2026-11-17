@@ -3,7 +3,12 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { ROLES } from '../constants/permissions'
 import { ROUTES, homePathForRole } from '../constants/routes'
-import { PERM_LOG_READ, PERM_SELF_READ, PERM_USER_READ } from '../generated/adminConstants'
+import {
+  PERM_DASHBOARD_READ,
+  PERM_LOG_READ,
+  PERM_SELF_READ,
+  PERM_USER_READ,
+} from '../generated/adminConstants'
 import AdminLayout from '../layouts/AdminLayout'
 import StudentLayout from '../layouts/StudentLayout'
 import FullPageLoading from '../ui/FullPageLoading'
@@ -63,7 +68,14 @@ export default function AppRouter() {
             </RequireAuth>
           }
         >
-          <Route index element={<AdminHomePage />} />
+          <Route
+            index
+            element={
+              <RequirePermission code={PERM_DASHBOARD_READ}>
+                <AdminHomePage />
+              </RequirePermission>
+            }
+          />
           <Route
             path={ROUTES.ADMIN_LISTENING_PAPERS}
             element={<AdminListeningPaperListPage />}

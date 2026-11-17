@@ -10,6 +10,7 @@ describe('管理端菜单权限过滤', () => {
     const menuKeys = keys(
       visibleAdminMenu(
         (code) =>
+          code === 'admin:dashboard:read' ||
           code === 'admin:user:read' ||
           code === 'admin:log:read' ||
           code === 'admin:self:read',
@@ -20,11 +21,11 @@ describe('管理端菜单权限过滤', () => {
     expect(menuKeys).toContain('/admin/profile')
   })
 
-  it('无权限时隐藏用户与个人中心，仅保留基础项', () => {
+  it('无权限时隐藏首页、用户与个人中心，仅保留题库', () => {
     const menuKeys = keys(visibleAdminMenu(() => false))
     expect(menuKeys).not.toContain('/admin/users')
     expect(menuKeys).not.toContain('/admin/profile')
-    expect(menuKeys).toContain('/admin')
+    expect(menuKeys).not.toContain('/admin')
     expect(menuKeys).toContain('/admin/listening-papers')
   })
 })
