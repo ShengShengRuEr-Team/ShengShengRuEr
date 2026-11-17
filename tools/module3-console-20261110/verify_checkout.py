@@ -115,7 +115,9 @@ def main():
             )
             check(
                 ui.settings.m3_path("m3_materials_dir")
-                == Path(temporary) / "materials",
+                # Windows runners may expose TEMP through an 8.3 alias. Compare
+                # canonical paths on both sides while keeping exact isolation.
+                == (Path(temporary) / "materials").resolve(),
                 "media bootstrap stays isolated",
             )
             ui.initialize_database()
