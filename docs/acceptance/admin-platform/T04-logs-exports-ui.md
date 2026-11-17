@@ -87,7 +87,7 @@ alembic check → No new upgrade operations detected.
 - 私有 API 文档与 GET 调试、Swagger 本地资源：T06。
 - 首页统计与缓存：T05；留存调度：T07；监控/TLS/OAuth：T08；双实例与回退演练：T09。
 - 前端导出交互的真实浏览器下载（E2E）留 T09；本轮以单测证明「失败不下载、成功才保存」。
-- 前端未新增 `/admin/users`、`/admin/profile` 页面（属 T03 页面部分按文档归属 T04？主文档 §11.3 将用户页归 T03/T04，本轮仅交付日志页与共用 UI；用户页与个人中心页面留后续卡）。
+- 用户管理与个人中心页面（`/admin/users`、`/admin/profile`）归属 **T03-FE**，不在 T04 卡片范围内；本卡只交付日志页与共用 UI（其余结论不变）。
 
 ## 7 结论
 

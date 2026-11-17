@@ -174,6 +174,53 @@ def test_normal_request_without_marker_is_unchanged(
     assert audit_event(request_id_of(response)) is None
 
 
+def test_debug_error_has_consistent_cors_headers(
+    client: TestClient, admin_token: str, student_token: str
+) -> None:
+    # 非法标记触发调试中间件自己的 400 JSON，跨域时也必须带白名单 CORS 头。
+    allowed = "http://localhost:5173"
+    response = client.get(
+        "/api/v1/admin/users",
+        headers={
+            **auth_headers(admin_token),
+            "X-Admin-Docs-Debug": "0",
+            "Origin": allowed,
+        },
+    )
+    assert response.status_code == 400
+    assert response.headers["access-control-allow-origin"] == allowed
+    assert "Origin" in response.headers.get("vary", "")
+    assert response.headers["access-control-allow-credentials"] == "true"
+    assert response.json()["msg"]
+
+    # 非白名单 Origin 不放行，避免把任意站点放进 CORS。
+    blocked = client.get(
+        "/api/v1/admin/users",
+        headers={
+            **auth_headers(admin_token),
+            "X-Admin-Docs-Debug": "0",
+            "Origin": "http://evil.example",
+        },
+    )
+    assert blocked.status_code == 400
+    assert "access-control-allow-origin" not in blocked.headers
+
+    # 403 分支同样带 CORS 头（学生 + 标记）。
+    forbidden = client.get(
+        "/api/v1/admin/users",
+        headers={
+            **auth_headers(student_token),
+            **DEBUG_HEADERS,
+            "Origin": "http://127.0.0.1:5173",
+        },
+    )
+    assert forbidden.status_code == 403
+    assert (
+        forbidden.headers["access-control-allow-origin"]
+        == "http://127.0.0.1:5173"
+    )
+
+
 def test_debug_rejects_non_whitelist_and_writes(
     client: TestClient, admin_token: str
 ) -> None:

@@ -34,6 +34,7 @@ from app.api.admin_platform import (
 )
 from app.core.config import get_settings
 from app.core.errors import AppError
+from app.core.cors import CORS_ALLOWED_ORIGINS
 from app.core.docs_debug_middleware import DocsDebugMiddleware
 from app.core.request_context import (
     bind_request_id,
@@ -98,7 +99,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=list(CORS_ALLOWED_ORIGINS),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

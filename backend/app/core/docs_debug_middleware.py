@@ -21,6 +21,7 @@ from app.core.docs_debug import (
     DEBUG_HEADER_VALUE,
     resolve_debug_route,
 )
+from app.core.cors import cors_headers_for_origin
 from app.core.errors import AppError, bad_request, forbidden, permission_denied, unauthorized
 from app.core.request_context import current_request_id
 from app.db.base import SessionLocal
@@ -51,7 +52,7 @@ class DocsDebugMiddleware:
                 self._precheck, scope, headers, claimed
             )
         except AppError as exc:
-            await self._send_error(send, exc)
+            await self._send_error(send, exc, scope)
             return
 
         status_code = 500
@@ -75,7 +76,7 @@ class DocsDebugMiddleware:
                 request_id,
             )
         except Exception:  # noqa: BLE001 - 审计失败不得伪装成功
-            await self._send_error(send, AppError(500, "服务器内部错误"))
+            await self._send_error(send, AppError(500, "服务器内部错误"), scope)
             return
 
         for message in buffered:
@@ -134,12 +135,14 @@ class DocsDebugMiddleware:
             db.add(event.audit_row())
             db.commit()
 
-    async def _send_error(self, send, exc: AppError) -> None:
+    async def _send_error(self, send, exc: AppError, scope) -> None:
         body = json.dumps(
             {"code": exc.status_code, "msg": exc.msg, "data": None},
             ensure_ascii=False,
         ).encode("utf-8")
+        origin = Headers(scope=scope).get("origin")
         headers = [(b"content-type", b"application/json; charset=utf-8")]
+        headers.extend(cors_headers_for_origin(origin))
         for key, value in (exc.headers or {}).items():
             headers.append((key.lower().encode("latin-1"), value.encode("latin-1")))
         await send(
