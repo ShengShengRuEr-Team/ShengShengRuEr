@@ -18,6 +18,7 @@ from app.api import (
     listening_papers,
 )
 from app.api.admin_platform import (
+    exports as admin_exports,
     logs as admin_logs,
     me,
     sessions as admin_sessions,
@@ -122,6 +123,7 @@ app.include_router(admin_users.router, prefix="/api/v1")
 app.include_router(me.router, prefix="/api/v1")
 app.include_router(admin_sessions.router, prefix="/api/v1")
 app.include_router(admin_logs.router, prefix="/api/v1")
+app.include_router(admin_exports.router, prefix="/api/v1")
 app.include_router(listening_papers.router, prefix="/api/v1")
 app.include_router(admin_listening_papers.router, prefix="/api/v1")
 app.include_router(attempts.router, prefix="/api/v1")

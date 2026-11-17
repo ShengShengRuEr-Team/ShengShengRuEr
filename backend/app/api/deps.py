@@ -241,3 +241,17 @@ def require_permission(code: str):
         return current_user
 
     return dependency
+
+
+def require_permissions(*codes: str):
+    """同时校验多个固定权限码；缺少任一即 403（顺序仍是 401 → 403 角色 → 403 权限）。"""
+
+    def dependency(
+        current_user: CurrentUser = Depends(require_admin),
+    ) -> CurrentUser:
+        for code in codes:
+            if not has_permission(current_user.roles, code):
+                raise permission_denied()
+        return current_user
+
+    return dependency
