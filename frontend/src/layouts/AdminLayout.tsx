@@ -6,6 +6,7 @@ import {
   TeamOutlined,
   FileTextOutlined,
   ClockCircleOutlined,
+  DashboardOutlined,
   UserOutlined,
 } from '@ant-design/icons'
 import { Layout, Menu, Typography } from 'antd'
@@ -18,6 +19,7 @@ import {
   PERM_DASHBOARD_READ,
   PERM_DOCS_READ,
   PERM_JOB_READ,
+  PERM_MONITOR_READ,
   PERM_LOG_READ,
   PERM_SELF_READ,
   PERM_USER_READ,
@@ -72,6 +74,12 @@ const ADMIN_MENU: AdminMenuItem[] = [
     permission: PERM_DOCS_READ,
   },
   {
+    key: ROUTES.ADMIN_MONITOR_DATABASE,
+    icon: <DashboardOutlined />,
+    label: '监控',
+    permission: PERM_MONITOR_READ,
+  },
+  {
     key: ROUTES.ADMIN_MONITOR_JOBS,
     icon: <ClockCircleOutlined />,
     label: '任务监控',
@@ -98,6 +106,9 @@ function resolveSelectedKey(pathname: string): string {
   }
   if (pathname.startsWith(ROUTES.ADMIN_API_DOCS)) {
     return ROUTES.ADMIN_API_DOCS
+  }
+  if (pathname.startsWith('/admin/monitor/')) {
+    return ROUTES.ADMIN_MONITOR_DATABASE
   }
   if (pathname.startsWith(ROUTES.ADMIN_MONITOR_JOBS)) {
     return ROUTES.ADMIN_MONITOR_JOBS

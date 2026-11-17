@@ -7,6 +7,7 @@ import {
   PERM_DASHBOARD_READ,
   PERM_DOCS_READ,
   PERM_JOB_READ,
+  PERM_MONITOR_READ,
   PERM_LOG_READ,
   PERM_SELF_READ,
   PERM_USER_READ,
@@ -31,6 +32,8 @@ const AdminUsersPage = lazy(() => import('../pages/admin/UsersPage'))
 const AdminProfilePage = lazy(() => import('../pages/admin/ProfilePage'))
 const AdminApiDocsPage = lazy(() => import('../pages/admin/ApiDocsPage'))
 const AdminMonitorJobsPage = lazy(() => import('../pages/admin/MonitorJobsPage'))
+const AdminMonitorPage = lazy(() => import('../pages/admin/MonitorPage'))
+const AdminMonitorCachePage = lazy(() => import('../pages/admin/MonitorCachePage'))
 const StudentHomePage = lazy(() => import('../pages/student/HomePage'))
 const StudentListeningPaperListPage = lazy(() => import('../pages/student/ListeningPaperListPage'))
 const StudentListeningPaperPage = lazy(() => import('../pages/student/ListeningPaperPage'))
@@ -125,6 +128,46 @@ export default function AppRouter() {
             element={
               <RequirePermission code={PERM_DOCS_READ}>
                 <AdminApiDocsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_MONITOR_DATABASE}
+            element={
+              <RequirePermission code={PERM_MONITOR_READ}>
+                <AdminMonitorPage kind="database" />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_MONITOR_SERVER}
+            element={
+              <RequirePermission code={PERM_MONITOR_READ}>
+                <AdminMonitorPage kind="server" />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_MONITOR_TRANSPORT}
+            element={
+              <RequirePermission code={PERM_MONITOR_READ}>
+                <AdminMonitorPage kind="transport" />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_MONITOR_OAUTH}
+            element={
+              <RequirePermission code={PERM_MONITOR_READ}>
+                <AdminMonitorPage kind="oauth" />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_MONITOR_CACHE}
+            element={
+              <RequirePermission code={PERM_MONITOR_READ}>
+                <AdminMonitorCachePage />
               </RequirePermission>
             }
           />
