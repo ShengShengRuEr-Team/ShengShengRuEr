@@ -79,7 +79,10 @@ def test_protected_schema_content_and_allowlist(
     assert "/api/v1/admin/dashboard" in schema["paths"]
 
     allowlist = schema["x-admin-debug-allowlist"]
-    assert len(allowlist) == 9
+    from app.core.admin_permissions import DOC_DEBUG_ALLOWLIST
+
+    assert len(allowlist) == len(DOC_DEBUG_ALLOWLIST)
+    assert "/api/v1/admin/monitor/database" in schema["paths"]
     for entry in allowlist:
         assert set(entry) == {"method", "path_template", "permission"}
         assert entry["method"] == "GET"

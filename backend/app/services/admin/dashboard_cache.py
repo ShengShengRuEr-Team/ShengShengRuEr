@@ -70,6 +70,26 @@ class DashboardCache:
         with self._lock:
             self._entry = snapshot
 
+    def entries_metadata(self) -> list[dict]:
+        """只返回元数据，不返回值（T08 缓存页）。"""
+
+        with self._lock:
+            entry = self._entry
+            if entry is None or monotonic() >= entry.expires_monotonic:
+                return []
+            remaining = max(
+                0, int(entry.expires_monotonic - monotonic())
+            )
+            return [
+                {
+                    "key": self.key,
+                    "cached_at": entry.cached_at,
+                    "expires_at": cache_expiry(entry.cached_at),
+                    "ttl_seconds": self.ttl_seconds,
+                    "remaining_seconds": remaining,
+                }
+            ]
+
     def clear(self) -> None:
         with self._lock:
             self._entry = None

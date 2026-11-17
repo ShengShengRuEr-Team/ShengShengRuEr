@@ -18,6 +18,7 @@ from app.api import (
     attempt_status,
     attempts,
     auth,
+    health,
     listening_papers,
 )
 from app.api.admin_platform import (
@@ -25,6 +26,7 @@ from app.api.admin_platform import (
     docs as admin_docs,
     exports as admin_exports,
     jobs as admin_jobs,
+    monitor as admin_monitor,
     logs as admin_logs,
     me,
     sessions as admin_sessions,
@@ -183,7 +185,15 @@ app.include_router(admin_exports.router, prefix="/api/v1")
 app.include_router(admin_dashboard.router, prefix="/api/v1")
 app.include_router(admin_docs.router, prefix="/api/v1")
 app.include_router(admin_jobs.router, prefix="/api/v1")
+app.include_router(admin_monitor.router, prefix="/api/v1")
+app.include_router(health.router)
 app.include_router(listening_papers.router, prefix="/api/v1")
 app.include_router(admin_listening_papers.router, prefix="/api/v1")
 app.include_router(attempts.router, prefix="/api/v1")
 app.include_router(attempt_status.router, prefix="/api/v1")
+
+
+#: 生产入口：TLS 证据中间件必须位于最外层；Uvicorn 需加 --no-proxy-headers。
+from app.core.transport_evidence import TransportEvidenceMiddleware  # noqa: E402
+
+application = TransportEvidenceMiddleware(app)

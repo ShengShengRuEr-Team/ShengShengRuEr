@@ -98,6 +98,14 @@ DOC_DEBUG_ALLOWLIST: tuple[tuple[str, str, str], ...] = (
     ("GET", "/api/v1/admin/logs/operation", PERM_LOG_READ),
     ("GET", "/api/v1/admin/logs/operation/{event_id}", PERM_LOG_READ),
     ("GET", "/api/v1/admin/dashboard", PERM_DASHBOARD_READ),
+    ("GET", "/api/v1/admin/monitor/jobs", PERM_JOB_READ),
+    ("GET", "/api/v1/admin/monitor/jobs/{job_id}/runs", PERM_JOB_READ),
+    ("GET", "/api/v1/admin/monitor/database", PERM_MONITOR_READ),
+    ("GET", "/api/v1/admin/monitor/server", PERM_MONITOR_READ),
+    ("GET", "/api/v1/admin/monitor/cache", PERM_MONITOR_READ),
+    ("GET", "/api/v1/admin/monitor/cache/entries", PERM_MONITOR_READ),
+    ("GET", "/api/v1/admin/monitor/transport", PERM_MONITOR_READ),
+    ("GET", "/api/v1/admin/monitor/oauth", PERM_MONITOR_READ),
 )
 
 
