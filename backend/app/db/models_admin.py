@@ -15,12 +15,17 @@ from typing import Any
 from sqlalchemy import (
     CHAR,
     BigInteger,
+    Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
     Integer,
+    SmallInteger,
     String,
+    func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -230,4 +235,162 @@ Index(
     "ix_admin_audit_events_target",
     AdminAuditEvent.target_type,
     AdminAuditEvent.target_id,
+)
+
+
+class AdminJobDefinition(Base):
+    """唯一留存任务的配置与保留位；job_id 由 CHECK 固定为白名单编码。"""
+
+    __tablename__ = "admin_job_definitions"
+    __table_args__ = (
+        CheckConstraint(
+            "job_id = 'admin.retention_cleanup'", name="job_id"
+        ),
+        CheckConstraint("missed_slots >= 0", name="missed_slots"),
+    )
+
+    job_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
+    timezone: Mapped[str] = mapped_column(
+        String(64), nullable=False, default="Asia/Shanghai",
+        server_default="Asia/Shanghai",
+    )
+    next_scheduled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_scheduled_slot: Mapped[datetime | None] = mapped_column(
+        Date, nullable=True
+    )
+    last_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
+    active_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
+    missed_slots: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class AdminJobRun(Base):
+    """一次保留执行；slot 唯一与活动保留位由部分唯一索引兜底。"""
+
+    __tablename__ = "admin_job_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "trigger IN ('scheduled', 'manual')", name="trigger"
+        ),
+        CheckConstraint(
+            "(trigger = 'scheduled' AND slot_key IS NOT NULL)"
+            " OR (trigger = 'manual' AND slot_key IS NULL)",
+            name="slot_rule",
+        ),
+        CheckConstraint(
+            "state IN ('QUEUED', 'RUNNING', 'SUCCEEDED', 'PARTIAL',"
+            " 'FAILED', 'INTERRUPTED')",
+            name="state",
+        ),
+        CheckConstraint(
+            "attempt_count BETWEEN 0 AND 2", name="attempt_count"
+        ),
+        Index(
+            "uq_admin_job_runs_slot",
+            "job_id",
+            "slot_key",
+            unique=True,
+            postgresql_where=text("trigger = 'scheduled'"),
+        ),
+        Index(
+            "uq_admin_job_runs_active",
+            "job_id",
+            unique=True,
+            postgresql_where=text("state IN ('QUEUED', 'RUNNING')"),
+        ),
+        Index(
+            "ix_admin_job_runs_job_created",
+            "job_id",
+            text("created_at DESC"),
+            text("id DESC"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    job_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    trigger: Mapped[str] = mapped_column(String(16), nullable=False)
+    slot_key: Mapped[object | None] = mapped_column(Date, nullable=True)
+    actor_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    state: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="QUEUED", server_default="QUEUED"
+    )
+    queued_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    heartbeat_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    attempt_count: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0, server_default="0"
+    )
+    retry_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    retry_pending: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    counts: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
+    counts_complete: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class AdminJobSchedulerState(Base):
+    """每个调度进程一行；不制造“全局单行在线”的假象。"""
+
+    __tablename__ = "admin_job_scheduler_state"
+
+    instance_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True
+    )
+    booted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    heartbeat_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    last_error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    state: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1"
+    )
+
+
+Index(
+    "ix_admin_job_scheduler_state_heartbeat",
+    AdminJobSchedulerState.heartbeat_at,
 )
