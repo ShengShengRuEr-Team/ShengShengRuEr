@@ -306,3 +306,93 @@ AC34 /health/live 200 alive；/health/ready 200 ready（表格缺失时 503 {"st
 | `devdb_snapshot.py`、`verify_tables.py`、`http_checks*.py`、`migration_roundtrip.ps1` | 本人使用的只读/测试库脚本 |
 
 本报告只写入 `D:\guochuangxiangmu\docs\acceptance\admin-platform\T00-T09-independent-review.md`，未修改仓库任何文件，未 commit、未 push、未建 PR。
+
+---
+
+## 6. 验收后整改复核（增量）
+
+| 字段 | 值 |
+| --- | --- |
+| 复核时间 | 2026-11-17 18:10—18:25（Asia/Shanghai） |
+| 复核对象 | 提交 `fe2ab9534560d040b34f63c8d1dc0804a2bbf507`（父提交 `d587670`），`feature/admin-platform` |
+| 范围 | 仅增量复核；未重跑前端与迁移全链（本次改动不涉及） |
+| 工作区 | `git status --short` 为空；HEAD 为 `fe2ab95` |
+| 结论 | **PASS**：未引入回归，原 PASS 结论不变 |
+
+### 6.1 提交内容核对（确认只改了声明的三项、无夹带）
+
+`git show --stat fe2ab95`：
+
+```text
+ backend/app/core/cors.py                                     |  21 ++
+ backend/app/core/docs_debug_middleware.py                    |   9 +-
+ backend/app/main.py                                          |   3 +-
+ backend/tests/test_admin_docs.py                             |  47 ++++
+ docs/acceptance/admin-platform/T00-T09-independent-review.md | 308 ++++++++++++++++++++
+ docs/acceptance/admin-platform/T04-logs-exports-ui.md        |   2 +-
+ 6 files changed, 385 insertions(+), 5 deletions(-)
+```
+
+逐项对照：① CORS 白名单单一来源 + 调试中间件错误响应补头 + 相关用例；② T04 记录一行更正；
+③ 独立验收报告归档。无其它文件，无依赖、迁移、配置、前端或业务逻辑改动。
+
+### 6.2 执行命令与结果（本人执行）
+
+```text
+$ cd backend; .\.venv\Scripts\python.exe -m pytest tests/test_admin_docs.py -q
+..................  [100%]
+18 passed in ~7s                         DOCS_EXIT=0
+
+$ .\.venv\Scripts\python.exe -m pytest -o addopts= -q -p no:warnings
+........................................................................ [100%]
+432 passed in 125.32s (0:02:05)          FULL_EXIT=0        # 基线 431 + 1
+```
+
+注：提交说明写"新增 3 个用例"，实际是 1 个测试函数
+`test_debug_error_has_consistent_cors_headers` 内的 3 个场景（白名单、非白名单、403 分支），
+测试函数总数 +1，与 432 一致，不构成问题。
+
+### 6.3 CORS 一致性独立核查（13/13 PASS，含故障注入）
+
+```text
+CORS_ALLOWED_ORIGINS == ("http://localhost:5173", "http://127.0.0.1:5173")
+  （main.py 的 CORSMiddleware 与调试中间件引用同一常量，单一来源确认）
+debug 400 + 白名单 Origin        -> ACAO=<origin>，Vary: Origin，Allow-Credentials: true
+debug 400 + 第二个白名单 Origin  -> 回显该 Origin（不写死、不返回 *）
+debug 400 + 非白名单 Origin      -> 无 ACAO
+debug 400 + 无 Origin            -> 无 ACAO
+debug 403 / 401 + 白名单 Origin  -> 均带 ACAO
+debug 200 成功（经全局 CORS）    -> ACAO 仅 1 条，无重复头
+普通请求 + 白名单/非白名单       -> 分别有/无 ACAO（全局 CORS 行为未变）
+OPTIONS 预检（无调试头）         -> 200 + ACAO，预检链路未被中间件破坏
+debug 500（审计写失败注入）      -> 仍带 ACAO（新增覆盖分支）
+```
+
+故障注入方式：临时改名测试库 `admin_audit_events` 触发中间件 500，随后立即恢复；
+测试库仍为 25 张表、无残留临时表。开发库复核仍为 `0004_expected_count_source` / 16 表，未变化。
+
+### 6.4 归档与文档核对
+
+- 仓库归档的 `docs/acceptance/admin-platform/T00-T09-independent-review.md` 与本报告文件
+  SHA-256 同为 `5BFF4D76AF42B68F1DE25478140C6E2641459163DDE645FB614237A98FD4F5BC`，**原样归档、内容未改**。
+- T04 记录仅 1 行变更：明确 `/admin/users`、`/admin/profile` 归属 **T03-FE**，与 T03FE 记录一致，原 C-3 关闭。
+- 未发现其它文档或代码被顺带修改。
+
+### 6.5 C 级问题状态更新
+
+| 编号 | 状态 |
+| --- | --- |
+| C-1 启动早期监控 metrics 可能为空 | 未整改（非本提交范围，仍为建议项） |
+| C-2 调试中间件错误响应缺 CORS 头 | **已修复，并经独立验证（400/401/403/500 四分支）** |
+| C-3 T04 文档表述不一致 | **已修复** |
+| C-4 构建 chunk > 500 kB 告警 | 未整改（非本提交范围） |
+| C-5 控制台中文乱码 | 未整改（环境编码问题，非代码缺陷） |
+
+### 6.6 增量结论
+
+**PASS。** `fe2ab95` 只包含声明的三项整改、无夹带；定向 18 例、全量 432 例全部通过；
+CORS 白名单为单一来源，中间件错误响应仅在 Origin 命中白名单时回显，且成功路径无重复头、
+预检不受影响；归档报告与原件哈希一致。**未引入回归，原 PASS 结论不变。**
+
+> 说明：本节为验收后追加内容，仓库内归档副本（`fe2ab95`）为追加前版本；本节保留在工作区报告中，
+> 如需入库由开发方另行提交，本人未 commit、未 push。
