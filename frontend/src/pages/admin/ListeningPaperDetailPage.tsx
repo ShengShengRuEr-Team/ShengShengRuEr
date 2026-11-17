@@ -24,6 +24,7 @@ import { ApiError } from '../../api/api-error'
 import type { VisibilityAction } from '../../api/types'
 import { ROUTES } from '../../constants/routes'
 import AudioPlayer from '../../ui/AudioPlayer'
+import CurrentAnnotations from './processing/CurrentAnnotations'
 import {
   AccessTag,
   BatchTag,
@@ -82,6 +83,10 @@ export default function AdminListeningPaperDetailPage() {
       getAdminCompanion(paperId),
       getContentCheck(paperId),
     ])
+    if (companionResult.status==='fulfilled'&&checkResult.status==='fulfilled'&&
+        companionResult.value.batchCode!==checkResult.value.batchCode) {
+      setCompanion(null);setCheck(null);setError('正式批次已变化，请整体刷新详情');setLoading(false);return
+    }
 
     if (companionResult.status === 'fulfilled') {
       const data = companionResult.value
@@ -172,7 +177,8 @@ export default function AdminListeningPaperDetailPage() {
     }
     setSubmitting(true)
     try {
-      await setPaperVisibility(companion.examPaperId, modalAction, reason.trim())
+      if (!companion.batchId) throw new Error('当前批次不可用，请刷新')
+      await setPaperVisibility(companion.examPaperId, companion.batchId, modalAction, reason.trim())
       message.success(modalAction === 'confirm' ? '已确认学生可见' : '已取消学生可见')
       setModalAction(null)
       setReason('')
@@ -329,6 +335,7 @@ export default function AdminListeningPaperDetailPage() {
           <div style={{ marginTop: 12 }}>
             <AudioPlayer
               examPaperId={companion.examPaperId}
+              expectedBatchId={companion.batchId??undefined}
               fallbackDurationMs={companion.durationMs}
             />
           </div>
@@ -510,6 +517,8 @@ export default function AdminListeningPaperDetailPage() {
           </div>
         </Card>
       </div>
+
+      <CurrentAnnotations paperId={paperId} batchId={companion.batchId} />
 
       <Drawer
         title="最低内容检查明细"

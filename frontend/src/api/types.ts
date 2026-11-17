@@ -8,6 +8,8 @@ export interface ApiResponse<T> {
   code: number
   msg: string
   data: T | null
+  error_code?: string
+  context?: Record<string, unknown>
 }
 
 /* ---------- 认证 ---------- */
@@ -117,6 +119,8 @@ export interface PassageAdminDto {
 
 /** 管理员配套内容（接口 ④）。 */
 export interface PaperCompanionDto extends PaperListItemDto {
+  batch_id: number | null
+  result_hash: string | null
   batch_code: string | null
   is_current: boolean
   check_passed: boolean

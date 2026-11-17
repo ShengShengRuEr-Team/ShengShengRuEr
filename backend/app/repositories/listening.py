@@ -39,7 +39,6 @@ class PaperUnavailable(Exception):
         self.reason = reason
 
 
-
 # --------------------------------------------------------------------------- #
 # 基础查询
 # --------------------------------------------------------------------------- #
@@ -84,12 +83,17 @@ def get_audio(db: Session, audio_id: int | None) -> AudioFile | None:
 # --------------------------------------------------------------------------- #
 # 学生可见性判定
 # --------------------------------------------------------------------------- #
-def student_access(db: Session, exam_paper_id: int) -> tuple[bool, ExamPaper | None, ImportBatch | None]:
+def student_access(
+    db: Session, exam_paper_id: int
+) -> tuple[bool, ExamPaper | None, ImportBatch | None]:
     """返回 (是否可见, 试卷, 当前批次)。三态缺一即不可见。"""
     paper = get_paper(db, exam_paper_id)
     if paper is None:
         return False, None, None
-    if paper.expected_question_count is None or not paper.expected_question_count_source:
+    if (
+        paper.expected_question_count is None
+        or not paper.expected_question_count_source
+    ):
         return False, paper, None
     batch = get_current_batch(db, exam_paper_id)
     if batch is None:
@@ -103,13 +107,17 @@ def student_access(db: Session, exam_paper_id: int) -> tuple[bool, ExamPaper | N
     return True, paper, batch
 
 
-def list_papers(db: Session, *, is_admin: bool) -> list[tuple[ExamPaper, ImportBatch | None]]:
-    """管理员看全部；学生只保留满足可见条件的试卷。"""
+def list_papers(
+    db: Session, *, is_admin: bool
+) -> list[tuple[ExamPaper, ImportBatch | None]]:
+    """正式题库只列出有效当前批次；学生另外要求可见。"""
     papers = db.scalars(select(ExamPaper).order_by(ExamPaper.id)).all()
     result: list[tuple[ExamPaper, ImportBatch | None]] = []
     for paper in papers:
         if is_admin:
-            result.append((paper, get_current_batch(db, paper.id)))
+            batch = get_current_batch(db, paper.id)
+            if batch:
+                result.append((paper, batch))
         else:
             visible, _, batch = student_access(db, paper.id)
             if visible:
@@ -122,7 +130,9 @@ def list_papers(db: Session, *, is_admin: bool) -> list[tuple[ExamPaper, ImportB
 # --------------------------------------------------------------------------- #
 def _load_batch_content(db: Session, batch_id: int):
     passages = db.scalars(
-        select(Passage).where(Passage.batch_id == batch_id).order_by(Passage.passage_index)
+        select(Passage)
+        .where(Passage.batch_id == batch_id)
+        .order_by(Passage.passage_index)
     ).all()
     passage_ids = [p.id for p in passages]
     segments = db.scalars(
@@ -130,9 +140,7 @@ def _load_batch_content(db: Session, batch_id: int):
         .where(TranscriptSegment.batch_id == batch_id)
         .order_by(TranscriptSegment.passage_id, TranscriptSegment.segment_index)
     ).all()
-    questions = db.scalars(
-        select(Question).where(Question.batch_id == batch_id)
-    ).all()
+    questions = db.scalars(select(Question).where(Question.batch_id == batch_id)).all()
     presentations = db.scalars(
         select(Presentation)
         .where(Presentation.batch_id == batch_id)
@@ -148,7 +156,13 @@ def _load_batch_content(db: Session, batch_id: int):
         questions_by_passage.setdefault(q.passage_id, []).append(q)
     # 题目按原卷题号排序
     presentation_by_question = {p.question_id: p for p in presentations}
-    return passages, seg_by_passage, questions_by_passage, presentation_by_question, question_by_id
+    return (
+        passages,
+        seg_by_passage,
+        questions_by_passage,
+        presentation_by_question,
+        question_by_id,
+    )
 
 
 def _options_for(question: Question, presentation: Presentation | None) -> list[dict]:
@@ -165,7 +179,9 @@ def _options_for(question: Question, presentation: Presentation | None) -> list[
     options = []
     for paper_letter in BASE_OPTIONS:  # 原卷字母顺序 A-D
         base_letter = mapping.get(paper_letter, paper_letter)
-        options.append({"label": paper_letter, "text": base_by_letter.get(base_letter, "")})
+        options.append(
+            {"label": paper_letter, "text": base_by_letter.get(base_letter, "")}
+        )
     return options
 
 
@@ -232,18 +248,26 @@ def assemble_student_detail(db: Session, paper: ExamPaper, batch: ImportBatch) -
     passages, seg_by_passage, questions_by_passage, presentation_by_question, _ = (
         _load_batch_content(db, batch.id)
     )
-    audio = get_audio(db, paper.playback_audio_id)
+    audio = get_audio(
+        db, batch.audio_id if batch and batch.audio_id else paper.playback_audio_id
+    )
     out_passages = []
     for passage in passages:
         questions = questions_by_passage.get(passage.id, [])
         questions.sort(
-            key=lambda q: (presentation_by_question.get(q.id).question_no
-                           if presentation_by_question.get(q.id) else 0)
+            key=lambda q: (
+                presentation_by_question.get(q.id).question_no
+                if presentation_by_question.get(q.id)
+                else 0
+            )
         )
         out_questions = [
             {
-                "question_no": (presentation_by_question[q.id].question_no
-                                if q.id in presentation_by_question else 0),
+                "question_no": (
+                    presentation_by_question[q.id].question_no
+                    if q.id in presentation_by_question
+                    else 0
+                ),
                 "question_id": q.id,
                 "question_text": q.question_text,
                 "options": _options_for(q, presentation_by_question.get(q.id)),
@@ -295,7 +319,9 @@ def assemble_admin_companion(
         "review_status": paper.review_status,
         "passages": [],
     }
-    audio = get_audio(db, paper.playback_audio_id)
+    audio = get_audio(
+        db, batch.audio_id if batch and batch.audio_id else paper.playback_audio_id
+    )
     base["duration_ms"] = audio.duration_ms if audio else None
     if batch is None:
         return base
@@ -303,12 +329,12 @@ def assemble_admin_companion(
     check = get_latest_check(db, batch.id)
     visibility = get_visibility(db, batch.id)
     base["batch_code"] = batch.batch_code
+    base["batch_id"] = batch.id
+    base["result_hash"] = batch.result_hash
     base["is_current"] = batch.is_current
     base["check_passed"] = bool(check and check.is_passed)
     base["is_visible"] = bool(visibility and visibility.is_visible)
-    base["is_pending_confirmation"] = bool(
-        batch.is_current and not base["is_visible"]
-    )
+    base["is_pending_confirmation"] = bool(batch.is_current and not base["is_visible"])
 
     passages, seg_by_passage, questions_by_passage, presentation_by_question, _ = (
         _load_batch_content(db, batch.id)
@@ -317,8 +343,11 @@ def assemble_admin_companion(
     for passage in passages:
         questions = questions_by_passage.get(passage.id, [])
         questions.sort(
-            key=lambda q: (presentation_by_question.get(q.id).question_no
-                           if presentation_by_question.get(q.id) else 0)
+            key=lambda q: (
+                presentation_by_question.get(q.id).question_no
+                if presentation_by_question.get(q.id)
+                else 0
+            )
         )
         out_questions = []
         for q in questions:
@@ -371,5 +400,7 @@ def assemble_admin_companion(
         first_presentation = db.scalar(
             select(Presentation).where(Presentation.batch_id == batch.id).limit(1)
         )
-        base["mapping_source"] = first_presentation.mapping_source if first_presentation else ""
+        base["mapping_source"] = (
+            first_presentation.mapping_source if first_presentation else ""
+        )
     return base

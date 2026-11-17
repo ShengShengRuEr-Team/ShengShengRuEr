@@ -169,6 +169,13 @@ def load_current_paper_questions(
     """
 
     questions, presentations, passage_type_by_id = _load_batch_rows(db, batch_id)
+    # Module3 freezes source section codes; adapt them at the grading boundary
+    # without modifying reviewed content or historical attempt snapshots.
+    type_names = {"news": "短篇新闻", "conversation": "长对话", "passage": "听力篇章"}
+    passage_type_by_id = {
+        identity: type_names.get(kind, kind)
+        for identity, kind in passage_type_by_id.items()
+    }
     question_by_id = {question.id: question for question in questions}
     ordered = sorted(presentations, key=lambda item: item.question_no)
     result: list[PaperQuestion] = []

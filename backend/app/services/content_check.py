@@ -25,7 +25,9 @@ def _issue(kind: str, message: str) -> dict:
     return {"kind": kind, "message": message}
 
 
-def evaluate(db: Session, paper: ExamPaper, batch: ImportBatch, audio_dir: Path) -> list[dict]:
+def evaluate(
+    db: Session, paper: ExamPaper, batch: ImportBatch, audio_dir: Path
+) -> list[dict]:
     """返回问题清单；空清单表示检查通过。"""
     issues: list[dict] = []
 
@@ -80,14 +82,32 @@ def evaluate(db: Session, paper: ExamPaper, batch: ImportBatch, audio_dir: Path)
     # 3/4. 逐题展示字段、选项映射与篇章归属、内容完整度
     for q in questions:
         if q.passage_id not in passage_ids:
-            issues.append(_issue("question_passage_missing", f"题目 {q.question_code} 所属篇章不存在"))
+            issues.append(
+                _issue(
+                    "question_passage_missing", f"题目 {q.question_code} 所属篇章不存在"
+                )
+            )
         if not q.question_text.strip():
-            issues.append(_issue("question_text_empty", f"题目 {q.question_code} 题干为空"))
-        for letter, text_ in (("A", q.option_a), ("B", q.option_b), ("C", q.option_c), ("D", q.option_d)):
+            issues.append(
+                _issue("question_text_empty", f"题目 {q.question_code} 题干为空")
+            )
+        for letter, text_ in (
+            ("A", q.option_a),
+            ("B", q.option_b),
+            ("C", q.option_c),
+            ("D", q.option_d),
+        ):
             if not (text_ or "").strip():
-                issues.append(_issue("option_empty", f"题目 {q.question_code} 选项 {letter} 为空"))
+                issues.append(
+                    _issue("option_empty", f"题目 {q.question_code} 选项 {letter} 为空")
+                )
         if q.correct_option not in ("A", "B", "C", "D"):
-            issues.append(_issue("correct_option_invalid", f"题目 {q.question_code} 答案字母非法：{q.correct_option}"))
+            issues.append(
+                _issue(
+                    "correct_option_invalid",
+                    f"题目 {q.question_code} 答案字母非法：{q.correct_option}",
+                )
+            )
         # 16 表基线 content_state：非「可用」的题目不允许进入可展示状态。
         if q.content_state != "可用":
             issues.append(
@@ -98,13 +118,18 @@ def evaluate(db: Session, paper: ExamPaper, batch: ImportBatch, audio_dir: Path)
             )
         presentation = presentation_by_question.get(q.id)
         if presentation is None:
-            issues.append(_issue("presentation_missing", f"题目 {q.question_code} 缺少原卷映射"))
+            issues.append(
+                _issue("presentation_missing", f"题目 {q.question_code} 缺少原卷映射")
+            )
         else:
             mapping = presentation.option_letter_mapping or {}
             letters = ["A", "B", "C", "D"]
             if sorted(mapping.keys()) != letters:
                 issues.append(
-                    _issue("option_mapping_incomplete", f"题目 {q.question_code} 选项映射未覆盖 A-D")
+                    _issue(
+                        "option_mapping_incomplete",
+                        f"题目 {q.question_code} 选项映射未覆盖 A-D",
+                    )
                 )
             elif sorted(str(mapping[letter]) for letter in letters) != letters:
                 # 映射值必须是 A–D 的一一对应，否则会出现空选项或重复选项（验收报告 F03）。
@@ -133,13 +158,23 @@ def evaluate(db: Session, paper: ExamPaper, batch: ImportBatch, audio_dir: Path)
     # 5. 音频可用性
     from app.db.models_listening import AudioFile
 
-    audio = db.get(AudioFile, paper.playback_audio_id) if paper.playback_audio_id else None
+    audio_id = (
+        batch.audio_id if batch.check_profile == "module3" else paper.playback_audio_id
+    )
+    audio = db.get(AudioFile, audio_id) if audio_id else None
     if audio is None:
         issues.append(_issue("audio_unbound", "试卷未绑定音频"))
     else:
         audio_path = audio_dir / audio.storage_key
         if not audio_path.is_file():
-            issues.append(_issue("audio_missing", f"音频文件不存在：{audio.storage_key}"))
+            issues.append(
+                _issue("audio_missing", f"音频文件不存在：{audio.storage_key}")
+            )
+        elif batch.check_profile == "module3":
+            from app.module3.contracts import file_hash
+
+            if file_hash(audio_path) != audio.file_hash:
+                issues.append(_issue("audio_hash_mismatch", "音频文件哈希发生变化"))
 
     return issues
 
@@ -149,11 +184,43 @@ def run_check(
 ) -> ContentCheck:
     """执行检查并把结果写入 content_checks（持久化，重启后仍可查）。"""
     issues = evaluate(db, paper, batch, audio_dir)
+    if batch.check_profile == "module3":
+        from app.db.models_processing import ProcessingTask
+        from app.services.processing.tasks import get_draft, latest_reviews
+        from app.services.processing.validation import validate_result
+
+        candidates = db.scalars(
+            select(ProcessingTask)
+            .where(
+                ProcessingTask.batch_id == batch.id,
+                ProcessingTask.result_hash == batch.result_hash,
+            )
+            .order_by(ProcessingTask.created_at.desc())
+        ).all()
+        reviewed = None
+        for task in candidates:
+            reviews = latest_reviews(db, task)
+            if set(reviews) == {"content", "audio", "annotations"} and all(
+                r.decision == "approved" for r in reviews.values()
+            ):
+                reviewed = task
+                break
+        if reviewed is None:
+            issues.append(_issue("module3_reviews_missing", "当前结果缺少完整复核"))
+        else:
+            draft = get_draft(db, reviewed)
+            if draft is None:
+                issues.append(_issue("module3_result_missing", "当前结果草稿不存在"))
+            else:
+                issues.extend(validate_result(draft.payload, reviewed.request))
     check = ContentCheck(
         exam_paper_id=paper.id,
         batch_id=batch.id,
         is_passed=(len(issues) == 0),
         issues=issues,
+        result_hash=batch.result_hash,
+        check_profile=batch.check_profile,
+        rule_version="m3.checks.v1" if batch.check_profile == "module3" else None,
     )
     db.add(check)
     db.flush()

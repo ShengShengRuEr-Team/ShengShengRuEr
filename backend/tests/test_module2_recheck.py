@@ -1,5 +1,6 @@
 """复验报告 F01/F02 的边界回归，连接夹具创建的真实 PostgreSQL。"""
 
+from tests.batch_preconditions import current_batch_id
 import copy
 import hashlib
 import json
@@ -86,7 +87,7 @@ def test_failed_import_owns_only_new_files(
         current_audio = audio
     pid = _paper_id(payload)
     endpoint = f"/api/v1/admin/listening-papers/{pid}/visibility"
-    assert client.post(endpoint, json={"action": "confirm"},
+    assert client.post(endpoint, json={"expected_batch_id": current_batch_id(pid), "action": "confirm"},
                        headers=auth_headers(admin_token)).status_code == 200
     before = _state(pid)
     audio_dir = get_settings().audio_storage_path
@@ -171,7 +172,7 @@ def test_fresh_import_without_count_cannot_self_validate(
 
 def _assert_hidden(client, pid, admin_token, student_token, issue):
     confirm = client.post(f"/api/v1/admin/listening-papers/{pid}/visibility",
-                          json={"action": "confirm"}, headers=auth_headers(admin_token))
+                          json={"expected_batch_id": current_batch_id(pid), "action": "confirm"}, headers=auth_headers(admin_token))
     assert confirm.status_code == 400
     checks = client.get(f"/api/v1/admin/listening-papers/{pid}/checks",
                         headers=auth_headers(admin_token)).json()["data"]

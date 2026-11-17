@@ -5,6 +5,7 @@
 测试数据全部在独立测试库自建并清理，不污染模块二共享夹具。
 """
 
+from tests.batch_preconditions import current_batch_id
 import hashlib
 import uuid
 from pathlib import Path
@@ -500,14 +501,14 @@ def test_a5_admin_endpoints_permissions(
 
     student_visibility = client.post(
         visibility,
-        json={"action": "cancel", "reason": "t07"},
+        json={"expected_batch_id": current_batch_id(paper_id), "action": "cancel", "reason": "t07"},
         headers=auth_headers(student_token),
     )
     assert student_visibility.status_code == 403, student_visibility.text
 
     admin_visibility = client.post(
         visibility,
-        json={"action": "cancel", "reason": "t07"},
+        json={"expected_batch_id": current_batch_id(paper_id), "action": "cancel", "reason": "t07"},
         headers=auth_headers(admin_token),
     )
     assert admin_visibility.status_code == 200, admin_visibility.text

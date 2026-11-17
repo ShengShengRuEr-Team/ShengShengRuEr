@@ -1,5 +1,7 @@
 # backend
 
+模块三新增自动原文准备、句级对齐、题目组装、关联标注、复核及版本化入库。测试本次代码请从[模块三拉取与测试指南](../docs/development/module-3/testing-guide.md)开始：使用三个独立的Python 3.13.16环境及模块三锁文件；下文Python 3.14.2和`requirements.txt`描述模块一、二的历史环境。
+
 后端包含模块一认证权限与模块二题库、整卷展示、管理员配套内容、可见性和受控音频。模块二验收整改见 [验收目录](../docs/acceptance/README.md)。
 
 Windows 首次运行请先阅读 [本地启动指南](../docs/development/startup-guide.md)，创建 `backend/.venv`、安装依赖并初始化数据库。下文命令均在 `backend` 目录执行。
@@ -108,7 +110,7 @@ JWT_SECRET_KEY=至少32位随机字符串
 | 10 | POST | `/api/v1/listening-papers/{id}/attempts` | 仅 `student`（同卷一次；管理员 403） |
 | 11 | GET | `/api/v1/listening-papers/{id}/attempt-status` | 仅 `student`（管理员 403；不可访问 404；`no-store`） |
 
-接口 10/11 的契约、错误码与幂等规则见 [作答系统接口契约](../docs/development/attempt-system/api.md)；实现与验收见 [实施记录](../docs/development/attempt-system/implementation.md) 与 [验收交接](../docs/acceptance/attempt-system/handoff.md)。
+接口 10/11 的契约、错误码与幂等规则见 [作答系统接口契约](../docs/development/attempt-system/api.md)；实现与验收见 [实施记录](../docs/development/attempt-system/implementation.md) 与 [验收交接](../docs/acceptance/attempt-system/验收交接文档.md)。
 
 鉴权顺序固定为**先 401、后 403**：无 token / token 失效 / 账号停用返回 401；
 token 有效但不是管理员，调用接口 4 返回 403。
@@ -152,7 +154,8 @@ Ruff 配置在 [pyproject.toml](pyproject.toml)；`B008` 因 FastAPI `Depends` �
 
 - 模块一：登录、退出、当前用户、角色及基础接口鉴权。
 - 模块二：真实数据库题库、整卷查询、配套内容、可见性、音频与导入；[接口契约](../docs/development/module-2/api.md)、[验收指南](../docs/acceptance/module-2/guide.md)。
-- 作答系统（任务二/模块三作答）：API-1 基线 + 新增 API-3、本机草稿/信封/提交标记、作答与只读回看；[接口契约](../docs/development/attempt-system/api.md)、[验收交接](../docs/acceptance/attempt-system/handoff.md)。
-- 自动处理（模块三）、错题本、画像与推荐后续实施；不做服务端草稿/跨设备、限时、离线提交。
+- 模块三自动处理：统一管理端上传、独立 Worker、只读审核、版本化入库；[操作说明](../docs/development/module-3/continuation-runbook.md)。
+- 作答系统：已融合 develop 的 PR #16，提供 API-1 提交、API-3 本人作答状态、本机草稿及只读汇总；[接口契约](../docs/development/attempt-system/api.md)、[验收交接](../docs/acceptance/attempt-system/验收交接文档.md)。
+- 错题本、画像与推荐后续实施；不做服务端草稿/跨设备、限时、离线提交。
 - 不引入 Redis；退出失效写入 `token_revocations` 表。
-- 数据库结构只通过 Alembic 迁移变更；本轮无新增迁移。
+- 数据库结构只通过 Alembic 迁移变更；模块三使用增量迁移，作答系统 PR #16 未另增迁移。

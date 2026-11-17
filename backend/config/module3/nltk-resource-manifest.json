@@ -1,0 +1,8 @@
+{
+  "source": "https://raw.githubusercontent.com/nltk/nltk_data/4f15a3d89eefe9748ec1c05be495d91289197155/packages/tokenizers/punkt_tab.zip",
+  "commit": "4f15a3d89eefe9748ec1c05be495d91289197155",
+  "filename": "punkt_tab.zip",
+  "size": 4319076,
+  "sha256": "e57f64187974277726a3417ca6f181ec5403676c717672eef6a748a7b20e0106",
+  "downloaded": true
+}

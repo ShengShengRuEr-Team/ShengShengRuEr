@@ -336,6 +336,8 @@ export default function AdminListeningPaperListPage() {
           </Typography.Text>
         </Space>
         <div className="page-actions">
+          <Button type="primary" onClick={() => navigate('/admin/listening-papers/processing/new')}>上传材料</Button>
+          <Button onClick={() => navigate('/admin/listening-papers/processing')}>处理任务</Button>
           <Select
             value={level}
             options={levelOptions}
