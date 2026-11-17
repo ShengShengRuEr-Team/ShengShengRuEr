@@ -19,6 +19,7 @@ from app.api import (
 )
 from app.api.admin_platform import (
     dashboard as admin_dashboard,
+    docs as admin_docs,
     exports as admin_exports,
     logs as admin_logs,
     me,
@@ -26,6 +27,7 @@ from app.api.admin_platform import (
     users as admin_users,
 )
 from app.core.errors import AppError
+from app.core.docs_debug_middleware import DocsDebugMiddleware
 from app.core.request_context import (
     bind_request_id,
     new_request_id,
@@ -37,9 +39,10 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="英语四六级听力错题与推荐系统 - 模块一",
     version="1.0.0",
-    docs_url="/docs",
+    # 公开文档入口全局关闭（含开发环境），替代入口为受保护的 /admin/openapi.json。
+    docs_url=None,
     redoc_url=None,
-    openapi_url="/api/v1/openapi.json",
+    openapi_url=None,
 )
 
 app.add_middleware(
@@ -50,6 +53,9 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["X-Request-ID"],
 )
+
+# 必须在 request_id 中间件之前加入，使其位于其内层（request_id 为最外层）。
+app.add_middleware(DocsDebugMiddleware)
 
 
 @app.middleware("http")
@@ -126,6 +132,7 @@ app.include_router(admin_sessions.router, prefix="/api/v1")
 app.include_router(admin_logs.router, prefix="/api/v1")
 app.include_router(admin_exports.router, prefix="/api/v1")
 app.include_router(admin_dashboard.router, prefix="/api/v1")
+app.include_router(admin_docs.router, prefix="/api/v1")
 app.include_router(listening_papers.router, prefix="/api/v1")
 app.include_router(admin_listening_papers.router, prefix="/api/v1")
 app.include_router(attempts.router, prefix="/api/v1")

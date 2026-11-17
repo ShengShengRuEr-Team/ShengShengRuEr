@@ -143,3 +143,22 @@ python -m pytest tests/test_admin_constants.py -q    # 生成物与后端枚举�
 - 统计连接：`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY` 作为事务第一条语句，随后 `SET LOCAL statement_timeout='5000ms'`；单条 CTE SQL 计算全部卡片。
 - 缓存：`app/services/admin/dashboard_cache.py`，域 `admin_dashboard_summary`/键 `overview`，每进程 1 项，实例锁单飞，hits/misses 从启动累加，`instance_id` 每进程 UUID。
 - 失败（SQL/超时/异常）500，不写缓存、不返回部分计数。
+
+## 13 T06 私有文档与受限调试记录
+
+| 项 | 口径 | 依据 |
+| --- | --- | --- |
+| 公开入口 | `/docs`、`/docs/oauth2-redirect`、`/redoc`、`/openapi.json`、`/api/v1/openapi.json` 全局 404（含开发环境） | §8.1、用户确认 |
+| 受保护 schema | `GET /api/v1/admin/openapi.json`，`admin:docs:read`，原始 JSON、`no-store`、追加 `x-admin-debug-allowlist` | §8.1 |
+| 白名单 | 当前 9 条现存只读 GET（用户/本人/会话/日志/首页）；**监控读取延后到 T08**：对应路由尚未实现，提前登记不存在的路径会让 schema 与文档失真；T08 增路由时在同一常量补登 | §8.2 |
+| 歧义路径 | 只解码一次；含 `%`（二次编码）、`%2F`/`%5C`、双斜杠、尾斜杠、反斜杠一律 400；模板参数匹配单段 | §8.2、用户约束 |
+| 调试审计 | `DOC_GET_DEBUG` 独立短事务（只读请求无业务事务），审计失败把响应替换为 500；不记录 query/Authorization/响应体 | §8.2、用户确认（推定：§7.2「成功同事务」针对有业务变更的事件） |
+| 依赖 | 新增 `swagger-ui-dist@5.35.0`（精确锁版本，`package.json` + `package-lock.json`），本地打包无 CDN | §1.2 |
+| 调试标记 | `X-Admin-Docs-Debug: 1`；仅前置校验，命中后仍走原路由鉴权；无标记请求零改动 | §8.2 |
+
+## 14 T06 前端文档页要点
+
+- `/admin/tools/api`（`admin:docs:read`）：schema 经受保护 `rawClient` 取得后以 `spec` 对象传入 Swagger UI，无公开 URL、无 iframe JWT、无外部 validator。
+- `persistAuthorization=false`、`validatorUrl=null`、`supportedSubmitMethods` 默认 `[]`；同时具备 `admin:docs:debug` 才显示「启用调试」，启用后仅 `get`。
+- requestInterceptor：按 method + 模板 + 同源校验，注入 Bearer 与调试标记；非白名单本地拒绝。
+- 资源由 Vite 打包（`import 'swagger-ui-dist/swagger-ui.css'` + 动态 import bundle），不硬编码根路径/localhost；卸载时清空容器与引用。

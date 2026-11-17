@@ -86,8 +86,19 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
 }
 
 #: 接口文档调试白名单：(method, path_template, permission)。
-#: T06 逐项登记无副作用 JSON GET；本轮为空，不启用任何调试路径。
-DOC_DEBUG_ALLOWLIST: tuple[tuple[str, str, str], ...] = ()
+#: 只登记无副作用 JSON GET；T06 先登记已存在的读取接口，监控读取在 T08
+#: 新增路由时再补登（同一常量，避免提前登记不存在的路径）。
+DOC_DEBUG_ALLOWLIST: tuple[tuple[str, str, str], ...] = (
+    ("GET", "/api/v1/admin/users", PERM_USER_READ),
+    ("GET", "/api/v1/admin/users/{user_id}", PERM_USER_READ),
+    ("GET", "/api/v1/admin/me", PERM_SELF_READ),
+    ("GET", "/api/v1/admin/monitor/sessions", PERM_SESSION_READ),
+    ("GET", "/api/v1/admin/logs/login", PERM_LOG_READ),
+    ("GET", "/api/v1/admin/logs/login/{event_id}", PERM_LOG_READ),
+    ("GET", "/api/v1/admin/logs/operation", PERM_LOG_READ),
+    ("GET", "/api/v1/admin/logs/operation/{event_id}", PERM_LOG_READ),
+    ("GET", "/api/v1/admin/dashboard", PERM_DASHBOARD_READ),
+)
 
 
 def permissions_for_roles(roles: Iterable[str]) -> frozenset[str]:

@@ -4,6 +4,7 @@ import {
   HomeOutlined,
   SolutionOutlined,
   TeamOutlined,
+  FileTextOutlined,
   UserOutlined,
 } from '@ant-design/icons'
 import { Layout, Menu, Typography } from 'antd'
@@ -14,6 +15,7 @@ import { useAuth } from '../auth/useAuth'
 import { ROUTES } from '../constants/routes'
 import {
   PERM_DASHBOARD_READ,
+  PERM_DOCS_READ,
   PERM_LOG_READ,
   PERM_SELF_READ,
   PERM_USER_READ,
@@ -61,6 +63,12 @@ const ADMIN_MENU: AdminMenuItem[] = [
     label: '个人中心',
     permission: PERM_SELF_READ,
   },
+  {
+    key: ROUTES.ADMIN_API_DOCS,
+    icon: <FileTextOutlined />,
+    label: '接口文档',
+    permission: PERM_DOCS_READ,
+  },
 ]
 
 /** 当前路由属于哪个菜单项：详情页也高亮「题库管理」。 */
@@ -79,6 +87,9 @@ function resolveSelectedKey(pathname: string): string {
   }
   if (pathname.startsWith(ROUTES.ADMIN_PROFILE)) {
     return ROUTES.ADMIN_PROFILE
+  }
+  if (pathname.startsWith(ROUTES.ADMIN_API_DOCS)) {
+    return ROUTES.ADMIN_API_DOCS
   }
   return ROUTES.ADMIN_HOME
 }

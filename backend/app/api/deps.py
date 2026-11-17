@@ -145,12 +145,14 @@ def _claims_from_credentials(
         raise unauthorized() from exc
 
 
-def get_current_user(
-    request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
-    settings: Settings = Depends(get_settings),
+def resolve_current_user(
+    credentials: HTTPAuthorizationCredentials | None,
+    settings: Settings,
 ) -> CurrentUser:
-    """解析 token 并确认账号与会话有效；任一环节失败返回 401。"""
+    """解析 token 并确认账号与会话有效；任一环节失败返回 401。
+
+    供路由依赖与文档调试中间件共用，保证两处鉴权语义完全一致。
+    """
 
     claims = _claims_from_credentials(credentials, settings)
 
@@ -190,9 +192,6 @@ def get_current_user(
     finally:
         auth_db.close()
 
-    if _activity_allowed(request):
-        _touch_activity(claims.session_id)
-
     return CurrentUser(
         id=user.id,
         username=user.username,
@@ -203,6 +202,19 @@ def get_current_user(
         auth_version=claims.auth_version,
         session_id=claims.session_id,
     )
+
+
+def get_current_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    settings: Settings = Depends(get_settings),
+) -> CurrentUser:
+    """路由依赖：鉴权通过后按 §6.3 节流刷新活动时间。"""
+
+    current_user = resolve_current_user(credentials, settings)
+    if _activity_allowed(request):
+        _touch_activity(current_user.session_id)
+    return current_user
 
 
 def require_admin(
