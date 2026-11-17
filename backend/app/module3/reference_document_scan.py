@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 
 from app.module3.contracts import ProcessingError, atomic_json, file_hash
-from app.module3.document_reference import HEADING, paper_structure
+from app.module3.document_reference import HEADING, paper_structure, reference_section
 from app.module3.ocr_refinement import (
     verify_question_number,
 )
@@ -263,15 +263,15 @@ def extract_reference_only(manifest, output):
                     known_body_row = False
                 prefix.close()
                 text = recognized["rec_text"].strip()
-                compact = re.sub(r"\s+", "", text)
+                section = reference_section(text)
                 need_full = False
                 if known_body_row:
                     need_full = True
                 elif HEADING.match(text):
                     current, mode = True, None
-                elif "听力原文" in compact:
+                elif section == "body":
                     mode = "body"
-                elif "答案详解" in compact:
+                elif section == "questions":
                     mode = "questions"
                 elif current and re.search(
                     r"Part\s*III|Reading\s*Comprehension|选词填空", text, re.I
@@ -327,8 +327,21 @@ def extract_reference_only(manifest, output):
                         number_readings=number_readings,
                     )
                     if mode == "body" and float(full["rec_score"]) < 0.90:
+                        atomic_json(
+                            output,
+                            "reference-ocr-uncertain.json",
+                            {
+                                "material_id": material["material_id"],
+                                "page": number,
+                                "line": index + 1,
+                                "block": block,
+                                "page_image": image_key,
+                                "source_sha256": material["sha256"],
+                            },
+                        )
                         raise ProcessingError(
                             "REFERENCE_OCR_UNCERTAIN",
+                            f"材料{material['material_id']}第{number}页第{index + 1}行"
                             "正文识别可信度不足，保留原件，不以词典改写文字",
                         )
                 crop.close()

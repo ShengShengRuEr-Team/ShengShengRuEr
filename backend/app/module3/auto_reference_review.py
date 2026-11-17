@@ -119,7 +119,9 @@ def main():
                 timeout=3600,
             )
         if completed.returncode:
-            raise ProcessingError("OCR_PROCESS_FAILED", "文档提取失败，见受控日志")
+            from app.module3.ocr_worker import extraction_failure
+
+            raise extraction_failure(documents)
         extracted = json.loads(
             (documents / "extracted.json").read_text(encoding="utf-8")
         )

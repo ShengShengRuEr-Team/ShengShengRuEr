@@ -3,7 +3,7 @@
 import re
 
 from app.module3.contracts import ProcessingError
-from app.module3.document_reference import HEADING, paper_structure
+from app.module3.document_reference import HEADING, paper_structure, reference_section
 
 
 def fail(code, message):
@@ -150,10 +150,10 @@ def answer_records(pages, structure):
                 group_index += 1
                 mode, current = None, None
                 continue
-            if "听力原文" in compact:
+            if reference_section(text) == "body":
                 mode, current = "body", None
                 continue
-            if "答案详解" in compact:
+            if reference_section(text) == "questions":
                 mode, current = "questions", None
                 continue
             header = re.match(r"^(\d+)\s*[.．、]\s*([A-Za-z].*)", text)

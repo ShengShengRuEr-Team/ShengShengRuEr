@@ -81,6 +81,89 @@ def test_missing_question_refuses_partial_reference():
     assert caught.value.code == "REFERENCE_QUESTIONS_INCOMPLETE"
 
 
+@pytest.mark.parametrize("label", ["案详解·", "·案详解·", "· 答 案 详 解 ·"])
+def test_clipped_answer_label_does_not_turn_questions_into_body(label):
+    import copy
+
+    from app.module3.document_reference import paper_structure, parse_groups
+
+    pages = sample_pages()
+    pages[1]["text"] = pages[1]["text"].replace("·答案详解·", label)
+    before = copy.deepcopy(pages)
+    groups = parse_groups(
+        pages,
+        paper_structure(pages),
+        [{"material_id": 2, "storage_key": "answer.pdf", "sha256": "b" * 64}],
+    )
+    assert pages == before  # Region classification never rewrites original OCR.
+    assert [q["question_no"] for g in groups for q in g["questions"]] == [1, 2, 3, 4, 5]
+    assert groups[0]["parts"][0]["text"] == "Cats run. Dogs jump."
+    assert not any("Who runs?" in p["text"] for g in groups for p in g["parts"])
+
+
+@pytest.mark.parametrize(
+    "prose", ["这段案详解说明原因", "案详解不完整", "案详", "详解"]
+)
+def test_incomplete_label_exception_does_not_classify_prose(prose):
+    from app.module3.document_reference import reference_section
+
+    assert reference_section(prose) is None
+
+
+def test_extraction_failure_diagnostic_requires_matching_input(tmp_path):
+    import json
+
+    from app.module3.contracts import file_hash
+    from app.module3.ocr_worker import extraction_failure
+
+    manifest = tmp_path / "input-manifest.json"
+    manifest.write_text('{"files":[]}', encoding="utf-8")
+    failure = tmp_path / "extraction-failure.json"
+    assert extraction_failure(tmp_path).code == "OCR_PROCESS_FAILED"
+    diagnostic = {
+        "code": "REFERENCE_OCR_UNCERTAIN",
+        "message": "第9页第6行正文识别可信度不足",
+        "manifest_sha256": file_hash(manifest),
+    }
+    failure.write_text(json.dumps(diagnostic), encoding="utf-8")
+    assert extraction_failure(tmp_path).code == "REFERENCE_OCR_UNCERTAIN"
+    assert "第9页第6行" in str(extraction_failure(tmp_path))
+    manifest.write_text('{"files":[1]}', encoding="utf-8")
+    assert extraction_failure(tmp_path).code == "OCR_PROCESS_FAILED"
+    failure.write_text("not JSON", encoding="utf-8")
+    assert extraction_failure(tmp_path).code == "OCR_PROCESS_FAILED"
+
+
+def test_ocr_child_records_specific_failure_before_exit(tmp_path, monkeypatch):
+    import json
+    import sys
+
+    from app.module3 import ocr_worker
+    from app.module3.contracts import ProcessingError, file_hash
+
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text('{"files":[]}', encoding="utf-8")
+    output = tmp_path / "output"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["ocr_worker", "--manifest", str(manifest), "--output", str(output)],
+    )
+
+    def uncertain(*args):
+        raise ProcessingError("REFERENCE_OCR_UNCERTAIN", "第9页第6行正文识别可信度不足")
+
+    monkeypatch.setattr(ocr_worker, "extract", uncertain)
+    with pytest.raises(ProcessingError) as caught:
+        ocr_worker.main()
+    assert caught.value.code == "REFERENCE_OCR_UNCERTAIN"
+    diagnostic = json.loads((output / "extraction-failure.json").read_text("utf-8"))
+    assert diagnostic["manifest_sha256"] == file_hash(manifest)
+    assert diagnostic["code"] == caught.value.code
+    assert "第9页第6行" in diagnostic["message"]
+    assert not (output / "extracted.json").exists()
+
+
 def test_spacing_recovery_never_changes_source_letters():
     from app.module3.document_reference import restore_word_gaps
 

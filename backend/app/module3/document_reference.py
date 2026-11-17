@@ -13,6 +13,20 @@ HEADING = re.compile(
 )
 
 
+def reference_section(text):
+    """Classify section labels without changing the underlying OCR reading."""
+    compact = re.sub(r"\s+", "", text)
+    if "听力原文" in compact or compact.lower() in {"transcript", "listeningscript"}:
+        return "body"
+    # A clipped leading 答 occurs on the printed answer-section decoration.
+    # Accept this only as a standalone label, never within explanatory prose.
+    if "答案详解" in compact or re.fullmatch(
+        r"[·•●○◆◇:：]*案详解[·•●○◆◇:：]*", compact
+    ):
+        return "questions"
+    return None
+
+
 def paper_structure(pages):
     paper_pages = [p for p in pages if p["source_kind"] in {"paper_text", "paper_scan"}]
     text = "\n".join(
@@ -113,18 +127,15 @@ def parse_groups(pages, structure, materials):
             groups.append(current)
             mode = None
             continue
-        compact = re.sub(r"\s+", "", text)
-        if "听力原文" in compact or compact.lower() in {
-            "transcript",
-            "listeningscript",
-        }:
+        section = reference_section(text)
+        if section == "body":
             if current is None:
                 raise ProcessingError(
                     "REFERENCE_LAYOUT_UNSUPPORTED", "原文标记缺少所属篇章"
                 )
             mode = "body"
             continue
-        if "答案详解" in compact:
+        if section == "questions":
             mode = "questions"
             continue
         if current is None:

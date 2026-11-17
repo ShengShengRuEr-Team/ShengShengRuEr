@@ -172,9 +172,9 @@ def run_ocr(task, materials, settings, *, assembly_pages=None):
         result.stdout + result.stderr, encoding="utf-8"
     )
     if result.returncode:
-        raise ProcessingError(
-            "OCR_PROCESS_FAILED", "独立文档提取进程失败，详见受控产物日志"
-        )
+        from app.module3.ocr_worker import extraction_failure
+
+        raise extraction_failure(directory)
     return json.loads((directory / "extracted.json").read_text(encoding="utf-8"))
 
 

@@ -10,6 +10,25 @@ from pathlib import Path
 from app.module3.contracts import ProcessingError, atomic_json, file_hash
 
 
+def extraction_failure(directory):
+    """Expose only the controlled child diagnostic bound to this exact input."""
+    fallback = ProcessingError(
+        "OCR_PROCESS_FAILED", "独立文档提取进程失败，详见受控产物日志"
+    )
+    try:
+        payload = json.loads((directory / "extraction-failure.json").read_text("utf-8"))
+        if (
+            payload["manifest_sha256"] != file_hash(directory / "input-manifest.json")
+            or not re.fullmatch(r"[A-Z][A-Z0-9_]{1,79}", payload["code"])
+            or not isinstance(payload["message"], str)
+            or not 1 <= len(payload["message"]) <= 500
+        ):
+            return fallback
+        return ProcessingError(payload["code"], payload["message"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return fallback
+
+
 def model_directory(root, model):
     return root / model["repository"].replace("/", "--") / model["revision"]
 
@@ -208,7 +227,7 @@ def refine_reference_pages(pages, output_dir, model_root):
     from paddleocr import TextRecognition
     from PIL import Image
 
-    from app.module3.document_reference import HEADING
+    from app.module3.document_reference import HEADING, reference_section
     from app.module3.ocr_refinement import refine_blocks
 
     config = (
@@ -233,9 +252,9 @@ def refine_reference_pages(pages, output_dir, model_root):
             text = block["text"].strip()
             if HEADING.match(text):
                 current, mode = True, None
-            elif "听力原文" in text:
+            elif reference_section(text) == "body":
                 mode = "body"
-            elif "答案详解" in text:
+            elif reference_section(text) == "questions":
                 mode = "questions"
             elif current and (
                 (
@@ -313,7 +332,19 @@ def main():
         parser.error("--manifest is required for extraction")
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     args.output.mkdir(parents=True, exist_ok=True)
-    result = extract(manifest, args.output)
+    try:
+        result = extract(manifest, args.output)
+    except ProcessingError as error:
+        atomic_json(
+            args.output,
+            "extraction-failure.json",
+            {
+                "code": error.code,
+                "message": str(error),
+                "manifest_sha256": file_hash(args.manifest),
+            },
+        )
+        raise
     atomic_json(args.output, "extracted.json", result)
     return 0
 
