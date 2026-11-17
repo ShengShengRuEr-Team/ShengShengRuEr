@@ -102,6 +102,15 @@ JWT_SECRET_KEY=至少32位随机字符串
 | 2 | POST | `/api/v1/logout` | 已登录 |
 | 3 | GET | `/api/v1/getInfo` | 已登录 |
 | 4 | GET | `/api/v1/admin/overview` | 仅 `admin` 角色 |
+| 5 | GET | `/api/v1/listening-papers` | 学生（可访问）/ 管理员（全部） |
+| 6 | GET | `/api/v1/listening-papers/{id}` | 学生（可访问）/ 管理员 |
+| 7 | GET | `/api/v1/listening-papers/{id}/audio` | 学生（可访问）/ 管理员（Range） |
+| 8 | GET | `/api/v1/admin/listening-papers/{id}/companion` | 仅 `admin` 角色 |
+| 9 | GET/POST | `/api/v1/admin/listening-papers/{id}/checks`、`/visibility` | 仅 `admin` 角色 |
+| 10 | POST | `/api/v1/listening-papers/{id}/attempts` | 仅 `student`（同卷一次；管理员 403） |
+| 11 | GET | `/api/v1/listening-papers/{id}/attempt-status` | 仅 `student`（管理员 403；不可访问 404；`no-store`） |
+
+接口 10/11 的契约、错误码与幂等规则见 [作答系统接口契约](../docs/development/attempt-system/api.md)；实现与验收见 [实施记录](../docs/development/attempt-system/implementation.md) 与 [验收交接](../docs/acceptance/attempt-system/验收交接文档.md)。
 
 鉴权顺序固定为**先 401、后 403**：无 token / token 失效 / 账号停用返回 401；
 token 有效但不是管理员，调用接口 4 返回 403。
@@ -117,19 +126,21 @@ token 有效但不是管理员，调用接口 4 返回 403。
 
 测试会自动创建/重建 `shengshengruer_test` 库，执行 Alembic 迁移并写入种子数据。
 连接账号需要具备 `CREATE DATABASE` 权限；如不希望自动建库，可先手工创建该库。
-
-模块一历史基线结果：**11 passed**，覆盖 6 条验收用例与 5 条鉴权边界（登录失败提示一致、422、
-token 篡改、非法认证方案、401 优先于 403）。
+当前全量基线：**265 passed**（含模块一鉴权、模块二题库、API-1、API-3）。若 `backend/.env` 的端口与实际 PostgreSQL 不一致（例如本机监听 5433），用 `DATABASE_URL` 环境变量覆盖端口，不要改 `.env`。
 
 ## 端到端验收
 
-先启动服务，再执行：
+真实 API 链路（独立 E2E 库，不写开发库/测试库）：
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\acceptance.py
+$env:DATABASE_URL="postgresql+psycopg://<user>:<password>@127.0.0.1:5433/shengshengruer_e2e"
+.\venv\Scripts\python.exe scripts\e2e_attempt_setup.py   # 3 套试卷 + 第二学生
+# 启动服务后
+.\venv\Scripts\python.exe scripts\e2e_attempt_api.py     # 预期 23/23 PASS
 ```
 
-预期输出 **8/8 通过**，退出码为 0。
+- 作答系统真实浏览器 E2E：`frontend/scripts/e2e_attempt.mjs`（11 项，需后端 + `npm run dev`）。
+- 作答系统完整验收指南：[docs/acceptance/attempt-system/验收交接文档.md](../docs/acceptance/attempt-system/验收交接文档.md)。
 
 ## 代码风格
 
@@ -137,12 +148,14 @@ token 篡改、非法认证方案、401 优先于 403）。
 ruff check .
 ```
 
-Ruff 配置在 [pyproject.toml](pyproject.toml)；`B008` 因 FastAPI `Depends` 约定而忽略。
+Ruff 配置在 [pyproject.toml](pyproject.toml)；`B008` 因 FastAPI `Depends` 约定而忽略。全仓当前 178 条为历史基线（本次零新增），新增/修改文件应保持全绿。
 
 ## 一期边界
 
 - 模块一：登录、退出、当前用户、角色及基础接口鉴权。
 - 模块二：真实数据库题库、整卷查询、配套内容、可见性、音频与导入；[接口契约](../docs/development/module-2/api.md)、[验收指南](../docs/acceptance/module-2/guide.md)。
-- 模块三自动处理已在本次分支实现；作答判分、错题本、画像与推荐后续实施。
+- 模块三自动处理：统一管理端上传、独立 Worker、只读审核、版本化入库；[操作说明](../docs/development/module-3/continuation-runbook.md)。
+- 作答系统：已融合 develop 的 PR #16，提供 API-1 提交、API-3 本人作答状态、本机草稿及只读汇总；[接口契约](../docs/development/attempt-system/api.md)、[验收交接](../docs/acceptance/attempt-system/验收交接文档.md)。
+- 错题本、画像与推荐后续实施；不做服务端草稿/跨设备、限时、离线提交。
 - 不引入 Redis；退出失效写入 `token_revocations` 表。
-- 数据库结构只通过 Alembic 迁移变更。
+- 数据库结构只通过 Alembic 迁移变更；模块三使用增量迁移，作答系统 PR #16 未另增迁移。

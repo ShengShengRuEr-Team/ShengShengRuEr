@@ -1009,6 +1009,174 @@ def test_complete_synthetic_pipeline_and_empty_error_review(client, pipeline):
     assert response.json()["data"]["state"] == "succeeded"
 
 
+@pytest.mark.parametrize("reorder", [False, True], ids=["original", "reordered"])
+def test_published_workflow_to_student_attempt_and_revision(
+    client, pipeline, student_token, reorder
+):
+    """Exercise the module3 -> question bank -> PR16 boundary on one database."""
+    from app.db.base import SessionLocal
+    from app.db.models_attempt import Attempt, AttemptAnswer
+    from tests.attempt_support import create_student
+    from tests.conftest import login
+
+    c = pipeline
+    if reorder:
+        c["source"]["presentations"][0]["option_letter_mapping"] = dict(
+            zip("ABCD", "BCDA", strict=True)
+        )
+    displayed_answer = "D" if reorder else "A"
+    complete_to_review(c)
+    synthetic_review_publish(client, c)
+    before = c["detail"]()
+    paper_id, batch_id = before["exam_paper_id"], before["current_batch_id"]
+    url = f"/api/v1/listening-papers/{paper_id}"
+    student = {"Authorization": "Bearer " + student_token}
+    username = "m3_attempt_" + uuid4().hex[:12]
+    create_student(username)
+    second = {"Authorization": "Bearer " + login(client, username, "attempt123")}
+
+    def visibility(action, batch):
+        return client.post(
+            f"/api/v1/admin/listening-papers/{paper_id}/visibility",
+            headers=c["headers"],
+            json={"action": action, "expected_batch_id": batch},
+        )
+
+    def submit(headers, payload, key=None):
+        return client.post(
+            url + "/attempts",
+            headers={**headers, "Idempotency-Key": key or str(uuid4())},
+            json=payload,
+        )
+
+    assert client.get(url + "/attempt-status").status_code == 401
+    assert client.get(url + "/attempt-status", headers=c["headers"]).status_code == 403
+    for suffix in ("", "/audio", "/attempt-status"):
+        assert client.get(url + suffix, headers=student).status_code == 404
+    assert visibility("confirm", batch_id).status_code == 200
+    detail = client.get(url, headers=student)
+    assert detail.status_code == 200, detail.text
+    question = detail.json()["data"]["passages"][0]["questions"][0]
+    assert set(question) == {"question_id", "question_no", "question_text", "options"}
+    assert question["options"]["ABCD".index(displayed_answer)]["text"] == "Alpha"
+    audio = client.get(url + "/audio", headers=student)
+    assert audio.status_code == 200 and audio.content.startswith(b"RIFF")
+    status = client.get(url + "/attempt-status", headers=student)
+    assert status.status_code == 200 and status.headers["Cache-Control"] == "no-store"
+    assert status.json()["data"]["submitted"] is False
+    assert (
+        client.get(
+            f"/api/v1/admin/listening-papers/{paper_id}/annotations", headers=student
+        ).status_code
+        == 403
+    )
+
+    payload = {
+        "loaded_question_ids": [question["question_id"]],
+        "answers": [
+            {
+                "question_id": question["question_id"],
+                "selected_option": displayed_answer,
+            }
+        ],
+    }
+    key = str(uuid4())
+    submitted = submit(student, payload, key)
+    assert submitted.status_code == 200, submitted.text
+    summary = submitted.json()["data"]
+    assert summary["question_count"] == summary["correct_count"] == 1
+    assert summary["correct_rate"] == 100
+    assert submit(student, payload, key).json()["data"] == summary
+    assert submit(student, payload).json()["msg"] == "本轮同一试卷仅允许提交一次"
+    status = client.get(url + "/attempt-status", headers=student).json()["data"]
+    assert status["latest_attempt"] == summary and status["attempt_count"] == 1
+    assert (
+        client.get(url + "/attempt-status", headers=second).json()["data"]["submitted"]
+        is False
+    )
+    with SessionLocal() as db:
+        attempt = db.scalar(
+            select(Attempt).where(Attempt.attempt_code == summary["attempt_code"])
+        )
+        snapshot = db.scalar(
+            select(AttemptAnswer).where(AttemptAnswer.attempt_id == attempt.id)
+        )
+        assert attempt.import_batch_id == batch_id
+        assert snapshot.correct_option == displayed_answer
+        old_snapshot = {
+            column.name: getattr(snapshot, column.name)
+            for column in snapshot.__table__.columns
+        }
+
+    assert visibility("cancel", batch_id).status_code == 200
+    assert client.get(url + "/attempt-status", headers=student).status_code == 404
+    assert visibility("confirm", batch_id).status_code == 200
+    assert (
+        client.get(url + "/attempt-status", headers=student).json()["data"][
+            "latest_attempt"
+        ]
+        == summary
+    )
+
+    material = next(row for row in before["materials"] if row["kind"] == "answer")
+    corrected = c["post"](
+        "source-corrections",
+        {
+            "expected_result_hash": before["result_hash"],
+            "reason": "Synthetic source revision exercises preserved attempt snapshots",
+            "changes": [
+                {
+                    "question_src_id": "q:1",
+                    "field": "explanation_text",
+                    "expected_value": "The body explicitly states Alpha.",
+                    "value": "Synthetic revised source explanation: Alpha.",
+                    "material_id": material["material_id"],
+                    "page": 1,
+                    "locator": "Synthetic PDF page 1",
+                }
+            ],
+        },
+    )
+    assert corrected.status_code == 201, corrected.text
+    assert client.get(url, headers=student).status_code == 200
+    c["approve"]("source")
+    c["approve"]("sample")
+    assert c["detail"]()["review_session_id"] != before["review_session_id"]
+    synthetic_review_publish(client, c)
+    after = c["detail"]()
+    assert after["exam_paper_id"] == paper_id and after["current_batch_id"] != batch_id
+    assert client.get(url, headers=student).status_code == 404
+    assert visibility("confirm", batch_id).status_code == 409
+    assert visibility("confirm", after["current_batch_id"]).status_code == 200
+    assert (
+        client.get(url + "/attempt-status", headers=student).json()["data"][
+            "latest_attempt"
+        ]
+        == summary
+    )
+    with SessionLocal() as db:
+        snapshot = db.scalar(
+            select(AttemptAnswer).where(AttemptAnswer.id == old_snapshot["id"])
+        )
+        assert {
+            column.name: getattr(snapshot, column.name)
+            for column in snapshot.__table__.columns
+        } == old_snapshot
+    stale = submit(second, payload)
+    assert stale.status_code == 400 and stale.json()["msg"] == "内容已更新，请重新作答"
+    fresh = client.get(url, headers=second).json()["data"]["passages"][0]["questions"][
+        0
+    ]
+    assert fresh["question_id"] != question["question_id"]
+    new_payload = {
+        "loaded_question_ids": [fresh["question_id"]],
+        "answers": [
+            {"question_id": fresh["question_id"], "selected_option": displayed_answer}
+        ],
+    }
+    assert submit(second, new_payload).status_code == 200
+
+
 def test_live_progress_timer_and_expired_lease_are_read_only(client, pipeline):
     from app.db import models_processing as p
     from app.db import models_processing_workflows as m
@@ -1492,6 +1660,28 @@ def test_runtime_only_update_keeps_frozen_review_valid(client, pipeline, monkeyp
     assert after["revision_id"] == before["revision_id"]
     assert after["result_hash"] == before["result_hash"]
     assert after["publication_state"] == "published"
+
+    from app.repositories import annotations
+
+    monkeypatch.setattr(annotations, "rules_manifest", lambda: copy.deepcopy(manifest))
+    url = f"/api/v1/admin/listening-papers/{after['exam_paper_id']}/annotations"
+    response = client.get(url, headers=c["headers"])
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["annotation_state"] == "approved"
+    assert len(response.json()["data"]["items"]) == 1
+    with monkeypatch.context() as altered:
+        altered.setattr(annotations, "rules_manifest", lambda: incompatible)
+        pending = client.get(url, headers=c["headers"])
+        assert pending.status_code == 200
+        assert pending.json()["data"]["annotation_state"] == "method_pending"
+        assert pending.json()["data"]["items"] == []
+    with monkeypatch.context() as altered:
+
+        def broken_receipt(*args):
+            raise AppError(409, "Synthetic invalid receipt")
+
+        altered.setattr(reviewing, "validate_final", broken_receipt)
+        assert client.get(url, headers=c["headers"]).status_code == 409
 
 
 def test_standalone_worker_registers_models_and_renews_task_lease(pipeline):

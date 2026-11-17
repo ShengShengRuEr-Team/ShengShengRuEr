@@ -250,6 +250,79 @@ def test_a1_accessible_complete_loaded_is_ok(db, tmp_path, attempt_content):
     attempt_content.check_paper_integrity(db, paper, batch, content.settings)
 
 
+@pytest.mark.parametrize(
+    ("source_type", "snapshot_type"),
+    [
+        ("news", "短篇新闻"),
+        ("conversation", "长对话"),
+        ("passage", "听力篇章"),
+        ("短篇新闻", "短篇新闻"),
+        ("unknown-source-type", "unknown-source-type"),
+    ],
+)
+def test_module3_type_adaptation_keeps_source_unchanged(
+    db, tmp_path, attempt_content, source_type, snapshot_type
+):
+    from sqlalchemy import select
+
+    from app.db.models_listening import Passage
+
+    content = _make_content(db, tmp_path, passage_type=source_type)
+    questions = attempt_content.load_current_paper_questions(
+        db, content.paper.id, content.batch.id
+    )
+    assert all(q.passage_type == snapshot_type for q in questions)
+    source = db.scalar(select(Passage).where(Passage.batch_id == content.batch.id))
+    assert source.passage_type == source_type
+
+
+def test_module3_standard_paper_has_available_practice_score(
+    db, tmp_path, attempt_content
+):
+    from dataclasses import asdict
+
+    from sqlalchemy import select
+
+    from app.db.models_listening import Passage
+    from app.services.grading import AnswerInput, QuestionSnapshotInput, grade
+
+    content = _make_content(db, tmp_path, passage_type="news")
+    first = db.scalar(select(Passage).where(Passage.batch_id == content.batch.id))
+    for index, (kind, start, end) in enumerate(
+        (("conversation", 7, 15), ("passage", 15, 25)), start=2
+    ):
+        passage = Passage(
+            batch_id=content.batch.id,
+            exam_paper_id=content.paper.id,
+            audio_id=content.audio.id,
+            passage_code=f"TYPES_{kind}_{content.tag}",
+            passage_index=index,
+            passage_type=kind,
+            start_ms=0,
+            end_ms=1000,
+        )
+        db.add(passage)
+        db.flush()
+        for question in content.questions[start:end]:
+            question.passage_id = passage.id
+    db.flush()
+    rows = attempt_content.load_current_paper_questions(
+        db, content.paper.id, content.batch.id
+    )
+    graded = grade(
+        [QuestionSnapshotInput(**asdict(row)) for row in rows],
+        [
+            AnswerInput(
+                question_id=row.question_id, selected_option=row.correct_paper_letter
+            )
+            for row in rows
+        ],
+    )
+    assert graded.correct_count == 25
+    assert graded.practice_score.available and graded.practice_score.value == 249
+    assert first.passage_type == "news"
+
+
 def test_a1_loaded_snapshot_fields_are_paper_space(db, tmp_path, attempt_content):
     content = _make_content(
         db,

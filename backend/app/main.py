@@ -16,6 +16,7 @@ from app.api import (
     admin_listening_papers,
     admin_processing,
     admin_processing_workflows,
+    attempt_status,
     attempts,
     auth,
     listening_papers,
@@ -118,6 +119,7 @@ app.include_router(admin.router, prefix="/api/v1")
 app.include_router(listening_papers.router, prefix="/api/v1")
 app.include_router(admin_listening_papers.router, prefix="/api/v1")
 app.include_router(attempts.router, prefix="/api/v1")
+app.include_router(attempt_status.router, prefix="/api/v1")
 app.include_router(admin_processing.router, prefix="/api/v1")
 app.include_router(admin_processing_workflows.router, prefix="/api/v1")
 

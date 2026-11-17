@@ -2,7 +2,7 @@
 import {createRequire} from 'node:module'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-const {chromium}=createRequire(process.env.M3_PLAYWRIGHT_PACKAGE)('playwright')
+const {chromium}=createRequire(process.env.M3_PLAYWRIGHT_PACKAGE||new URL('../frontend/package.json',import.meta.url))(process.env.M3_PLAYWRIGHT_PACKAGE?'playwright':'playwright-core')
 const output=path.resolve(process.env.M3_BROWSER_OUTPUT||'backend/var/verification/bulk-final-review')
 await fs.mkdir(output,{recursive:true})
 const root='/api/v1/admin/processing-workflows',wid='11111111-1111-4111-8111-111111111111',rid='22222222-2222-4222-8222-222222222222',sid='33333333-3333-4333-8333-333333333333',hash='a'.repeat(64)

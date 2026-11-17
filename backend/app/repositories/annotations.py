@@ -6,7 +6,9 @@ from app.db import models_processing as p
 from app.db import models_processing_workflows as m
 from app.module3.annotation_identity import ERROR_RULE_VERSION, rules_manifest
 from app.repositories import listening
-from app.services.processing import publication, reading, workflows as w
+from app.services.processing import publication, reading
+from app.services.processing import workflows as w
+from app.services.processing.candidate_recovery import runtime_compatible
 
 
 def current_annotations(db, paper_id, expected_batch_id, cursor, limit):
@@ -37,7 +39,8 @@ def current_annotations(db, paper_id, expected_batch_id, cursor, limit):
             "items": [],
             "next_cursor": None,
         }
-    if revision.rules_manifest != rules_manifest():
+    current_method = rules_manifest()
+    if not runtime_compatible(revision.rules_manifest, current_method):
         return {
             "batch_id": batch.id,
             "result_hash": revision.final_result_hash,
@@ -52,6 +55,8 @@ def current_annotations(db, paper_id, expected_batch_id, cursor, limit):
         )
     )
     task = db.get(p.ProcessingTask, revision.final_task_id)
+    if not task:
+        raise w.conflict("ANNOTATION_INTEGRITY", "当前新规则标注的生成任务缺失")
     draft = db.scalar(
         select(p.ProcessingDraft).where(
             p.ProcessingDraft.task_id == task.id, p.ProcessingDraft.view == "final"
@@ -59,7 +64,8 @@ def current_annotations(db, paper_id, expected_batch_id, cursor, limit):
     )
     states = db.execute(
         text(
-            "SELECT question_id,generation_state,rule_version,rules_manifest_hash FROM question_annotation_states WHERE batch_id=:b"
+            "SELECT question_id,generation_state,rule_version,rules_manifest_hash "
+            "FROM question_annotation_states WHERE batch_id=:b"
         ),
         {"b": batch.id},
     ).all()
@@ -76,6 +82,13 @@ def current_annotations(db, paper_id, expected_batch_id, cursor, limit):
         )
     ):
         raise w.conflict("ANNOTATION_INTEGRITY", "当前新规则标注的生成或审核身份不完整")
+    if revision.rules_manifest != current_method:
+        # Runtime compatibility alone is insufficient: recheck actual responses,
+        # receipts and unchanged source with the same guard used for publication.
+        from app.core.config import get_settings
+        from app.services.processing.reviewing import validate_final
+
+        validate_final(db, draft.payload, task.request, revision, get_settings())
     publication.verify_actual_batch(db, batch, draft.payload)
     selected = draft.payload["questions"][cursor : cursor + limit]
     items = [reading.question_view(draft.payload, question) for question in selected]

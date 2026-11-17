@@ -86,6 +86,10 @@ python -m scripts.correct_workflow_source --workflow <workflow_uuid> --file <pat
 
 ## 复验
 
+2026-11-17已融合`develop@3609186`中的作答系统PR #16。正式入库、显式开放之后，学生从`/student/listening-papers`进入；刷新恢复本机草稿，提交后按API-3查询本人状态并只读回看。正式卷的题型代码在新作答快照边界适配，不修改原已审核内容或历史成绩。同一试卷的新修订不重置已有学生的一次提交限制。
+
+完整说明及本轮未完成项见[融合验收报告](../../acceptance/module-3/continuation-attempt-20261117.md)。桌面浏览器新脚本`tools/verify_integrated_attempt_browser.mjs`必须指定`M3_E2E_ISOLATED=1`、`M3_E2E_APP_URL`和`M3_E2E_PAPER_IDS`，只用于新建隔离实例及独立测试学生；它会操作开放/撤销并真实交卷，不应对日常业务实例运行。
+
 ```text
 python -m scripts.verify_module3 --suite api
 python -m scripts.verify_module3 --suite all --asr-python <冻结ASR解释器> --ocr-python <冻结OCR解释器>

@@ -258,6 +258,21 @@ ASR 中有 3 个 `0.66b2` 的 OpenTelemetry 间接依赖，是其稳定上层发
 
 本文件固定的是当前开发版本与来源。本次没有购买资源、调用收费模型、修改运行环境或执行数据库迁移。
 
+## 2026-11-17：融合PR #16的前端测试依赖
+
+融合`origin/develop@3609186`的作答系统时保留其`frontend/package-lock.json`，按`npm ci`重建，未另行解析升级版本。运行依赖和三套Python/模型锁保持；新增项仅在前端`devDependencies`，不把测试工具放到业务页面。
+
+| 包 | PR #16固定版本 |
+| --- | --- |
+| vitest | 5.1.0 |
+| jsdom | 28.1.0 |
+| playwright-core | 1.56.1 |
+| @testing-library/react | 16.3.3 |
+| @testing-library/user-event | 14.6.1 |
+| @testing-library/jest-dom | 6.9.1 |
+
+本轮构建及最终前端回归采用已有冻结工具链Node 24.14.0/npm 11.9.0；浏览器调用本机Edge，不自动下载浏览器。技术结果及实际执行范围见[融合验收报告](../../acceptance/module-3/continuation-attempt-20261117.md)。前文第八节的纯后端范围及“不重建前端锁”是历史冻结口径，已由续开发前端范围和本次合入的锁文件补充，不表示应删除作答系统测试依赖。
+
 
 ## 2026-11-06：自动原文准备的英文OCR资源补充
 

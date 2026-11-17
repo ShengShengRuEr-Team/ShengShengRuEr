@@ -1,0 +1,24 @@
+[PASS] API-DETAIL 定位试卷 — id=1
+[PASS] API-DETAIL 题目 ID — 4 题
+[PASS] API-3 已提交 — count=1
+[PASS] API-3 字段白名单
+[PASS] API-3 汇总字段
+[PASS] API-3 no-store — no-store
+[PASS] API-3 无受保护字段
+[PASS] API-1 同卷二次提交 E08 — 400 本轮同一试卷仅允许提交一次
+[PASS] API-3 未登录 401
+[PASS] API-3 管理员 403
+[PASS] API-1 管理员 403
+[PASS] API-1 缺幂等键 400 E05
+[PASS] API-1 缺幂等键文案 — 缺少或非法的提交键 Idempotency-Key
+[PASS] API-1 未登录 401 优先
+[PASS] API-3 不可访问 404
+[PASS] API-3 404 no-store — no-store
+[PASS] API-3 语义不变量 — submitted === (attempt_count > 0)
+[PASS] API-3 学生隔离（B 无提交） — count=0
+[PASS] API-1 首次提交 200 — 200
+[PASS] API-1 同键同 payload 幂等回放 — code=18967183-576d-4285-8100-b95e213ff006
+[PASS] API-1 同键异 payload E09 — 400 提交键已用于其他提交，请使用新键
+[PASS] API-1 异键限次 E08 — 400 本轮同一试卷仅允许提交一次
+[PASS] API-3 已提交与 API-1 汇总一致 — count=1
+{"total": 23, "failed": 0}

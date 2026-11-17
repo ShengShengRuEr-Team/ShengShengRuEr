@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-const require = createRequire(process.env.M3_PLAYWRIGHT_PACKAGE)
-const {chromium} = require('playwright')
+const require = createRequire(process.env.M3_PLAYWRIGHT_PACKAGE || new URL('../frontend/package.json', import.meta.url))
+const {chromium} = require(process.env.M3_PLAYWRIGHT_PACKAGE ? 'playwright' : 'playwright-core')
 const output=path.resolve(process.env.M3_BROWSER_OUTPUT || 'backend/var/verification/browser')
 await fs.mkdir(output,{recursive:true})
 const root='/api/v1/admin/processing-workflows',wid='11111111-1111-4111-8111-111111111111',rid='22222222-2222-4222-8222-222222222222'

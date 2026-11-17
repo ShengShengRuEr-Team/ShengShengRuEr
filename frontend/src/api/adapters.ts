@@ -1,4 +1,6 @@
 import type {
+  AttemptStatusDto,
+  AttemptSummaryDto,
   CheckIssueDto,
   CheckResultDto,
   GetInfoData,
@@ -266,4 +268,283 @@ export function toVisibilityResult(dto: VisibilityStateDto): VisibilityResult {
     checkPassed: dto.check_passed,
     action: dto.action,
   }
+}
+
+/* ---------- 作答视图模型（前端只从本文件导入） ---------- */
+
+/** 原卷展示字母；契约只接受大写 A–D。 */
+export type OptionLetter = 'A' | 'B' | 'C' | 'D'
+
+export function isOptionLetter(value: unknown): value is OptionLetter {
+  return value === 'A' || value === 'B' || value === 'C' || value === 'D'
+}
+
+export interface AttemptPracticeScore {
+  available: boolean
+  value: number | null
+  max: number | null
+  label: string
+  reason: string | null
+}
+
+/** API-1 成功汇总 / API-3 最新汇总（camelCase）。 */
+export interface AttemptSummary {
+  attemptCode: string
+  examPaperId: number
+  submittedAt: string
+  questionCount: number
+  correctCount: number
+  correctRate: number
+  practiceScore: AttemptPracticeScore
+}
+
+export interface AttemptStatus {
+  examPaperId: number
+  submitted: boolean
+  attemptCount: number
+  latestAttempt: AttemptSummary | null
+}
+
+/**
+ * API-3 分层结果（需求 §3.7）：
+ * - submitted：确定已提交且有完整汇总；
+ * - submitted-summary-unavailable：确定已提交、仅汇总不可用（仍只读）；
+ * - not-submitted：确定未提交；
+ * - status-conflict：契约自相矛盾，保护性冻结；
+ * - status-unavailable：查询失败/结构非法，按原因降级。
+ */
+export type AttemptStatusResult =
+  | { kind: 'submitted'; status: AttemptStatus }
+  | {
+      kind: 'submitted-summary-unavailable'
+      examPaperId: number
+      attemptCount: number
+      submittedAt: string | null
+    }
+  | { kind: 'not-submitted'; status: AttemptStatus }
+  | {
+      kind: 'status-conflict'
+      reason: 'false-with-latest' | 'false-with-count' | 'true-without-count' | 'paper-id-mismatch'
+      examPaperId: number
+      attemptCount: number
+    }
+  | {
+      kind: 'status-unavailable'
+      reason: 'not-accessible' | 'server' | 'network' | 'malformed'
+      httpStatus?: number
+    }
+
+/** API-1 成功结果：200 但汇总不可解析仍视为已提交（不重试）。 */
+export type AttemptSubmitSuccess =
+  | { kind: 'submitted'; summary: AttemptSummary }
+  | { kind: 'submitted-without-summary'; examPaperId: number }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isNonNegativeInt(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0
+}
+
+function isIsoDateTime(value: unknown): value is string {
+  return typeof value === 'string' && !Number.isNaN(Date.parse(value))
+}
+
+function parsePracticeScore(value: unknown): AttemptPracticeScore | null {
+  if (!isRecord(value)) {
+    return null
+  }
+  if (typeof value.available !== 'boolean') {
+    return null
+  }
+  if (typeof value.max !== 'number' || !Number.isFinite(value.max)) {
+    return null
+  }
+  if (typeof value.label !== 'string') {
+    return null
+  }
+  if (value.reason !== null && typeof value.reason !== 'string') {
+    return null
+  }
+  if (value.available) {
+    if (typeof value.value !== 'number' || !Number.isFinite(value.value)) {
+      return null
+    }
+  } else if (value.value !== null) {
+    return null
+  }
+  return {
+    available: value.available,
+    value: value.value as number | null,
+    max: value.max,
+    label: value.label,
+    reason: value.reason as string | null,
+  }
+}
+
+/** 严格解析 API-1/API-3 汇总；任一必填字段缺失或类型非法返回 null。 */
+export function parseAttemptSummary(
+  dto: AttemptSummaryDto | Record<string, unknown> | null | undefined,
+): AttemptSummary | null {
+  if (!isRecord(dto)) {
+    return null
+  }
+  const {
+    attempt_code,
+    exam_paper_id,
+    submitted_at,
+    question_count,
+    correct_count,
+    correct_rate,
+    practice_score,
+  } = dto
+  if (typeof attempt_code !== 'string' || attempt_code.length === 0) {
+    return null
+  }
+  if (typeof exam_paper_id !== 'number' || !Number.isInteger(exam_paper_id)) {
+    return null
+  }
+  if (!isIsoDateTime(submitted_at)) {
+    return null
+  }
+  if (
+    !isNonNegativeInt(question_count) ||
+    !isNonNegativeInt(correct_count) ||
+    !isNonNegativeInt(correct_rate)
+  ) {
+    return null
+  }
+  if (correct_rate > 100 || correct_count > question_count) {
+    return null
+  }
+  const practiceScore = parsePracticeScore(practice_score)
+  if (practiceScore === null) {
+    return null
+  }
+  return {
+    attemptCode: attempt_code,
+    examPaperId: exam_paper_id,
+    submittedAt: submitted_at,
+    questionCount: question_count,
+    correctCount: correct_count,
+    correctRate: correct_rate,
+    practiceScore,
+  }
+}
+
+export function toAttemptSummary(dto: AttemptSummaryDto): AttemptSummary {
+  const summary = parseAttemptSummary(dto)
+  if (summary === null) {
+    throw new Error('作答汇总字段非法')
+  }
+  return summary
+}
+
+/**
+ * API-3 分层解析（N02/AC-47/AC-48）：
+ * 先校验结构与语义不变量，再区分「确定已提交」与「状态冲突」。
+ */
+export function toAttemptStatusResult(
+  data: unknown,
+  expectedPaperId: number,
+): AttemptStatusResult {
+  if (!isRecord(data)) {
+    return { kind: 'status-unavailable', reason: 'malformed' }
+  }
+  const dto = data as unknown as AttemptStatusDto
+  if (dto.exam_paper_id !== expectedPaperId) {
+    return { kind: 'status-unavailable', reason: 'malformed' }
+  }
+  if (typeof dto.submitted !== 'boolean') {
+    return { kind: 'status-unavailable', reason: 'malformed' }
+  }
+  if (!isNonNegativeInt(dto.attempt_count)) {
+    return { kind: 'status-unavailable', reason: 'malformed' }
+  }
+
+  const latestRaw = dto.latest_attempt
+  if (latestRaw !== null && latestRaw !== undefined && !isRecord(latestRaw)) {
+    return { kind: 'status-unavailable', reason: 'malformed' }
+  }
+  const conflict = (
+    reason:
+      | 'false-with-latest'
+      | 'false-with-count'
+      | 'true-without-count'
+      | 'paper-id-mismatch',
+  ): AttemptStatusResult => ({
+    kind: 'status-conflict',
+    reason,
+    examPaperId: expectedPaperId,
+    attemptCount: dto.attempt_count,
+  })
+
+  if (latestRaw !== null && latestRaw !== undefined) {
+    const nestedPaperId = (latestRaw as Record<string, unknown>).exam_paper_id
+    if (typeof nestedPaperId !== 'number') {
+      return { kind: 'status-unavailable', reason: 'malformed' }
+    }
+    if (nestedPaperId !== expectedPaperId) {
+      return conflict('paper-id-mismatch')
+    }
+  }
+  if (!dto.submitted && latestRaw !== null && latestRaw !== undefined) {
+    return conflict('false-with-latest')
+  }
+  if (!dto.submitted && dto.attempt_count > 0) {
+    return conflict('false-with-count')
+  }
+  if (dto.submitted && dto.attempt_count === 0) {
+    return conflict('true-without-count')
+  }
+
+  if (!dto.submitted) {
+    return {
+      kind: 'not-submitted',
+      status: {
+        examPaperId: expectedPaperId,
+        submitted: false,
+        attemptCount: 0,
+        latestAttempt: null,
+      },
+    }
+  }
+
+  const summary = parseAttemptSummary(latestRaw)
+  if (summary === null) {
+    return {
+      kind: 'submitted-summary-unavailable',
+      examPaperId: expectedPaperId,
+      attemptCount: dto.attempt_count,
+      submittedAt: isIsoDateTime(
+        (latestRaw as Record<string, unknown> | null)?.submitted_at,
+      )
+        ? ((latestRaw as Record<string, unknown>).submitted_at as string)
+        : null,
+    }
+  }
+  return {
+    kind: 'submitted',
+    status: {
+      examPaperId: expectedPaperId,
+      submitted: true,
+      attemptCount: dto.attempt_count,
+      latestAttempt: summary,
+    },
+  }
+}
+
+/** API-1 成功解析：汇总不可解析或试卷 ID 不符时按「已提交、无汇总」处理。 */
+export function toAttemptSubmitSuccess(
+  data: unknown,
+  examPaperId: number,
+): AttemptSubmitSuccess {
+  const summary = parseAttemptSummary(
+    isRecord(data) ? (data as Record<string, unknown>) : null,
+  )
+  if (summary !== null && summary.examPaperId === examPaperId) {
+    return { kind: 'submitted', summary }
+  }
+  return { kind: 'submitted-without-summary', examPaperId }
 }

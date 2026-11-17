@@ -132,8 +132,12 @@ def _known_practice_reason(value: object) -> str | None:
     return value if value in _ALLOWED_PRACTICE_REASONS else None
 
 
-def _data_from_attempt(attempt: Attempt) -> AttemptSubmitData:
-    """短路回放：只从已持久化的 attempt 汇总字段重建响应（不重新判分）。"""
+def attempt_summary_from_attempt(attempt: Attempt) -> AttemptSubmitData:
+    """由已持久化的 attempt 汇总字段重建响应（不重新判分）。
+
+    公开给 API-3 复用，保证 API-1/API-3 汇总字段完全一致（BE-01）；
+    API-1 短路回放行为不变。
+    """
 
     breakdown = attempt.score_breakdown or {}
     available = bool(breakdown.get("available"))
@@ -385,7 +389,7 @@ def _recover(
         lock_attempt_key(db, student_id, attempt_key)
         outcome = resolve_existing(db, student_id, attempt_key, fingerprint)
         if outcome.status is ResolveStatus.REPLAY_SUCCESS:
-            return _data_from_attempt(outcome.attempt)
+            return attempt_summary_from_attempt(outcome.attempt)
         if outcome.status is ResolveStatus.REJECTED:
             raise _rejection_error(outcome.rejection)
         if outcome.status is ResolveStatus.KEY_CONFLICT:
@@ -445,7 +449,7 @@ def _run_submission(
         lock_attempt_key(db, student_id, attempt_key)
         outcome = resolve_existing(db, student_id, attempt_key, fingerprint)
         if outcome.status is ResolveStatus.REPLAY_SUCCESS:
-            return _data_from_attempt(outcome.attempt)
+            return attempt_summary_from_attempt(outcome.attempt)
         if outcome.status is ResolveStatus.KEY_CONFLICT:
             raise bad_request(MSG_E09_KEY_REUSED)
         if outcome.status is ResolveStatus.REJECTED:
