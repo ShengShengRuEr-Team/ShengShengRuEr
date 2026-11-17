@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import { routerBasename } from './router/basename'
 import 'antd/dist/reset.css'
 import './styles/global.css'
 import App from './App'
@@ -22,7 +23,7 @@ if (navigation?.type === 'reload' && window.location.pathname === ROUTES.ADMIN_L
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={routerBasename(import.meta.env.BASE_URL)}>
       <App />
     </BrowserRouter>
   </StrictMode>,
