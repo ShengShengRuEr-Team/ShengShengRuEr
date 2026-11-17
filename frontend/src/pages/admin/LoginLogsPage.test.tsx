@@ -62,6 +62,7 @@ function authValue(): AuthContextValue {
     isAdmin: true,
     login: vi.fn(),
     logout: vi.fn(),
+    clearLocalSession: vi.fn(),
     retry: vi.fn(),
     hasRole: () => true,
     hasPermission: (code: string) => permissions.includes(code),

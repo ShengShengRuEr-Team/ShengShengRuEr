@@ -7,6 +7,8 @@ export const ROUTES = {
   ADMIN_LISTENING_PAPER_DETAIL: '/admin/listening-papers/:examPaperId',
   ADMIN_LOGIN_LOGS: '/admin/logs/login',
   ADMIN_OPERATION_LOGS: '/admin/logs/operation',
+  ADMIN_USERS: '/admin/users',
+  ADMIN_PROFILE: '/admin/profile',
   STUDENT_HOME: '/student',
   STUDENT_LISTENING_PAPERS: '/student/listening-papers',
   STUDENT_LISTENING_PAPER_DETAIL: '/student/listening-papers/:examPaperId',

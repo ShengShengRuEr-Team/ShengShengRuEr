@@ -3,6 +3,8 @@ import {
   FileSearchOutlined,
   HomeOutlined,
   SolutionOutlined,
+  TeamOutlined,
+  UserOutlined,
 } from '@ant-design/icons'
 import { Layout, Menu, Typography } from 'antd'
 import type { MenuProps } from 'antd'
@@ -10,7 +12,11 @@ import type { ReactNode } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { ROUTES } from '../constants/routes'
-import { PERM_LOG_READ } from '../generated/adminConstants'
+import {
+  PERM_LOG_READ,
+  PERM_SELF_READ,
+  PERM_USER_READ,
+} from '../generated/adminConstants'
 import UserActions from '../ui/UserActions'
 
 const { Header, Sider, Content } = Layout
@@ -26,6 +32,12 @@ const ADMIN_MENU: AdminMenuItem[] = [
   { key: ROUTES.ADMIN_HOME, icon: <HomeOutlined />, label: '首页' },
   { key: ROUTES.ADMIN_LISTENING_PAPERS, icon: <BookOutlined />, label: '题库管理' },
   {
+    key: ROUTES.ADMIN_USERS,
+    icon: <TeamOutlined />,
+    label: '用户管理',
+    permission: PERM_USER_READ,
+  },
+  {
     key: ROUTES.ADMIN_LOGIN_LOGS,
     icon: <SolutionOutlined />,
     label: '登录日志',
@@ -36,6 +48,12 @@ const ADMIN_MENU: AdminMenuItem[] = [
     icon: <FileSearchOutlined />,
     label: '操作日志',
     permission: PERM_LOG_READ,
+  },
+  {
+    key: ROUTES.ADMIN_PROFILE,
+    icon: <UserOutlined />,
+    label: '个人中心',
+    permission: PERM_SELF_READ,
   },
 ]
 
@@ -50,7 +68,26 @@ function resolveSelectedKey(pathname: string): string {
   if (pathname.startsWith(ROUTES.ADMIN_OPERATION_LOGS)) {
     return ROUTES.ADMIN_OPERATION_LOGS
   }
+  if (pathname.startsWith(ROUTES.ADMIN_USERS)) {
+    return ROUTES.ADMIN_USERS
+  }
+  if (pathname.startsWith(ROUTES.ADMIN_PROFILE)) {
+    return ROUTES.ADMIN_PROFILE
+  }
   return ROUTES.ADMIN_HOME
+}
+
+/** 按权限返回可见菜单：无权限的项不渲染。 */
+export function visibleAdminMenu(
+  hasPermission: (code: string) => boolean,
+): MenuProps['items'] {
+  return ADMIN_MENU.filter(
+    (item) => !item.permission || hasPermission(item.permission),
+  ).map((item) => ({
+    key: item.key,
+    icon: item.icon,
+    label: item.label,
+  }))
 }
 
 /** 管理端布局：左侧菜单 + 顶部用户区 + 内容区；菜单按权限过滤。 */
@@ -59,13 +96,7 @@ export default function AdminLayout() {
   const location = useLocation()
   const { hasPermission } = useAuth()
 
-  const items: MenuProps['items'] = ADMIN_MENU.filter(
-    (item) => !item.permission || hasPermission(item.permission),
-  ).map((item) => ({
-    key: item.key,
-    icon: item.icon,
-    label: item.label,
-  }))
+  const items = visibleAdminMenu(hasPermission)
 
   const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     navigate(key)

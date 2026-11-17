@@ -25,6 +25,8 @@ export interface AuthContextValue {
   isAdmin: boolean
   login: (username: string, password: string) => Promise<AuthProfile>
   logout: () => Promise<void>
+  /** 只清本地 token/用户/权限，不请求服务端；用于本人改密成功后强制重登。 */
+  clearLocalSession: () => void
   retry: () => Promise<void>
   hasRole: (role: string) => boolean
   hasPermission: (code: string) => boolean
@@ -124,6 +126,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const clearLocalSession = useCallback(() => {
+    removeAccessToken()
+    setState(ANONYMOUS)
+  }, [])
+
   const profile = state.profile
   const hasRole = useCallback(
     (role: string) => profile?.roles.includes(role) ?? false,
@@ -144,11 +151,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: profile?.isAdmin ?? false,
       login,
       logout,
+      clearLocalSession,
       retry,
       hasRole,
       hasPermission,
     }),
-    [state.status, state.token, profile, login, logout, retry, hasRole, hasPermission],
+    [
+      state.status,
+      state.token,
+      profile,
+      login,
+      logout,
+      clearLocalSession,
+      retry,
+      hasRole,
+      hasPermission,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

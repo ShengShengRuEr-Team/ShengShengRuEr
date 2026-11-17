@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { ROLES } from '../constants/permissions'
 import { ROUTES, homePathForRole } from '../constants/routes'
-import { PERM_LOG_READ } from '../generated/adminConstants'
+import { PERM_LOG_READ, PERM_SELF_READ, PERM_USER_READ } from '../generated/adminConstants'
 import AdminLayout from '../layouts/AdminLayout'
 import StudentLayout from '../layouts/StudentLayout'
 import FullPageLoading from '../ui/FullPageLoading'
@@ -20,6 +20,8 @@ const AdminListeningPaperListPage = lazy(() => import('../pages/admin/ListeningP
 const AdminListeningPaperDetailPage = lazy(() => import('../pages/admin/ListeningPaperDetailPage'))
 const AdminLoginLogsPage = lazy(() => import('../pages/admin/LoginLogsPage'))
 const AdminOperationLogsPage = lazy(() => import('../pages/admin/OperationLogsPage'))
+const AdminUsersPage = lazy(() => import('../pages/admin/UsersPage'))
+const AdminProfilePage = lazy(() => import('../pages/admin/ProfilePage'))
 const StudentHomePage = lazy(() => import('../pages/student/HomePage'))
 const StudentListeningPaperListPage = lazy(() => import('../pages/student/ListeningPaperListPage'))
 const StudentListeningPaperPage = lazy(() => import('../pages/student/ListeningPaperPage'))
@@ -83,6 +85,22 @@ export default function AppRouter() {
             element={
               <RequirePermission code={PERM_LOG_READ}>
                 <AdminOperationLogsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_USERS}
+            element={
+              <RequirePermission code={PERM_USER_READ}>
+                <AdminUsersPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_PROFILE}
+            element={
+              <RequirePermission code={PERM_SELF_READ}>
+                <AdminProfilePage />
               </RequirePermission>
             }
           />
