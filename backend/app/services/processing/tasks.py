@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.errors import AppError, not_found
+from app.db import models as auth_models  # noqa: F401
 from app.db import models_processing as m
 from app.db.models_listening import (
     ContentCheck,

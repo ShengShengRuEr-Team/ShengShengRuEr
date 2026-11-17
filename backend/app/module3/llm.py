@@ -218,6 +218,20 @@ def request_json(
             {"role": "user", "content": canonical_bytes(data).decode("utf-8")},
         ],
     }
+    if execution_token is not None:
+        from app.services.processing.tasks import fenced_task
+
+        with SessionLocal() as db:
+            current = fenced_task(db, task_id, execution_token)
+            if current.request.get("recovery_task_id"):
+                request["messages"][0]["content"] += (
+                    "\nRetry validation feedback: use consecutive ordered BODY "
+                    "sentence "
+                    "IDs within each evidence group, with no omitted middle sentence. "
+                    "Split disconnected groups; quote each group exactly. Return fewer "
+                    "candidate errors when support is insufficient. "
+                    "Never invent evidence."
+                )
     attempts = 1 if execution_token is not None else 3
     for index in range(attempts):
         if execution_token is not None:

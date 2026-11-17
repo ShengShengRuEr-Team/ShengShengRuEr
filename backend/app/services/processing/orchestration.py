@@ -447,8 +447,76 @@ def retry(db, workflow_id, payload, user_id, key, settings):
     )
     if pending:
         raise w.conflict("BILLING_LEDGER_UNAVAILABLE", "存在未知收费请求，请先核实账本")
+    recovery_task = tasks.get_task(db, UUID(previous.result["task_id"]))
+    if revision.rules_manifest != rules_manifest():
+        from app.services.processing.candidate_recovery import runtime_compatible
+        from app.services.processing.reprocessing import child_revision
+
+        if (
+            previous.result["stage"] != "annotate_sample"
+            or revision.final_result_hash
+            or not runtime_compatible(revision.rules_manifest, rules_manifest())
+        ):
+            raise w.conflict("ARTIFACT_CHANGED", "生成方法变化，请按新修订重新核对依赖")
+        parent = revision
+        originals = []
+        for stage in ("align", "source"):
+            projection = parent.stage_fingerprints.get(stage)
+            approval = db.scalar(
+                select(m.ProcessingStageApproval)
+                .where(
+                    m.ProcessingStageApproval.revision_id == parent.id,
+                    m.ProcessingStageApproval.stage == stage,
+                )
+                .order_by(m.ProcessingStageApproval.created_at.desc())
+                .limit(1)
+            )
+            if (
+                not projection
+                or not approval
+                or approval.decision != "approved"
+                or approval.dependency_hash != projection["dependency_hash"]
+            ):
+                raise w.conflict(
+                    "APPROVAL_REQUIRED", "运行修复须保留实际核听和来源确认记录"
+                )
+            stage_payload(db, parent, stage, settings)
+            originals.append(approval)
+        revision = child_revision(
+            db,
+            workflow,
+            parent,
+            user_id,
+            "独立Worker运行修复；原件及来源内容未变，逐题复验已保存候选",
+        )
+        for approval in originals:
+            db.add(
+                m.ProcessingStageApproval(
+                    id=__import__("uuid").uuid4(),
+                    revision_id=revision.id,
+                    stage=approval.stage,
+                    artifact_hash=approval.artifact_hash,
+                    dependency_hash=approval.dependency_hash,
+                    decision="approved",
+                    items={
+                        "reused_items": approval.items,
+                        "runtime_repair_from": str(parent.id),
+                    },
+                    operator_user_id=user_id,
+                    reused_approval_id=approval.id,
+                )
+            )
     task = queue_task(
         db, workflow, revision, previous.result["stage"], user_id, settings
+    )
+    task.parent_task_id = recovery_task.id
+    task.request = {**task.request, "recovery_task_id": str(recovery_task.id)}
+    task.input_hash = fingerprint(
+        {
+            "request": task.request,
+            "method": task.method_hash,
+            "materials_hash": revision.materials_hash,
+        }
     )
     result = {
         "task_id": str(task.id),

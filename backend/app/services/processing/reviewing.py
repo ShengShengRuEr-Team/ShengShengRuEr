@@ -25,6 +25,7 @@ from app.services.processing.validation import validate_result
 
 def validate_final(db, payload, request, revision, settings):
     from app.module3.workflow_worker import generation_input
+    from app.services.processing.candidate_recovery import response_task_matches
     from app.services.processing.reprocessing import ancestor_revision
 
     if (
@@ -69,7 +70,7 @@ def validate_final(db, payload, request, revision, settings):
         call = db.get(p.LlmAttempt, receipt["attempt_id"])
         if (
             not call
-            or call.task_id != generation_task.id
+            or not response_task_matches(db, artifact, call, raw, revision, settings)
             or call.status != "succeeded"
             or not ancestor_revision(db, revision, generation_task)
             or str(generation_task.id) != receipt["task_id"]

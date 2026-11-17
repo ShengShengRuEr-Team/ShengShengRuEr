@@ -1110,3 +1110,162 @@ def test_waiting_progress_duration_is_frozen(pipeline):
     assert first["active"] is False
     assert first["elapsed_ms"] == second["elapsed_ms"]
     assert "等待核听确认" in first["description"]
+
+
+def test_runtime_retry_reuses_valid_responses_and_revalidates_full_review(
+    client, pipeline, monkeypatch
+):
+    from app.db import models_processing as p
+    from app.db import models_processing_workflows as m
+    from app.db.base import SessionLocal
+    from app.module3 import llm
+    from app.module3.contracts import fingerprint
+
+    c = pipeline
+    for index in range(2, 6):
+        question = copy.deepcopy(c["source"]["questions"][0])
+        question.update(
+            _src_id=f"q:{index}", question_code=f"Q{index}", question_index=index
+        )
+        c["source"]["questions"].append(question)
+        presentation = copy.deepcopy(c["source"]["presentations"][0])
+        presentation.update(
+            _src_id=f"pr:{index}", question_src_id=f"q:{index}", question_no=index
+        )
+        c["source"]["presentations"].append(presentation)
+    original = llm.request_json
+    calls = []
+
+    def model(*args, **kwargs):
+        raw, call = original(*args, **kwargs)
+        calls.append(raw["question_src_id"])
+        if raw["question_src_id"] == "q:3" and calls.count("q:3") == 1:
+            raw["skills"][0]["evidence_segment_src_ids"] = ["absent"]
+            with SessionLocal() as db:
+                attempt = db.get(p.LlmAttempt, call["attempt_id"])
+                response = copy.deepcopy(attempt.response_payload)
+                response["choices"][0]["message"]["content"] = json.dumps(raw)
+                attempt.response_payload = response
+                db.commit()
+        return raw, call
+
+    monkeypatch.setattr(llm, "request_json", model)
+    c["execute"](c["post"]("start", {"reason": "Synthetic runtime recovery"}))
+    c["approve"]("align")
+    before = c["detail"]()
+    stage = before["stages"]["source"]
+    approved = c["post"](
+        "stage-approvals",
+        {
+            "stage": "source",
+            "artifact_hash": stage["artifact_hash"],
+            "expected_stage_dependency_hash": stage["dependency_hash"],
+            "decision": "approved",
+            "items": [
+                {
+                    "reference": q["_src_id"],
+                    "decision": "approved",
+                    "reason": "Synthetic source check",
+                }
+                for q in c["source"]["questions"]
+            ],
+        },
+    )
+    assert approved.status_code == 200, approved.text
+    failed = c["execute"](
+        c["post"](
+            "continue",
+            {
+                "stage": "source",
+                "expected_stage_dependency_hash": stage["dependency_hash"],
+            },
+        ),
+        expected_code=2,
+    )
+    assert c["detail"]()["issues"][-1]["code"] == "ANNOTATION_EVIDENCE_INVALID"
+    # Simulate a new runtime deployment without mutating frozen DB identities,
+    # source content, the prompt or the dictionary.
+    with SessionLocal() as db:
+        revision = db.get(m.ProcessingWorkflowRevision, UUID(before["revision_id"]))
+        manifest = copy.deepcopy(revision.rules_manifest)
+        manifest["implementation"]["app/module3/workflow_worker.py"] = "0" * 64
+        manifest["manifest_hash"] = fingerprint(
+            {k: v for k, v in manifest.items() if k != "manifest_hash"}
+        )
+    from app.services.processing import orchestration, reviewing, workflows
+
+    for module in (orchestration, reviewing, workflows):
+        monkeypatch.setattr(module, "rules_manifest", lambda: copy.deepcopy(manifest))
+    c["execute"](
+        c["post"](
+            "retries",
+            {
+                "reason": "Explicit runtime repair",
+                "retry_of_operation_id": failed["operation_id"],
+            },
+        )
+    )
+    after = c["detail"]()
+    assert after["revision_id"] != before["revision_id"]
+    assert after["processing_state"] == "awaiting_sample"
+    assert calls == ["q:1", "q:2", "q:3", "q:3", "q:4", "q:5"]
+    assert all(
+        g["state"] == "approved"
+        for g in after["gates"]
+        if g["kind"] in {"align", "source"}
+    )
+    c["approve"]("sample")
+    synthetic_review_publish(client, c)
+    assert c["detail"]()["publication_state"] == "published"
+    assert len(calls) == 6
+
+
+def test_standalone_worker_registers_models_and_renews_task_lease(pipeline):
+    import os
+    import subprocess
+    import sys
+
+    from app.db import models_processing as p
+    from app.db import models_processing_workflows as m
+    from app.db.base import SessionLocal
+    from app.services.processing.tasks import utcnow
+
+    c = pipeline
+    response = c["post"]("start", {"reason": "Synthetic standalone heartbeat"})
+    operation = response.json()["data"]
+    token = uuid4()
+    with SessionLocal() as db:
+        command = db.get(m.ProcessingWorkflowCommand, UUID(operation["operation_id"]))
+        task = db.get(p.ProcessingTask, UUID(operation["result"]["task_id"]))
+        command.state, task.state = "running", "running"
+        command.execution_token = task.lease_token = token
+        command.lease_expires_at = task.expires_at = utcnow() + timedelta(seconds=120)
+        db.commit()
+    code = """
+import sys
+from uuid import UUID
+from types import SimpleNamespace
+from app.module3.workflow_worker import heartbeat
+from app.db.base import Base
+assert 'users' in Base.metadata.tables
+class OneRenewal:
+    count = 0
+    def wait(self, seconds):
+        self.count += 1
+        return self.count > 1
+heartbeat(UUID(sys.argv[1]), UUID(sys.argv[2]),
+          SimpleNamespace(m3_heartbeat_seconds=1, m3_lease_seconds=120),
+          OneRenewal())
+"""
+    # No API bootstrap imports may mask a standalone ORM registry gap.
+    result = subprocess.run(
+        [sys.executable, "-c", code, operation["operation_id"], str(token)],
+        env={**os.environ, "DEEPSEEK_API_KEY": ""},
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 0, result.stderr
+    with SessionLocal() as db:
+        task = db.get(p.ProcessingTask, UUID(operation["result"]["task_id"]))
+        assert task.heartbeat_at is not None

@@ -26,6 +26,7 @@ def rules_manifest() -> dict:
         "app/module3/workflow_worker.py",
         "app/services/processing/reviewing.py",
         "app/services/processing/reprocessing.py",
+        "app/services/processing/candidate_recovery.py",
     )
     content = {
         "result_version": RESULT_VERSION,

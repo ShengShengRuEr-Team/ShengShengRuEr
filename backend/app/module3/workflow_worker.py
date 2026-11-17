@@ -112,6 +112,7 @@ def heartbeat(command_id, token, settings, done):
                         tasks.heartbeat(db, task.id, token, settings.m3_lease_seconds)
                 db.commit()
         except Exception:
+            logging.getLogger(__name__).exception("Workflow heartbeat failed")
             return
 
 
@@ -155,15 +156,22 @@ def annotate(command_id, token, task, revision, settings):
             if receipt["question_input_hash"] != qhash:
                 raise ProcessingError("ARTIFACT_CHANGED", "小样题目依赖已变化")
         else:
-            raw, call = request_json(
-                task.id,
-                fingerprint({"audio": result["audio"]["file_hash"]}),
-                "sample" if len(receipts) < 5 else "run",
-                SYSTEM_PROMPT_V2,
-                generation_input(result, question, task.request),
-                settings,
-                execution_token=token,
-            )
+            from app.services.processing.candidate_recovery import saved_candidate
+
+            with SessionLocal() as db:
+                saved = saved_candidate(db, task, revision, result, question, settings)
+            if saved:
+                raw, call = saved
+            else:
+                raw, call = request_json(
+                    task.id,
+                    fingerprint({"audio": result["audio"]["file_hash"]}),
+                    "sample" if len(receipts) < 5 else "run",
+                    SYSTEM_PROMPT_V2,
+                    generation_input(result, question, task.request),
+                    settings,
+                    execution_token=token,
+                )
             # Raw response remains immutable even when candidate validation fails.
             with SessionLocal() as db:
                 _, _, command = fence(db, command_id, token)
@@ -364,7 +372,9 @@ def execute(command_id, token, settings):
                     *task.issues,
                     {
                         "issue_code": command.failure_code,
-                        "message": "阶段未完成，请核对保存的结果和原件",
+                        "message": str(error)
+                        if isinstance(error, ProcessingError)
+                        else "阶段未完成，请核对保存的结果和原件",
                         "severity": "error",
                     },
                 ]
