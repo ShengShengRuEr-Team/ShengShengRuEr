@@ -1147,7 +1147,7 @@ def test_runtime_retry_reuses_valid_responses_and_revalidates_full_review(
     def model(*args, **kwargs):
         raw, call = original(*args, **kwargs)
         calls.append(raw["question_src_id"])
-        if raw["question_src_id"] == "q:3" and calls.count("q:3") == 1:
+        if raw["question_src_id"] == "q:3" and calls.count("q:3") <= 3:
             raw["skills"][0]["evidence_segment_src_ids"] = ["absent"]
             with SessionLocal() as db:
                 attempt = db.get(p.LlmAttempt, call["attempt_id"])
@@ -1191,6 +1191,8 @@ def test_runtime_retry_reuses_valid_responses_and_revalidates_full_review(
         expected_code=2,
     )
     assert c["detail"]()["issues"][-1]["code"] == "ANNOTATION_EVIDENCE_INVALID"
+    assert c["detail"]()["progress"]["completed_count"] == 2
+    assert calls == ["q:1", "q:2", "q:3", "q:3", "q:3"]
     # Simulate a new runtime deployment without mutating frozen DB identities,
     # source content, the prompt or the dictionary.
     with SessionLocal() as db:
@@ -1216,7 +1218,7 @@ def test_runtime_retry_reuses_valid_responses_and_revalidates_full_review(
     after = c["detail"]()
     assert after["revision_id"] != before["revision_id"]
     assert after["processing_state"] == "awaiting_sample"
-    assert calls == ["q:1", "q:2", "q:3", "q:3", "q:4", "q:5"]
+    assert calls == ["q:1", "q:2", "q:3", "q:3", "q:3", "q:3", "q:4", "q:5"]
     assert all(
         g["state"] == "approved"
         for g in after["gates"]
@@ -1225,7 +1227,192 @@ def test_runtime_retry_reuses_valid_responses_and_revalidates_full_review(
     c["approve"]("sample")
     synthetic_review_publish(client, c)
     assert c["detail"]()["publication_state"] == "published"
-    assert len(calls) == 6
+    assert len(calls) == 8
+
+
+def test_evidence_corrections_preserve_raw_responses_and_only_count_valid_questions(
+    client, pipeline, monkeypatch
+):
+    from app.db import models_processing as p
+    from app.db.base import SessionLocal
+    from app.module3 import llm
+    from app.services.processing.orchestration import artifact_payload
+
+    c = pipeline
+    # Three aligned BODY sentences let the first response cite a real gap.
+    body = c["source"]["transcript_segments"][0]
+    body["end_ms"] = 500
+    for index in (2, 3):
+        segment = copy.deepcopy(body)
+        segment.update(
+            _src_id=f"body:{index}",
+            segment_index=index,
+            start_ms=(index - 1) * 500,
+            end_ms=index * 500,
+            text=f"Additional body sentence {index}.",
+        )
+        c["source"]["transcript_segments"].append(segment)
+    c["source"]["transcript_segments"][1]["segment_index"] = 4
+    original = llm.request_json
+    seen = []
+    observations = []
+
+    def model(*args, **kwargs):
+        feedback = kwargs.get("validation_feedback")
+        observations.append(c["detail"]()["progress"])
+        raw, call = original(*args, **kwargs)
+        if len(seen) == 0:
+            raw["skills"][0]["evidence_segment_src_ids"] = ["s:1", "body:3"]
+            raw["skills"][0]["quote"] = body["text"] + " Additional body sentence 3."
+        elif len(seen) == 1:
+            assert feedback["code"] == "ANNOTATION_EVIDENCE_INVALID"
+            assert feedback["candidate"] == seen[-1]
+            assert "连续有序" in feedback["message"]
+            raw["skills"][0]["evidence_segment_src_ids"] = ["1"]
+        else:
+            assert feedback["candidate"] == seen[-1]
+            assert "不存在" in feedback["message"]
+        # Fault injection changes the synthetic response before it is returned
+        # to production code. Production must save these exact values unchanged.
+        with SessionLocal() as db:
+            attempt = db.get(p.LlmAttempt, call["attempt_id"])
+            response = copy.deepcopy(attempt.response_payload)
+            response["choices"][0]["message"]["content"] = json.dumps(raw)
+            attempt.response_payload = response
+            db.commit()
+        seen.append(copy.deepcopy(raw))
+        return raw, call
+
+    monkeypatch.setattr(llm, "request_json", model)
+    complete_to_review(c)
+    assert len(seen) == 3
+    assert [v["completed_count"] for v in observations] == [0, 0, 0]
+    assert all(v["active"] for v in observations)
+    assert "自动纠正 1/2" in observations[1]["current_item"]
+    assert "自动纠正 2/2" in observations[2]["current_item"]
+    detail = c["detail"]()
+    assert detail["processing_state"] == "awaiting_review"
+    assert detail["progress"]["completed_count"] == 1
+    with SessionLocal() as db:
+        rows = db.scalars(
+            select(p.ProcessingArtifact)
+            .where(
+                p.ProcessingArtifact.stage == "workflow_candidate",
+                p.ProcessingArtifact.task_id.in_(
+                    select(p.ProcessingTask.id).where(
+                        p.ProcessingTask.workflow_id == UUID(c["id"])
+                    )
+                ),
+            )
+            .order_by(p.ProcessingArtifact.id)
+        ).all()
+        saved = [
+            artifact_payload(db, row.id, c["context"]["settings"])[0] for row in rows
+        ]
+        assert [v["candidate"] for v in saved] == seen
+        assert [v["validation"]["state"] for v in saved] == [
+            "failed",
+            "failed",
+            "passed",
+        ]
+    # Final receipt reconstruction accepts the successful correction, without
+    # promoting either failed response or skipping the normal human-review gate.
+    synthetic_review_publish(client, c)
+    assert c["detail"]()["publication_state"] == "published"
+    assert len(seen) == 3
+
+
+@pytest.mark.parametrize("code", ["BUDGET_LIMIT", "LEASE_REVOKED", "LLM_TRANSPORT"])
+def test_evidence_correction_does_not_swallow_call_guards(pipeline, monkeypatch, code):
+    from app.module3 import llm
+    from app.module3.contracts import ProcessingError
+
+    c = pipeline
+    original = llm.request_json
+    calls = []
+
+    def model(*args, **kwargs):
+        calls.append(kwargs.get("validation_feedback"))
+        if len(calls) == 2:
+            raise ProcessingError(code, "Synthetic guarded correction")
+        raw, call = original(*args, **kwargs)
+        raw["answer_evidence"][0]["quote"] = "Unlocatable synthetic quote"
+        return raw, call
+
+    monkeypatch.setattr(llm, "request_json", model)
+    c["execute"](c["post"]("start", {"reason": "Synthetic guarded correction"}))
+    c["approve"]("align")
+    # approve(source) runs the next task too, so expect the injected failure.
+    detail = c["detail"]()
+    stage = detail["stages"]["source"]
+    response = c["post"](
+        "stage-approvals",
+        {
+            "stage": "source",
+            "artifact_hash": stage["artifact_hash"],
+            "expected_stage_dependency_hash": stage["dependency_hash"],
+            "decision": "approved",
+            "items": [
+                {
+                    "reference": "q:1",
+                    "decision": "approved",
+                    "reason": "Synthetic source",
+                }
+            ],
+        },
+    )
+    assert response.status_code == 200, response.text
+    c["execute"](
+        c["post"](
+            "continue",
+            {
+                "stage": "source",
+                "expected_stage_dependency_hash": stage["dependency_hash"],
+            },
+        ),
+        expected_code=2,
+    )
+    assert len(calls) == 2
+    assert calls[1]["code"] == "ANNOTATION_QUOTE_INVALID"
+    assert c["detail"]()["issues"][-1]["code"] == code
+    assert c["detail"]()["progress"]["completed_count"] == 0
+
+
+def test_runtime_only_update_keeps_frozen_review_valid(client, pipeline, monkeypatch):
+    from app.core.errors import AppError
+    from app.db import models_processing_workflows as m
+    from app.db.base import SessionLocal
+    from app.module3.annotation_identity import rules_manifest
+    from app.module3.contracts import fingerprint
+    from app.services.processing import reviewing, tasks
+
+    c = pipeline
+    complete_to_review(c)
+    before = c["detail"]()
+    manifest = rules_manifest()
+    manifest["implementation"]["app/module3/workflow_worker.py"] = "f" * 64
+    manifest["manifest_hash"] = fingerprint(
+        {k: v for k, v in manifest.items() if k != "manifest_hash"}
+    )
+    monkeypatch.setattr(reviewing, "rules_manifest", lambda: copy.deepcopy(manifest))
+    # A dictionary change is still a semantic incompatibility.
+    incompatible = copy.deepcopy(manifest)
+    incompatible["dictionary_sha256"] = "0" * 64
+    with SessionLocal() as db:
+        revision = db.get(m.ProcessingWorkflowRevision, UUID(before["revision_id"]))
+        task = tasks.get_task(db, revision.final_task_id)
+        content = tasks.get_draft(db, task).payload
+        with monkeypatch.context() as altered:
+            altered.setattr(reviewing, "rules_manifest", lambda: incompatible)
+            with pytest.raises(AppError):
+                reviewing.validate_final(
+                    db, content, task.request, revision, c["context"]["settings"]
+                )
+    synthetic_review_publish(client, c)
+    after = c["detail"]()
+    assert after["revision_id"] == before["revision_id"]
+    assert after["result_hash"] == before["result_hash"]
+    assert after["publication_state"] == "published"
 
 
 def test_standalone_worker_registers_models_and_renews_task_lease(pipeline):

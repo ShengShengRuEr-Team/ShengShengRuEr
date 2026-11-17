@@ -12,6 +12,7 @@ import time
 from datetime import timedelta
 from uuid import UUID, uuid4
 
+from pydantic import ValidationError
 from sqlalchemy import func, select
 
 from app.core.config import BASE_DIR, get_settings
@@ -31,6 +32,134 @@ from app.module3.option_annotations import (
 )
 from app.services.processing import orchestration as o
 from app.services.processing import tasks
+
+MAX_EVIDENCE_CORRECTIONS = 2
+CORRECTABLE_EVIDENCE_CODES = {"ANNOTATION_EVIDENCE_INVALID", "ANNOTATION_QUOTE_INVALID"}
+
+
+def annotation_checkpoint(command_id, token, task, payload, settings):
+    with SessionLocal() as db:
+        _, _, command = fence(db, command_id, token)
+        current = tasks.fenced_task(db, task.id, token)
+        record_artifact(db, command, current, "annotation_progress", payload, settings)
+        db.commit()
+
+
+def candidate_receipt(task, question, result, revision, artifact, raw, attempt):
+    return {
+        "question_src_id": question["_src_id"],
+        "task_id": str(task.id),
+        "artifact_id": artifact.id,
+        "artifact_hash": artifact.artifact_hash,
+        "attempt_id": attempt.id,
+        "response_hash": fingerprint(attempt.response_payload),
+        "candidate_hash": fingerprint(normalize_candidate(raw)),
+        "question_input_hash": question_input_hash(result, question),
+        "generation_input_hash": fingerprint(
+            generation_input(result, question, task.request)
+        ),
+        "prompt_version": PROMPT_VERSION,
+        "prompt_sha256": fingerprint(SYSTEM_PROMPT_V2),
+        "rules_manifest_hash": revision.rules_manifest["manifest_hash"],
+        "state": "generated" if raw.get("candidate_errors") else "generated_empty",
+    }
+
+
+def generate_candidate(
+    command_id, token, task, revision, result, question, done, settings
+):
+    from app.module3.llm import request_json
+    from app.services.processing.candidate_recovery import saved_candidate
+
+    with SessionLocal() as db:
+        saved = saved_candidate(db, task, revision, result, question, settings)
+    feedback = None
+    for correction in range(MAX_EVIDENCE_CORRECTIONS + 1):
+        annotation_checkpoint(
+            command_id,
+            token,
+            task,
+            {
+                "question_src_id": question["_src_id"],
+                "question_index": question["question_index"],
+                "completed_count": done,
+                "correction": correction,
+                "state": "correcting" if correction else "generating",
+                "validation_code": feedback["code"] if feedback else None,
+            },
+            settings,
+        )
+        if saved:
+            raw, call = saved
+        else:
+            kwargs = {"execution_token": token}
+            if feedback:
+                kwargs["validation_feedback"] = feedback
+            raw, call = request_json(
+                task.id,
+                fingerprint({"audio": result["audio"]["file_hash"]}),
+                "sample" if done < 5 else "run",
+                SYSTEM_PROMPT_V2,
+                generation_input(result, question, task.request),
+                settings,
+                **kwargs,
+            )
+        error = None
+        try:
+            check_option_candidate(result, question, raw)
+        except (ProcessingError, ValidationError) as invalid:
+            error = invalid
+        validation = (
+            {
+                "state": "failed",
+                "code": getattr(error, "code", "ANNOTATION_SCHEMA_INVALID"),
+                "message": str(error),
+            }
+            if error
+            else {"state": "passed"}
+        )
+        # Save every raw response before deciding whether to correct or stop.
+        with SessionLocal() as db:
+            _, _, command = fence(db, command_id, token)
+            current = tasks.fenced_task(db, task.id, token)
+            artifact = record_artifact(
+                db,
+                command,
+                current,
+                "candidate",
+                {
+                    "question_src_id": question["_src_id"],
+                    "candidate": raw,
+                    "call": call,
+                    "question_input_hash": question_input_hash(result, question),
+                    "rules_manifest": revision.rules_manifest,
+                    "validation": validation,
+                },
+                settings,
+            )
+            receipt = None
+            if error is None:
+                receipt = candidate_receipt(
+                    task,
+                    question,
+                    result,
+                    revision,
+                    artifact,
+                    raw,
+                    db.get(p.LlmAttempt, call["attempt_id"]),
+                )
+            db.commit()
+        if error is None:
+            return raw, receipt
+        if (
+            getattr(error, "code", None) not in CORRECTABLE_EVIDENCE_CODES
+            or correction == MAX_EVIDENCE_CORRECTIONS
+        ):
+            raise error
+        feedback = {"candidate": raw, "code": error.code, "message": str(error)}
+        # A saved response has already passed current checks; never repair cache
+        # corruption in place. A fresh request below is always separately fenced.
+        saved = None
 
 
 def lock_command_context(db, command_id):
@@ -117,8 +246,6 @@ def heartbeat(command_id, token, settings, done):
 
 
 def annotate(command_id, token, task, revision, settings):
-    from app.module3.llm import request_json
-
     with SessionLocal() as db:
         assembly, _ = o.stage_payload(db, revision, "source", settings)
         result = copy.deepcopy(assembly)
@@ -156,64 +283,31 @@ def annotate(command_id, token, task, revision, settings):
             if receipt["question_input_hash"] != qhash:
                 raise ProcessingError("ARTIFACT_CHANGED", "小样题目依赖已变化")
         else:
-            from app.services.processing.candidate_recovery import saved_candidate
-
-            with SessionLocal() as db:
-                saved = saved_candidate(db, task, revision, result, question, settings)
-            if saved:
-                raw, call = saved
-            else:
-                raw, call = request_json(
-                    task.id,
-                    fingerprint({"audio": result["audio"]["file_hash"]}),
-                    "sample" if len(receipts) < 5 else "run",
-                    SYSTEM_PROMPT_V2,
-                    generation_input(result, question, task.request),
-                    settings,
-                    execution_token=token,
-                )
-            # Raw response remains immutable even when candidate validation fails.
-            with SessionLocal() as db:
-                _, _, command = fence(db, command_id, token)
-                current = tasks.fenced_task(db, task.id, token)
-                artifact = record_artifact(
-                    db,
-                    command,
-                    current,
-                    "candidate",
-                    {
-                        "question_src_id": question["_src_id"],
-                        "candidate": raw,
-                        "call": call,
-                        "question_input_hash": qhash,
-                        "rules_manifest": revision.rules_manifest,
-                    },
-                    settings,
-                )
-                attempt = db.get(p.LlmAttempt, call["attempt_id"])
-                receipt = {
-                    "question_src_id": question["_src_id"],
-                    "task_id": str(task.id),
-                    "artifact_id": artifact.id,
-                    "artifact_hash": artifact.artifact_hash,
-                    "attempt_id": attempt.id,
-                    "response_hash": fingerprint(attempt.response_payload),
-                    "candidate_hash": fingerprint(normalize_candidate(raw)),
-                    "question_input_hash": qhash,
-                    "generation_input_hash": fingerprint(
-                        generation_input(result, question, task.request)
-                    ),
-                    "prompt_version": PROMPT_VERSION,
-                    "prompt_sha256": fingerprint(SYSTEM_PROMPT_V2),
-                    "rules_manifest_hash": revision.rules_manifest["manifest_hash"],
-                    "state": "generated"
-                    if raw.get("candidate_errors")
-                    else "generated_empty",
-                }
-                db.commit()
+            raw, receipt = generate_candidate(
+                command_id,
+                token,
+                task,
+                revision,
+                result,
+                question,
+                len(receipts),
+                settings,
+            )
         check_option_candidate(result, question, raw)
         merge_option_candidate(result, question, raw)
         receipts.append(receipt)
+        annotation_checkpoint(
+            command_id,
+            token,
+            task,
+            {
+                "question_src_id": question["_src_id"],
+                "question_index": question["question_index"],
+                "completed_count": len(receipts),
+                "state": "validated",
+            },
+            settings,
+        )
     result["generation_receipts"] = receipts
     return result
 

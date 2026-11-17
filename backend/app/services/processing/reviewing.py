@@ -25,13 +25,20 @@ from app.services.processing.validation import validate_result
 
 def validate_final(db, payload, request, revision, settings):
     from app.module3.workflow_worker import generation_input
-    from app.services.processing.candidate_recovery import response_task_matches
+    from app.services.processing.candidate_recovery import (
+        response_task_matches,
+        runtime_compatible,
+    )
     from app.services.processing.reprocessing import ancestor_revision
 
     if (
         payload.get("schema_version") != "m3.v2"
         or payload.get("rules_manifest") != revision.rules_manifest
-        or revision.rules_manifest != rules_manifest()
+        or revision.rules_manifest.get("manifest_hash")
+        != fingerprint(
+            {k: v for k, v in revision.rules_manifest.items() if k != "manifest_hash"}
+        )
+        or not runtime_compatible(revision.rules_manifest, rules_manifest())
     ):
         raise w.conflict("ARTIFACT_CHANGED", "当前结果不属于有效的新规则方法")
     issues = validate_result(payload, request)

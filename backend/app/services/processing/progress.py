@@ -203,10 +203,10 @@ def workflow_progress(db, workflow, task, materials, now, settings, revision):
                         stage="assemble", description=DESCRIPTIONS["assemble"]
                     )
         if stage in {"annotate", "annotate_sample"}:
+            from app.services.processing.orchestration import artifact_payload
+
             reused = set()
             if stage == "annotate":
-                from app.services.processing.orchestration import artifact_payload
-
                 projections = [(revision.stage_fingerprints.get("sample"), None)]
                 plan = task.request.get("repair_plan", {})
                 if task.request.get("reuse_final_projection"):
@@ -232,13 +232,51 @@ def workflow_progress(db, workflow, task, materials, now, settings, revision):
                     except (OSError, ValueError, KeyError, ProcessingError):
                         continue
             result.update(
-                completed_count=len(reused)
-                + sum(r.stage == "workflow_candidate" for r in rows),
+                completed_count=len(reused),
                 total_count=5
                 if stage == "annotate_sample"
                 else task.request.get("expected_question_count"),
                 unit="题",
             )
+            checkpoints = [r for r in rows if r.stage == "workflow_annotation_progress"]
+            if checkpoints:
+                try:
+                    checkpoint, _ = artifact_payload(db, checkpoints[-1].id, settings)
+                    result["completed_count"] = checkpoint["completed_count"]
+                    number = checkpoint["question_index"]
+                    if active:
+                        correction = checkpoint.get("correction", 0)
+                        result["current_item"] = (
+                            f"第{number}题，证据校验未通过，自动纠正 {correction}/2"
+                            if checkpoint["state"] == "correcting"
+                            else f"第{number}题"
+                        )
+                except (OSError, ValueError, KeyError, ProcessingError):
+                    # A broken telemetry checkpoint must not inflate completion.
+                    result["completed_count"] = len(reused)
+            else:
+                # Legacy candidates were saved before validation. Count only
+                # distinct questions whose saved responses still pass checks.
+                from app.module3.option_annotations import check_option_candidate
+                from app.services.processing.orchestration import stage_payload
+
+                valid = set(reused)
+                try:
+                    source, _ = stage_payload(db, revision, "source", settings)
+                    questions = {q["_src_id"]: q for q in source["questions"]}
+                    for row in rows:
+                        if row.stage != "workflow_candidate":
+                            continue
+                        try:
+                            raw, _ = artifact_payload(db, row.id, settings)
+                            question = questions[raw["question_src_id"]]
+                            check_option_candidate(source, question, raw["candidate"])
+                            valid.add(question["_src_id"])
+                        except (OSError, ValueError, KeyError, ProcessingError):
+                            continue
+                except (OSError, ValueError, KeyError, ProcessingError):
+                    pass
+                result["completed_count"] = len(valid)
     if (
         workflow.processing_state == "running"
         and command

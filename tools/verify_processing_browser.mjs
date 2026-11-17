@@ -25,7 +25,7 @@ try {
     const context=await browser.newContext({viewport:{width,height}});const page=await context.newPage()
     await page.addInitScript(()=>localStorage.setItem('ssre_access_token','synthetic-browser-token'))
     page.on('pageerror',error=>errors.push(error.message))
-    let sessionVersion=1,createKey=null,createCount=0,unknownRetry=false,retryCount=0
+    let sessionVersion=1,createKey=null,createCount=0,unknownRetry=false,retryCount=0,correcting=false
     await page.route('**/api/v1/**',async route=>{
       const req=route.request(),url=new URL(req.url()),pathname=url.pathname
       if(req.method()==='OPTIONS'){await route.fulfill({status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*','Access-Control-Allow-Methods':'*'}});return}
@@ -42,7 +42,7 @@ try {
         check(url.searchParams.get('idempotency_key')===createKey,'recovery queries the original operation key')
         data={operation_id:wid,workflow_id:wid,revision_id:rid,action:'create',state:'succeeded',failure_code:null,result:{},created_at:summary.created_at}
       }
-      else if(pathname===`${root}/${wid}`)data=unknownRetry?{...workflow,processing_state:'failed',usage:{known_usd:'0.002',reserved_usd:'0.02',has_unknown_charges:true}}:workflow
+      else if(pathname===`${root}/${wid}`)data=correcting?{...workflow,processing_state:'running',progress:{stage:'annotate',description:'生成整套技能、答案证据和错因标注',completed_count:9,total_count:25,unit:'题',active:true,elapsed_ms:12000,current_item:'第10题，证据校验未通过，自动纠正 1/2',checkpoint:'workflow_annotation_progress'}}:unknownRetry?{...workflow,processing_state:'failed',usage:{known_usd:'0.002',reserved_usd:'0.02',has_unknown_charges:true}}:workflow
       else if(pathname.endsWith('/operations'))data={items:unknownRetry?[{operation_id:wid,workflow_id:wid,revision_id:rid,action:'continue',state:'failed',failure_code:'LLM_TRANSPORT',result:{stage:'annotate_sample'},created_at:summary.created_at}]:[]}
       else if(pathname.endsWith('/retries')){retryCount++;const body=req.postDataJSON();check(body.retry_of_operation_id===wid&&body.expected_workflow_version===7,'retry retains failed operation and version');check(Boolean(req.headers()['idempotency-key']),'retry has an idempotency key');data={operation_id:rid,workflow_id:wid,revision_id:rid,action:'retry',state:'accepted',failure_code:null,result:{stage:'annotate_sample'},created_at:summary.created_at}}
       else if(pathname.endsWith('/questions'))data={items:[question(1),question(2)],total:2,result_hash:hash,next_cursor:null}
@@ -85,6 +85,17 @@ try {
     await page.getByRole('button',{name:'查询原操作',exact:true}).click()
     await page.getByText('第1题审核意见',{exact:true}).waitFor()
     check(createCount===1,`${width}: recovering creation does not create a second workflow`)
+    correcting=true
+    await page.reload()
+    await page.getByText('正在处理：第10题，证据校验未通过，自动纠正 1/2 · 9 / 25 题',{exact:true}).waitFor()
+    check(await page.getByText('36%',{exact:true}).isVisible(),`${width}: correction attempts do not inflate the percentage`)
+    const clock=page.getByLabel('本次任务用时',{exact:true}),beforeClock=await clock.innerText()
+    await page.waitForTimeout(1200)
+    check(await clock.innerText()!==beforeClock,`${width}: elapsed timer continues during evidence correction`)
+    check(!(await page.locator('body').innerText()).includes('本次任务用时（已暂停）'),`${width}: correction stays active`)
+    check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${width}: correction message has no horizontal overflow`)
+    if(!process.env.M3_BROWSER_NO_SCREENSHOTS)await page.screenshot({path:path.join(output,`${width}-evidence-correction.png`),fullPage:true})
+    correcting=false
     unknownRetry=true
     await page.reload();await page.getByText('有未确认计费',{exact:false}).waitFor()
     const retry=page.getByRole('button',{name:'重试失败阶段',exact:true})

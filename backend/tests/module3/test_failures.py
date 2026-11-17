@@ -118,6 +118,66 @@ def test_a17_timeout_reservation_not_zeroed(context, monkeypatch):
         )
 
 
+def test_correction_request_keeps_input_and_ledgers_feedback(context, monkeypatch):
+    import json
+
+    import httpx
+    from pydantic import SecretStr
+
+    from app.db.base import SessionLocal
+    from app.db.models_processing import LlmAttempt
+    from app.module3 import llm
+    from app.module3.contracts import fingerprint
+
+    monkeypatch.setattr(
+        context["settings"], "deepseek_api_key", SecretStr("synthetic-key")
+    )
+    source = {"question": {"_src_id": "q:1"}, "segments": []}
+    rejected = {"question_src_id": "q:1", "bad_refs": ["s:1", "s:3"]}
+    feedback = {
+        "candidate": rejected,
+        "code": "ANNOTATION_EVIDENCE_INVALID",
+        "message": "Synthetic nonconsecutive evidence",
+    }
+    sent = []
+
+    def handler(request):
+        sent.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "model": "synthetic-test-only",
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+                "choices": [
+                    {"finish_reason": "stop", "message": {"content": '{"ok":true}'}}
+                ],
+            },
+        )
+
+    raw, call = llm.request_json(
+        UUID(context["task_id"]),
+        context["task_id"],
+        "sample",
+        "JSON",
+        source,
+        context["settings"],
+        transport=httpx.MockTransport(handler),
+        validation_feedback=feedback,
+    )
+    assert raw == {"ok": True} and len(sent) == 1
+    messages = sent[0]["messages"]
+    assert json.loads(messages[1]["content"]) == source
+    assert json.loads(messages[2]["content"]) == rejected
+    correction = json.loads(messages[3]["content"])
+    assert correction["validation_code"] == feedback["code"]
+    assert "full segments._src_id" in correction["instruction"]
+    with SessionLocal() as db:
+        row = db.get(LlmAttempt, call["attempt_id"])
+        assert row.request_payload == sent[0]
+        assert row.request_hash == call["request_hash"] == fingerprint(sent[0])
+        assert row.status == "succeeded" and row.charged_usd > 0
+
+
 def test_a07_concurrent_claim_skips_locked_task(context):
     from sqlalchemy import select
 
