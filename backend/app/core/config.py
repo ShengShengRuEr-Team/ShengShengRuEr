@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     # 模块二：音频受控目录（storage_key 的相对根；音频本体不入库，不进 Git）。
     audio_storage_dir: str = "var/audio"
 
+    # 管理端审计降级文件目录（受控持久卷；相对值基于 backend/ 解析）。
+    admin_audit_fallback_dir: str = "var/admin-audit-fallback"
+
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
         env_file_encoding="utf-8",
@@ -79,6 +82,12 @@ class Settings(BaseSettings):
     def audio_storage_path(self) -> Path:
         """音频受控目录的绝对路径（相对值基于 backend/ 解析）。"""
         path = Path(self.audio_storage_dir)
+        return path if path.is_absolute() else (BASE_DIR / path)
+
+    @property
+    def admin_audit_fallback_path(self) -> Path:
+        """审计降级目录的绝对路径（相对值基于 backend/ 解析）。"""
+        path = Path(self.admin_audit_fallback_dir)
         return path if path.is_absolute() else (BASE_DIR / path)
 
 

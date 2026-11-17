@@ -1,6 +1,7 @@
 """FastAPI 应用入口与全局装配。"""
 
 import logging
+import uuid
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -17,6 +18,11 @@ from app.api import (
     listening_papers,
 )
 from app.core.errors import AppError
+from app.core.request_context import (
+    bind_request_id,
+    new_request_id,
+    reset_request_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +40,30 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
 )
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    """每个请求生成 request_id，成功与业务失败都回写 X-Request-ID。"""
+
+    request_id = new_request_id()
+    request.state.request_id = request_id
+    token = bind_request_id(request_id)
+    try:
+        response = await call_next(request)
+    finally:
+        reset_request_id(token)
+    response.headers["X-Request-ID"] = str(request_id)
+    return response
+
+
+def _request_id_headers(request: Request) -> dict[str, str]:
+    request_id = getattr(request.state, "request_id", None)
+    if request_id is None:
+        return {}
+    return {"X-Request-ID": str(request_id)}
 
 
 @app.exception_handler(AppError)
@@ -42,7 +71,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
         content={"code": exc.status_code, "msg": exc.msg, "data": None},
-        headers=exc.headers,
+        headers={**(exc.headers or {}), **_request_id_headers(request)},
     )
 
 
@@ -54,6 +83,7 @@ async def validation_error_handler(
     return JSONResponse(
         status_code=422,
         content={"code": 422, "msg": "请求参数校验失败", "data": None},
+        headers=_request_id_headers(request),
     )
 
 
@@ -65,15 +95,18 @@ async def http_error_handler(
     return JSONResponse(
         status_code=exc.status_code,
         content={"code": exc.status_code, "msg": detail, "data": None},
+        headers=_request_id_headers(request),
     )
 
 
 @app.exception_handler(Exception)
 async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.exception("未处理异常: %s", exc)
+    request_id = getattr(request.state, "request_id", None) or uuid.uuid4()
     return JSONResponse(
         status_code=500,
         content={"code": 500, "msg": "服务器内部错误", "data": None},
+        headers={"X-Request-ID": str(request_id)},
     )
 
 

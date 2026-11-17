@@ -2,13 +2,15 @@
 
 - 持久会话：`auth_sessions`（T01）。对外会话标识为 UUID；只存 jti 的
   SHA-256 指纹，不存原始 JWT 或 jti。
-- 两类审计事件：`admin_login_events`、`admin_audit_events`（T02）。
+- 两类审计事件：`admin_login_events`、`admin_audit_events`（T02）。两表独立，
+  共享列相同；登录表另存声明用户名与失败类型，操作表另存 `run_id`（纯追溯）。
 
 users.auth_version 属于既有 users 表的增量列，定义在 `app.db.models`。
 """
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     CHAR,
@@ -20,7 +22,7 @@ from sqlalchemy import (
     Integer,
     String,
 )
-from sqlalchemy.dialects.postgresql import INET, UUID
+from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -80,3 +82,152 @@ Index(
     AuthSession.id.desc(),
 )
 Index("ix_auth_sessions_expires_at", AuthSession.expires_at)
+
+
+class AdminLoginEvent(Base):
+    """登录事件：成功与失败都记，未知账号也留声明用户名。"""
+
+    __tablename__ = "admin_login_events"
+    __table_args__ = (
+        CheckConstraint(
+            "result IN ('SUCCESS', 'FAILURE')", name="result"
+        ),
+        CheckConstraint("duration_ms >= 0", name="duration_ms"),
+        CheckConstraint(
+            "reason_code IS NULL OR reason_code IN"
+            " ('UNKNOWN_ACCOUNT', 'BAD_PASSWORD', 'DISABLED')",
+            name="reason_code",
+        ),
+    )
+
+    event_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    request_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor_user_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    actor_name: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="", server_default=""
+    )
+    role_snapshot: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    target_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    target_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    result: Mapped[str] = mapped_column(String(16), nullable=False)
+    reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    summary: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
+    ip: Mapped[str | None] = mapped_column(INET, nullable=True)
+    user_agent: Mapped[str] = mapped_column(
+        String(256), nullable=False, default="", server_default=""
+    )
+    duration_ms: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    username_attempted: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="", server_default=""
+    )
+
+
+class AdminAuditEvent(Base):
+    """操作审计事件：业务成功与业务拒绝分别记录。"""
+
+    __tablename__ = "admin_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "result IN ('SUCCESS', 'FAILURE')", name="result"
+        ),
+        CheckConstraint("duration_ms >= 0", name="duration_ms"),
+    )
+
+    event_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    request_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor_user_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    actor_name: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="", server_default=""
+    )
+    role_snapshot: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    target_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    target_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    result: Mapped[str] = mapped_column(String(16), nullable=False)
+    reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    summary: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
+    ip: Mapped[str | None] = mapped_column(INET, nullable=True)
+    user_agent: Mapped[str] = mapped_column(
+        String(256), nullable=False, default="", server_default=""
+    )
+    duration_ms: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    # 纯追溯字段：不设级联外键，不被任务清理牵连。
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
+
+
+Index(
+    "ix_admin_login_events_occurred_at_event_id",
+    AdminLoginEvent.occurred_at.desc(),
+    AdminLoginEvent.event_id.desc(),
+)
+Index(
+    "ix_admin_login_events_actor_occurred_at",
+    AdminLoginEvent.actor_user_id,
+    AdminLoginEvent.occurred_at.desc(),
+)
+Index(
+    "ix_admin_login_events_result_occurred_at",
+    AdminLoginEvent.result,
+    AdminLoginEvent.occurred_at.desc(),
+)
+Index("ix_admin_login_events_username", AdminLoginEvent.username_attempted)
+Index("ix_admin_login_events_reason_code", AdminLoginEvent.reason_code)
+
+Index(
+    "ix_admin_audit_events_occurred_at_event_id",
+    AdminAuditEvent.occurred_at.desc(),
+    AdminAuditEvent.event_id.desc(),
+)
+Index(
+    "ix_admin_audit_events_actor_occurred_at",
+    AdminAuditEvent.actor_user_id,
+    AdminAuditEvent.occurred_at.desc(),
+)
+Index(
+    "ix_admin_audit_events_result_occurred_at",
+    AdminAuditEvent.result,
+    AdminAuditEvent.occurred_at.desc(),
+)
+Index(
+    "ix_admin_audit_events_event_type_occurred_at",
+    AdminAuditEvent.event_type,
+    AdminAuditEvent.occurred_at.desc(),
+)
+Index(
+    "ix_admin_audit_events_target",
+    AdminAuditEvent.target_type,
+    AdminAuditEvent.target_id,
+)
