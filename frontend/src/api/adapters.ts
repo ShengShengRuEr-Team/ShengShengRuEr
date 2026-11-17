@@ -27,6 +27,8 @@ export interface AuthProfile {
   user: AuthUser
   roles: string[]
   isAdmin: boolean
+  /** 仅来自 getInfo.permissions；旧服务缺失时为 []。 */
+  permissions: string[]
 }
 
 export function toAuthProfile(data: GetInfoData): AuthProfile {
@@ -38,6 +40,7 @@ export function toAuthProfile(data: GetInfoData): AuthProfile {
     },
     roles: data.roles,
     isAdmin: data.is_admin,
+    permissions: data.permissions ?? [],
   }
 }
 

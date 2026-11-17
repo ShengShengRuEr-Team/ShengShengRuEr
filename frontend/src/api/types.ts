@@ -33,6 +33,8 @@ export interface GetInfoData {
   user: UserInfoDto
   roles: string[]
   is_admin: boolean
+  /** 固定 21 个权限码；旧服务未返回时按空数组处理。 */
+  permissions?: string[]
 }
 
 /* ---------- 听力试卷（模块二） ---------- */

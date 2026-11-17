@@ -15,6 +15,15 @@ from app.core.errors import AppError
 
 MAX_USER_AGENT_LENGTH = 256
 INVALID_PARAMETER_MESSAGE = "请求参数校验失败"
+PAGE_SIZES: tuple[int, ...] = (10, 20, 50, 100)
+
+
+def validate_page_size(value: int) -> int:
+    """分页大小白名单；pydantic 的 int Literal 不接收查询字符串，故手动校验。"""
+
+    if value not in PAGE_SIZES:
+        raise invalid_parameter()
+    return value
 
 
 def request_ip(request: Request) -> str | None:

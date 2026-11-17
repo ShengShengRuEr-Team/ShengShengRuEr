@@ -100,3 +100,27 @@ npm run typecheck
 | 活动节流排除范围 | `/admin/monitor/*`、`/admin/dashboard`、`/admin/logs`、`/admin/openapi.json`、`/health/*`；`GET /admin/users` 需 `X-Admin-Activity: explicit` 才刷新 | §6.3 |
 | 撤会话计数 | 只统计「未撤销且未过期」的会话 | §5.4、§6.2 |
 | T03 迁移 | 零迁移（`users.auth_version`、`auth_sessions` 已在 0006）；若实测需加索引/字段先停下确认 | §5.1、§15 T03 |
+
+## 9 T04 口径推定记录（验收时复核）
+
+| 项 | 推定口径 | 依据 |
+| --- | --- | --- |
+| CSV 列名 | 中文列名，逐字按 §11.1 | 用户 2026-11-17 确认 |
+| CSV 的「操作者名称ID」「目标类型ID」 | 拆为「操作者名称/操作者ID」「目标类型/目标ID」四列 | §11.1 斜杠分隔，用户确认拆列 |
+| CSV 枚举值 | 角色/状态/结果/原因/事件类型/目标类型输出中文标签，未知值原样输出 | §11.4 生成标签用于展示 |
+| 操作日志「摘要」列 | 过滤后的 summary 以紧凑 JSON（`sort_keys`）输出 | §7.2 summary 白名单 |
+| 导出 `EXPORT_FAILED.stage` | `read` / `limit_rows` / `limit_bytes` / `timeout` / `generate` / `audit` | §11.1、DD-03 |
+| 15 秒 deadline | 每批读取前检查；超时 500 且不截断 | §11.1「读快照和生成合计 ≤15 秒」 |
+| 日志读取 summary | 读取侧按事件类型白名单再过滤一次 | 用户 2026-11-17 约束 |
+| 枚举事件类型 | 生成物按字典序输出 `EVENT_TYPES`，标签按稳定键排序 | §11.4 稳定键排序 |
+| 题库 `exam_level` | 只登记现有真实值 `CET4`；其它值按「未知（原值）」 | §11.4 不新造值 |
+| 前端旧用例 | 129 例全绿，**0 处**需要按 §11.2 改写 | 实测 |
+
+## 10 T04 生成与检查命令
+
+```text
+cd backend
+python scripts/generate_admin_constants.py          # 写入 frontend/src/generated/adminConstants.ts
+python scripts/generate_admin_constants.py --check  # 不一致返回非零（CI/提交门禁）
+python -m pytest tests/test_admin_constants.py -q    # 生成物与后端枚举一致
+```

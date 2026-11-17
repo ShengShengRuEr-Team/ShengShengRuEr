@@ -3,10 +3,12 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { ROLES } from '../constants/permissions'
 import { ROUTES, homePathForRole } from '../constants/routes'
+import { PERM_LOG_READ } from '../generated/adminConstants'
 import AdminLayout from '../layouts/AdminLayout'
 import StudentLayout from '../layouts/StudentLayout'
 import FullPageLoading from '../ui/FullPageLoading'
 import RequireAuth from './RequireAuth'
+import RequirePermission from './RequirePermission'
 import RequireRole from './RequireRole'
 
 // 路由级代码分割：页面单独成 chunk，首屏只加载登录页与守卫。
@@ -16,6 +18,8 @@ const ForbiddenPage = lazy(() => import('../pages/ForbiddenPage'))
 const AdminHomePage = lazy(() => import('../pages/admin/HomePage'))
 const AdminListeningPaperListPage = lazy(() => import('../pages/admin/ListeningPaperListPage'))
 const AdminListeningPaperDetailPage = lazy(() => import('../pages/admin/ListeningPaperDetailPage'))
+const AdminLoginLogsPage = lazy(() => import('../pages/admin/LoginLogsPage'))
+const AdminOperationLogsPage = lazy(() => import('../pages/admin/OperationLogsPage'))
 const StudentHomePage = lazy(() => import('../pages/student/HomePage'))
 const StudentListeningPaperListPage = lazy(() => import('../pages/student/ListeningPaperListPage'))
 const StudentListeningPaperPage = lazy(() => import('../pages/student/ListeningPaperPage'))
@@ -65,6 +69,22 @@ export default function AppRouter() {
           <Route
             path={ROUTES.ADMIN_LISTENING_PAPER_DETAIL}
             element={<AdminListeningPaperDetailPage />}
+          />
+          <Route
+            path={ROUTES.ADMIN_LOGIN_LOGS}
+            element={
+              <RequirePermission code={PERM_LOG_READ}>
+                <AdminLoginLogsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path={ROUTES.ADMIN_OPERATION_LOGS}
+            element={
+              <RequirePermission code={PERM_LOG_READ}>
+                <AdminOperationLogsPage />
+              </RequirePermission>
+            }
           />
         </Route>
 

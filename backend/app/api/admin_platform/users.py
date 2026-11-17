@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.admin_platform.common import (
     parse_positive_int,
+    validate_page_size,
     request_ip,
     request_user_agent,
 )
@@ -37,7 +38,7 @@ from app.services.admin import accounts
 router = APIRouter(prefix="/admin", tags=["管理端-用户"])
 
 PageNumber = Annotated[int, Query(ge=1)]
-PageSize = Annotated[Literal[10, 20, 50, 100], Query()]
+PageSize = Annotated[int, Query()]
 FilterText = Annotated[str | None, Query(max_length=50)]
 
 
@@ -56,6 +57,7 @@ def list_users(
     page: PageNumber = 1,
     page_size: PageSize = 20,
 ) -> dict:
+    validate_page_size(page_size)
     records, total = accounts.list_users(
         db,
         username=username,
