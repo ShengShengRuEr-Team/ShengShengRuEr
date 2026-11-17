@@ -6,6 +6,7 @@ export interface WorkflowSummary {
   workflow_id: string; revision_id: string; row_version: number
   exam_level: string; exam_year: number; exam_month: number; paper_set: number
   exam_paper_id: number | null; processing_state: string; content_review_state: string
+  source_check_required?: boolean
   error_review_state: string; publication_state: string; created_at: string; updated_at: string
 }
 export interface WorkflowMaterial {

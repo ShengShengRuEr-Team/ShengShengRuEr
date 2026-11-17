@@ -1,4 +1,17 @@
+import type { WorkflowDetail, WorkflowSummary } from './processing-types'
+
+const sourceCheckCodes = new Set(['ASSEMBLY_ANSWER_UNRESOLVED','ASSEMBLY_OCR_UNCERTAIN','ASSEMBLY_INCOMPLETE',
+  'REFERENCE_OCR_UNCERTAIN','REFERENCE_QUESTIONS_INCOMPLETE','REFERENCE_GROUPS_INCOMPLETE','REFERENCE_TEXT_REQUIRED'])
+export function needsSourceCheck(workflow: WorkflowSummary & {issues?: WorkflowDetail['issues']}) {
+  if(workflow.processing_state!=='failed')return false
+  const codes=workflow.issues?.map(issue=>issue.code).filter(code=>code!=='PROCESSING_FAILED')??[]
+  return workflow.source_check_required===true || (codes.length>0&&codes.every(code=>sourceCheckCodes.has(code)))
+}
+export const workflowState = (workflow: WorkflowSummary & {issues?: WorkflowDetail['issues']}) =>
+  needsSourceCheck(workflow)?'source_unresolved':workflow.processing_state
+
 export const stateLabels: Record<string, string> = {
+  source_unresolved:'待核对来源识别',
   review:'逐题审核',align:'音频对齐',assemble:'来源组装',annotate:'整套标注',annotate_sample:'前5题试标',
   extract:'原件提取',assembly_extract:'答案解析识别',reuse:'复用已确认结果',normalize:'音频解码',reference:'原文提取',preflight:'环境检查',materials:'材料准备',
   awaiting_materials: '待补材料', queued: '排队中', running: '执行中', awaiting_alignment: '等待核听确认',

@@ -12,7 +12,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import AppError, ok
 from app.db import models_processing_workflows as m
 from app.db.base import get_db
-from app.db.models_processing import MaterialSource
+from app.db.models_processing import MaterialSource, ProcessingTask
 from app.module3.annotation_identity import rules_manifest
 from app.schemas_processing_workflows import (
     AlignmentCorrectionRequest,
@@ -142,6 +142,16 @@ def list_workflows(
     rows, next_cursor = service.cursor_page(
         db, stmt, m.ProcessingWorkflow, limit, cursor
     )
+    # One bounded task query for the page; never load question content here.
+    task_issues = dict(
+        db.execute(
+            select(ProcessingTask.id, ProcessingTask.issues).where(
+                ProcessingTask.id.in_(
+                    [r.current_task_id for r in rows if r.current_task_id]
+                )
+            )
+        ).all()
+    )
     # List projections are bounded and do not query per-question/per-workflow details.
     return ok(
         {
@@ -150,6 +160,9 @@ def list_workflows(
                     "workflow_id": row.id,
                     "revision_id": row.current_revision_id,
                     "row_version": row.row_version,
+                    "source_check_required": service.source_check_required(
+                        row.processing_state, task_issues.get(row.current_task_id, [])
+                    ),
                     **{
                         key: getattr(row, key)
                         for key in (

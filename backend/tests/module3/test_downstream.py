@@ -184,6 +184,34 @@ def test_missing_answer_never_uses_an_excluded_letter():
         finalize_answers(records)
 
 
+@pytest.mark.parametrize(
+    "text", ["因此，选项B是正确答案。", "B项是正确选项。", "选项B是正确答\n案。"]
+)
+def test_explicit_is_correct_answer_is_recognized(text):
+    from app.module3.source_assembly import finalize_answers
+
+    records = {1: {"explanation_blocks": [{"original_text": text, "confidence": 0.99}]}}
+    assert finalize_answers(records)[1]["correct_option"] == "B"
+    assert records[1]["explanation_text"] == text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "选项B不是正确答案。",
+        "选项B并非是正确选项。",
+        "选项B是正确答案。选项C为正确答案。",
+    ],
+)
+def test_negative_or_conflicting_is_correct_answer_remains_unresolved(text):
+    from app.module3.source_assembly import finalize_answers
+
+    with pytest.raises(ValueError):
+        finalize_answers(
+            {1: {"explanation_blocks": [{"original_text": text, "confidence": 0.99}]}}
+        )
+
+
 def test_paper_options_stop_before_keys_and_instructions():
     from app.module3.source_assembly import paper_answer_key, paper_options
 

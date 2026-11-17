@@ -203,6 +203,7 @@ class WorkflowSummaryDto(StrictModel):
     paper_set: int
     exam_paper_id: int | None
     processing_state: str
+    source_check_required: bool = False
     content_review_state: str
     error_review_state: str
     publication_state: str

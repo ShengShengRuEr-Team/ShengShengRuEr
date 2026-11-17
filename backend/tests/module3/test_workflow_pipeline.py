@@ -1120,6 +1120,85 @@ def test_waiting_progress_duration_is_frozen(pipeline):
     assert "等待核听确认" in first["description"]
 
 
+def test_unresolved_source_projects_attention_and_reuses_finished_ocr(
+    client, pipeline, monkeypatch
+):
+    from app.db.base import SessionLocal
+    from app.module3 import worker
+    from app.services.processing import tasks
+
+    c = pipeline
+    c["execute"](c["post"]("start", {"reason": "Synthetic source recognition"}))
+    original = worker.process
+
+    def unresolved(task_id, token, settings):
+        with SessionLocal() as db:
+            task = tasks.fenced_task(db, task_id, token)
+            tasks.save_artifact(
+                db, task.id, token, "assembly_extract", {"pages": []}, settings
+            )
+            task.state, task.lease_token, task.expires_at = "failed", None, None
+            task.issues = [
+                {
+                    "issue_code": "ASSEMBLY_ANSWER_UNRESOLVED",
+                    "message": "Synthetic unresolved answer",
+                }
+            ]
+            db.commit()
+        return 2
+
+    monkeypatch.setattr(worker, "process", unresolved)
+    # approve() also executes the assembly task, whose failure is injected above.
+    with pytest.raises(AssertionError):
+        c["approve"]("align")
+    before = c["detail"]()
+    assert before["source_check_required"] is True
+    assert before["content_review_state"] == "not_ready"
+    rows = client.get(BASE, headers=c["headers"]).json()["data"]["items"]
+    assert (
+        next(row for row in rows if row["workflow_id"] == c["id"])[
+            "source_check_required"
+        ]
+        is True
+    )
+    operations = client.get(
+        f"{BASE}/{c['id']}/operations", headers=c["headers"]
+    ).json()["data"]["items"]
+    failed = next(
+        row for row in operations if row["result"].get("task_id") == before["task_id"]
+    )
+    response = c["post"](
+        "retries",
+        {
+            "retry_of_operation_id": failed["operation_id"],
+            "reason": "Synthetic explicit source recovery",
+        },
+    )
+    assert response.status_code == 202, response.text
+    with SessionLocal() as db:
+        task = tasks.get_task(db, UUID(response.json()["data"]["result"]["task_id"]))
+        assert task.request["reuse_assembly_scan_task_id"] == before["task_id"]
+    assert c["detail"]()["source_check_required"] is False
+    monkeypatch.setattr(worker, "process", original)
+    c["execute"](response)
+    assert c["detail"]()["processing_state"] == "awaiting_source"
+
+
+@pytest.mark.parametrize(
+    "code", ["BUDGET_LIMIT", "ASSEMBLY_ANSWER_CONFLICT", "WORKER_EXITED"]
+)
+def test_runtime_and_source_conflict_remain_errors(code):
+    from app.services.processing.workflows import source_check_required
+
+    assert not source_check_required("failed", [{"issue_code": code}])
+    assert not source_check_required(
+        "failed", [{"issue_code": "ASSEMBLY_ANSWER_UNRESOLVED"}, {"issue_code": code}]
+    )
+    assert not source_check_required(
+        "running", [{"issue_code": "ASSEMBLY_ANSWER_UNRESOLVED"}]
+    )
+
+
 def test_runtime_retry_reuses_valid_responses_and_revalidates_full_review(
     client, pipeline, monkeypatch
 ):

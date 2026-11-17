@@ -210,6 +210,7 @@ def finalize_answers(records):
     patterns = (
         r"(?:故选(?:项)?|答案[为是])([ABCD])(?:项)?(?:[。；，,]|$)",
         r"(?:选项)?([ABCD])(?:项)?[^ABCD。；]{0,80}(?:为正确答案|为正确选项)",
+        r"(?:选项)?([ABCD])(?:项)?是正确(?:答案|选项)",
     )
     for number, record in records.items():
         explanation = "\n".join(

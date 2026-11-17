@@ -18,6 +18,23 @@ from app.module3.contracts import fingerprint
 from app.repositories import listening
 
 MATERIAL_KINDS = ("paper", "answer", "audio")
+SOURCE_CHECK_CODES = frozenset(
+    {
+        "ASSEMBLY_ANSWER_UNRESOLVED",
+        "ASSEMBLY_OCR_UNCERTAIN",
+        "ASSEMBLY_INCOMPLETE",
+        "REFERENCE_OCR_UNCERTAIN",
+        "REFERENCE_QUESTIONS_INCOMPLETE",
+        "REFERENCE_GROUPS_INCOMPLETE",
+        "REFERENCE_TEXT_REQUIRED",
+    }
+)
+
+
+def source_check_required(state, issues):
+    codes = {i.get("issue_code", i.get("code")) for i in issues}
+    codes.discard("PROCESSING_FAILED")
+    return state == "failed" and bool(codes) and codes <= SOURCE_CHECK_CODES
 
 
 def conflict(code, message, **context):
@@ -419,6 +436,9 @@ def workflow_data(db, workflow):
         "result_hash": revision.final_result_hash,
         "current_batch_id": batch.id if batch else None,
         "is_student_visible": visible,
+        "source_check_required": source_check_required(
+            workflow.processing_state, task.issues if task else []
+        ),
         "usage": usage,
         "stages": revision.stage_fingerprints,
         "review_session_id": session.id if session else None,

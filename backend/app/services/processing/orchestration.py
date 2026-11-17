@@ -500,6 +500,23 @@ def retry(db, workflow_id, payload, user_id, key, settings):
     )
     task.parent_task_id = recovery_task.id
     task.request = {**task.request, "recovery_task_id": str(recovery_task.id)}
+    if (
+        previous.result["stage"] == "assemble"
+        and db.scalar(
+            select(p.ProcessingArtifact.id)
+            .where(
+                p.ProcessingArtifact.task_id == recovery_task.id,
+                p.ProcessingArtifact.stage == "assembly_extract",
+            )
+            .limit(1)
+        )
+        is not None
+    ):
+        # Reuse only through assembly_scan's material/model/image integrity gates.
+        task.request = {
+            **task.request,
+            "reuse_assembly_scan_task_id": str(recovery_task.id),
+        }
     task.input_hash = fingerprint(
         {
             "request": task.request,

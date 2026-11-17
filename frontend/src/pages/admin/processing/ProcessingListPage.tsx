@@ -3,7 +3,7 @@ import { Alert, Button, Empty, Select, Space, Table, Tag, Typography } from 'ant
 import { Link, useSearchParams } from 'react-router-dom'
 import { listWorkflows } from '../../../api/processing'
 import type { WorkflowSummary } from '../../../api/processing-types'
-import { label, paperName } from '../../../api/processing-adapters'
+import { label, paperName, workflowState, needsSourceCheck } from '../../../api/processing-adapters'
 
 export default function ProcessingListPage() {
   const [search, setSearch] = useSearchParams()
@@ -37,7 +37,7 @@ export default function ProcessingListPage() {
     {error && <Alert type="error" showIcon title={error} />}
     <Table<WorkflowSummary> loading={loading} rowKey="workflow_id" dataSource={items} pagination={false} locale={{emptyText: <Empty description="尚无处理任务，可先创建并上传一套材料" />}} columns={[
       {title:'试卷', key:'paper', render: (_, row) => <Link to={`/admin/listening-papers/processing/${row.workflow_id}`}>{paperName(row)}</Link>},
-      {title:'处理',dataIndex:'processing_state',render: value => <Tag>{label(String(value))}</Tag>},
+      {title:'处理',dataIndex:'processing_state',render: (_, row) => <Tag color={needsSourceCheck(row)?'warning':undefined}>{label(workflowState(row))}</Tag>},
       {title:'内容 / 错因审核',key:'review',render: (_, row) => `${label(row.content_review_state)} / ${label(row.error_review_state)}`},
       {title:'发布',dataIndex:'publication_state',render: value => label(String(value))},
       {title:'创建时间',dataIndex:'created_at',render: value => new Date(String(value)).toLocaleString('zh-CN')},

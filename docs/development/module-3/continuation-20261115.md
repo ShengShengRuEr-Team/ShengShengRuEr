@@ -313,6 +313,7 @@ interface WorkflowDetailDto {
     failure_code: string | null
   }>
   processing_state: string
+  source_check_required: boolean // 来源识别未确定；详情及列表显示待核对，非审核通过
   content_review_state: string
   error_generation_summary: Record<string, number>
   error_review_state: string

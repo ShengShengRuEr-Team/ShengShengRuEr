@@ -4,7 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../auth/useAuth'
 import { request } from '../../../api/client'
 import { binary, getCapabilities, getQuestions, getWorkflow, putMaterial, readPending, sendOperation, WORKFLOWS } from '../../../api/processing'
-import { paperName, label as stateLabel } from '../../../api/processing-adapters'
+import { paperName, label as stateLabel, needsSourceCheck, workflowState } from '../../../api/processing-adapters'
 import type { Capabilities, Evidence, Operation, QuestionView, WorkflowDetail, WorkflowMaterial } from '../../../api/processing-types'
 import PendingOperationPanel from './PendingOperationPanel'
 import QuestionContent from './QuestionContent'
@@ -85,10 +85,11 @@ export default function ProcessingDetailPage() {
   const failed=operations.find(operation=>['failed','conflict','stopped'].includes(operation.state)&&operation.revision_id===workflow.revision_id)
   const retryState=failed?.result.stage==='publish'?workflow.publication_state:workflow.processing_state
   const canRetry=Boolean(failed)&&['failed','conflict','stopped'].includes(retryState)
+  const sourceCheck=needsSourceCheck(workflow)
   return <Space orientation="vertical" size={20} style={{width:'100%'}}>
     <Space wrap><Link to="/admin/listening-papers/processing">返回处理任务</Link><Link to="/admin/listening-papers">正式题库</Link>
       {workflow.exam_paper_id&&workflow.current_batch_id&&<Link to={`/admin/listening-papers/${workflow.exam_paper_id}`}>查看正式详情</Link>}</Space>
-    <Space wrap><Typography.Title level={4} style={{margin:0}}>{paperName(workflow)}</Typography.Title><Tag>{stateLabel(workflow.processing_state)}</Tag>
+    <Space wrap><Typography.Title level={4} style={{margin:0}}>{paperName(workflow)}</Typography.Title><Tag color={sourceCheck?'warning':undefined}>{stateLabel(workflowState(workflow))}</Tag>
       <Button onClick={refresh}>刷新</Button></Space>
     <PendingOperationPanel owner={owner} target={workflowId} onChange={refresh} onRecovered={()=>refresh()} />
     {error&&<Alert type="error" showIcon title={error} closable onClose={()=>setError('')}/>}{notice&&<Alert type="success" title={notice}/>}
@@ -99,13 +100,15 @@ export default function ProcessingDetailPage() {
     ]}/><Space wrap style={{marginTop:16}}>
       <Button type="primary" disabled={busy||!workflow.allowed_actions.find(action=>action.action==='start')?.enabled} onClick={()=>void command('start','start',{reason:'管理员显式开始处理'})}>开始处理</Button>
       <Button danger disabled={busy||!operations.some(operation=>['running','accepted'].includes(operation.state))} onClick={()=>void command('stop','stop',{reason:'管理员显式停止处理'})}>停止处理</Button>
-      <Button disabled={busy||!canRetry} onClick={retryFailed}>重试失败阶段</Button>
+      <Button disabled={busy||!canRetry} onClick={retryFailed}>{sourceCheck?'重新识别来源':'重试失败阶段'}</Button>
       <Button disabled={busy||dirty||operations.some(operation=>['running','accepted'].includes(operation.state))} onClick={()=>setRevisionOpen(true)}>创建材料子修订</Button>
       <Button disabled={busy||dirty||workflow.content_review_state!=='approved'||workflow.error_review_state!=='approved'||workflow.publication_state==='published'} onClick={()=>void command('publish','publish',{
         expected_result_hash:workflow.result_hash,review_session_id:workflow.review_session_id,expected_current_batch_id:workflow.current_batch_id})}>正式入库并激活</Button>
     </Space></Card>
     {capabilities&&!capabilities.processing_ready&&<Alert type="warning" title={capabilities.blocked_reason??'处理环境尚未就绪'}/>}
-    {workflow.issues.map((issue,index)=><Alert key={`${issue.code}:${index}`} type="error" title={`${issue.code}：${issue.message}`}/>)}
+    {workflow.issues.filter(issue=>!sourceCheck||issue.code!=='PROCESSING_FAILED').map((issue,index)=><Alert key={`${issue.code}:${index}`} type={sourceCheck?'warning':'error'}
+      title={sourceCheck?`来源识别待核对：${issue.message}`:`${issue.code}：${issue.message}`}
+      description={sourceCheck?'保留原件和已完成步骤。可核对原页及识别结果，再重新识别来源；完整确认后才能继续标注。':undefined}/>)}
     <Card title="当前修订原件"><div className="processing-materials">{workflow.materials.map(material=><div className="processing-material" key={material.kind}>
       <Typography.Text strong>{({paper:'原卷 PDF',answer:'答案解析 PDF',audio:'原始音频'})[material.kind]}</Typography.Text><Tag>{stateLabel(material.state)}</Tag>
       <Typography.Paragraph ellipsis={{rows:2}}>{material.filename??'尚未选择文件'}</Typography.Paragraph>
