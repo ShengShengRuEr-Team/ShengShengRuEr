@@ -1,0 +1,12 @@
+ready: 8001/8002 200
+login 8001: 200
+cross-instance /admin/me on 8002: 200
+dashboard keys=['as_of', 'cache', 'cards', 'timezone', 'window_end', 'window_start']
+cache instance differ=True; hits 8001=0 8002=0
+monitor instance differ=True; pool1=0 pool2=0
+revoke target session on 8002: 200 body={"code":200,"msg":"会话已撤销","data":{"session_id":"02d7d716-a277-4b82-a74e-9bd671ca21f5","changed":true}}
+revoked token me on 8001=401 8002=401 (expect 401/401)
+export users: 200 content-type=text/csv; charset=utf-8 first-line=﻿用户ID,用户名,昵称,角色,状态,创建时间,更新时间
+student papers on 8002: 200
+live=200 ready=200
+processes terminated

@@ -1,0 +1,11 @@
+﻿T09 environment snapshot
+date=2026-11-17T15:56+08:00
+os=Microsoft Windows NT 10.0.26100.0
+python=Python 3.13.16
+node=v24.14.0
+psycopg 3.3.6
+requirements_sha256=6f964878a0d828fec5d4c953c4134eda9b199f47599258761428fc539dc4a78f
+expected_sha256=728105bdefece77759cdf69f30723e35bf48859b75e78dbf8637e5c4dac8cc74
+head=7c426d0b6e6aae2af6216d906c3455f6511ef7ab
+branch=feature/admin-platform
+devdb=0004_expected_count_source (untouched)

@@ -1,0 +1,3 @@
+db-down instance: live=200 {'status': 'alive'} ready=503 {"status":"not_ready"}
+JWT rotation: old token me=401 (expect 401); new login=200
+processes terminated
