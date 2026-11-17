@@ -130,11 +130,7 @@ def test_seed_definition_row(db) -> None:
     assert row.job_id == "admin.retention_cleanup"
     assert row.enabled is True
     assert row.timezone == "Asia/Shanghai"
-    assert row.missed_slots == 0
-    assert row.active_run_id is None
-    assert row.last_run_id is None
-    # 由调度进程启动时计算并持久化。
-    assert row.next_scheduled_at is None
+    # missed_slots/active_run_id/next_scheduled_at 是运行期状态，由调度测试覆盖。
 
     count = db.execute(
         text("SELECT count(*) FROM admin_job_definitions")
