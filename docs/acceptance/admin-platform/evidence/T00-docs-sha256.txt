@@ -1,0 +1,12 @@
+﻿SHA-256 of input documents, captured 2026-11-17 (Asia/Shanghai)
+728105BDEFECE77759CDF69F30723E35BF48859B75E78DBF8637E5C4DAC8CC74  D:\guochuangxiangmu\docs\requirements\admin-platform\requirements.md
+9276F1F2E9D38C1D3DC7EDD11CD78773A6F526566F59CFE5975E4997E23E3BA7  D:\guochuangxiangmu\docs\development\admin-platform\development.md
+8057FB73CEC2EF0A367EB481AE5898D2C01BD9D7B0540C2FA036C1803E0934E2  D:\guochuangxiangmu\docs\development\admin-platform\api.md
+5E76161C55A399D32F44F1FB9F2C3C362FAD298F6B6169940501D16D502E7BE1  D:\guochuangxiangmu\docs\development\admin-platform\design.md
+2EC23E6EA83303744592295C37473FA6CF98354D06BE566683316B286762F494  D:\guochuangxiangmu\docs\development\admin-platform\frontend.md
+85E81D5FD70E3B8837B8BBB1B38D3DB156385DD1097ACB48470F97D24EAA7436  D:\guochuangxiangmu\docs\development\admin-platform\README.md
+371307A3B8019F8B831DAC9FE0FBBE87F4E26F799B520D139F1FE677C5EEDFF2  D:\guochuangxiangmu\docs\development\admin-platform\tasks.md
+DDC955E984B7CA572044142FAB956235D77E7E5E79E3FADB52E0B005A43B1699  D:\guochuangxiangmu\docs\admin-platform-development.md
+A6827D4139BDCF927A6517A260CEA37368CC71583471CD85316B1FCEC09E73F8  D:\guochuangxiangmu\docs\research\ruoyi-capability-review-20261116.md
+SHA-256 of archived copy inside repository
+728105BDEFECE77759CDF69F30723E35BF48859B75E78DBF8637E5C4DAC8CC74  D:\ShengShengRuEr\ShengShengRuEr\docs\requirements\admin-platform\requirements.md

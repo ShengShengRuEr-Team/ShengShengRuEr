@@ -36,6 +36,10 @@ def forbidden(required_role: str = "管理员") -> AppError:
     )
 
 
+def permission_denied(msg: str = "没有访问该接口的权限") -> AppError:
+    return AppError(status.HTTP_403_FORBIDDEN, msg)
+
+
 def not_found(msg: str = "资源不存在") -> AppError:
     return AppError(status.HTTP_404_NOT_FOUND, msg)
 

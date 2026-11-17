@@ -30,6 +30,8 @@ class GetInfoData(BaseModel):
     user: UserInfo
     roles: list[str]
     is_admin: bool
+    # 新增字段：与旧字段并存，旧调用方按需忽略；前端未适配时默认空数组。
+    permissions: list[str] = []
 
 
 class AdminOverviewData(BaseModel):

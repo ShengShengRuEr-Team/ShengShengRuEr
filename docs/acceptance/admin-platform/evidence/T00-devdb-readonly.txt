@@ -1,0 +1,5 @@
+﻿$ python D:\pytemp\dbcheck.py  (read-only dev database snapshot)
+version_num=0004_expected_count_source
+auth_sessions=None
+admin_login_events=None
+public_table_count=16

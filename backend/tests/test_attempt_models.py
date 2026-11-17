@@ -269,9 +269,25 @@ def test_a2_tables_exist_and_existing_tables_untouched(db):
     assert len(MODULE2_TABLES) == 11
 
 
-def test_a2_alembic_version_is_0005(db):
+def _single_head() -> str:
+    """从迁移脚本读取当前唯一 head，避免每次新增 revision 都要改断言。"""
+
+    from pathlib import Path
+
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    backend = Path(__file__).resolve().parents[1]
+    config = Config(str(backend / "alembic.ini"))
+    config.set_main_option("script_location", str(backend / "alembic"))
+    heads = ScriptDirectory.from_config(config).get_heads()
+    assert len(heads) == 1, heads
+    return heads[0]
+
+
+def test_a2_alembic_version_is_single_head(db):
     version = db.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert version == "0005_attempt_system"
+    assert version == _single_head()
 
 
 @pytest.mark.parametrize(

@@ -1,4 +1,13 @@
-"""密码哈希与 JWT 工具。"""
+"""密码哈希与 JWT 工具。
+
+JWT 沿用 HS256 与既有 claims（sub/username/jti/type/iat/exp），本期新增：
+
+- `auth_version`：非负整数，与 users.auth_version、auth_sessions.auth_version 比对；
+  拒绝 bool（Python 中 bool 是 int 的子类，必须单独排除）。
+- `session_id`：登录会话 UUID，用于按会话撤销与在线统计。
+
+缺少这两个声明的历史 token 一律判为无效，这是本期“存量 token 全部失效”的来源。
+"""
 
 import uuid
 from dataclasses import dataclass
@@ -20,6 +29,8 @@ class TokenClaims:
     username: str
     jti: str
     expires_at: datetime
+    auth_version: int
+    session_id: uuid.UUID
 
 
 def hash_password(plain_password: str) -> str:
@@ -54,6 +65,8 @@ def create_access_token(
     *,
     user_id: int,
     username: str,
+    auth_version: int,
+    session_id: uuid.UUID,
     settings: Settings,
 ) -> tuple[str, TokenClaims]:
     """签发 HS256 access token，返回 token 与解析后的 claims。"""
@@ -67,12 +80,16 @@ def create_access_token(
         username=username,
         jti=uuid.uuid4().hex,
         expires_at=expires_at,
+        auth_version=auth_version,
+        session_id=session_id,
     )
     payload = {
         "sub": str(user_id),
         "username": username,
         "jti": claims.jti,
         "type": "access",
+        "auth_version": auth_version,
+        "session_id": str(session_id),
         "iat": issued_at,
         "exp": expires_at,
     }
@@ -93,7 +110,16 @@ def decode_access_token(token: str, settings: Settings) -> TokenClaims:
             settings.jwt_secret_key.get_secret_value(),
             algorithms=[settings.jwt_algorithm],
             options={
-                "require": ["sub", "username", "jti", "type", "iat", "exp"],
+                "require": [
+                    "sub",
+                    "username",
+                    "jti",
+                    "type",
+                    "auth_version",
+                    "session_id",
+                    "iat",
+                    "exp",
+                ],
             },
         )
     except jwt.InvalidTokenError as exc:
@@ -104,6 +130,8 @@ def decode_access_token(token: str, settings: Settings) -> TokenClaims:
     jti = payload.get("jti")
     token_type = payload.get("type")
     expires_at = payload.get("exp")
+    auth_version = payload.get("auth_version")
+    session_id_raw = payload.get("session_id")
 
     if not isinstance(subject, str) or not subject.strip():
         raise TokenValidationError("token 缺少 sub")
@@ -115,6 +143,17 @@ def decode_access_token(token: str, settings: Settings) -> TokenClaims:
         raise TokenValidationError("token 类型错误")
     if not isinstance(expires_at, (int, float)):
         raise TokenValidationError("token 缺少 exp")
+    # bool 是 int 的子类，必须显式排除。
+    if isinstance(auth_version, bool) or not isinstance(auth_version, int):
+        raise TokenValidationError("token 缺少 auth_version")
+    if auth_version < 0:
+        raise TokenValidationError("token 的 auth_version 非法")
+    if not isinstance(session_id_raw, str):
+        raise TokenValidationError("token 缺少 session_id")
+    try:
+        session_id = uuid.UUID(session_id_raw)
+    except (TypeError, ValueError) as exc:
+        raise TokenValidationError("token 的 session_id 非法") from exc
 
     try:
         user_id = int(subject)
@@ -126,4 +165,6 @@ def decode_access_token(token: str, settings: Settings) -> TokenClaims:
         username=username,
         jti=jti,
         expires_at=datetime.fromtimestamp(expires_at, tz=UTC),
+        auth_version=auth_version,
+        session_id=session_id,
     )
