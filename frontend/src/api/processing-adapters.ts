@@ -10,5 +10,7 @@ export const stateLabels: Record<string, string> = {
   generated: '已生成，待审核', generated_empty: '空错因已生成，待审核', not_generated: '待生成', legacy_pending: '旧错因已停用，待重新标注',
 }
 export const label = (state: string) => stateLabels[state] ?? state
+export const skillName = (skill: {skill_code: string; skill_name?: string | null}) =>
+  skill.skill_name ?? __M3_SKILL_NAMES__[skill.skill_code] ?? '名称暂缺'
 export const paperName = (paper: {exam_level: string; exam_year: number; exam_month: number; paper_set: number}) =>
   `${paper.exam_year}年${paper.exam_month}月 ${paper.exam_level} 第${paper.paper_set}套`

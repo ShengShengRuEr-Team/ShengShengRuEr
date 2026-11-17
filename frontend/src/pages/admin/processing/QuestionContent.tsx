@@ -1,5 +1,6 @@
 import { Button, Collapse, Space, Tag, Typography } from 'antd'
 import type { Evidence, QuestionView } from '../../../api/processing-types'
+import { skillName } from '../../../api/processing-adapters'
 
 export default function QuestionContent({question, play}: {question: QuestionView; play: (evidence: Evidence) => void}) {
   function evidence(items: Evidence[]) { return <Space orientation="vertical" style={{width:'100%'}}>{items.map(row => <div key={row._src_id}>
@@ -20,7 +21,7 @@ export default function QuestionContent({question, play}: {question: QuestionVie
     {!hasErrors && <Typography.Text type="secondary">{question.generation_state === 'generated_empty' ? '无有依据的错因标注（审核页仍须明确确认）' : '错因待生成'}</Typography.Text>}
     <Typography.Paragraph><Typography.Text strong>来源解析：</Typography.Text>{question.explanation_text}</Typography.Paragraph>
     <Typography.Text strong>技能与证据</Typography.Text>
-    {question.skills.map(skill => <div key={skill._src_id}><Tag>{skill.role === 'PRIMARY' ? '主要技能' : '辅助技能'} · {skill.skill_code}</Tag>
+    {question.skills.map(skill => <div key={skill._src_id}><Tag style={{whiteSpace:'normal'}}>{skill.role === 'PRIMARY' ? '主要技能' : '辅助技能'} · {skill.skill_code} · {skillName(skill)}</Tag>
       <Typography.Paragraph>{skill.attributes_json?.annotation_reason}</Typography.Paragraph>{evidence(skill.evidence)}</div>)}
     <Typography.Text strong>答案证据</Typography.Text>{evidence(question.answer_evidence)}
   </Space>

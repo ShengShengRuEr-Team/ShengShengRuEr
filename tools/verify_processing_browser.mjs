@@ -25,7 +25,7 @@ try {
     const context=await browser.newContext({viewport:{width,height}});const page=await context.newPage()
     await page.addInitScript(()=>localStorage.setItem('ssre_access_token','synthetic-browser-token'))
     page.on('pageerror',error=>errors.push(error.message))
-    let sessionVersion=1,createKey=null,createCount=0
+    let sessionVersion=1,createKey=null,createCount=0,unknownRetry=false,retryCount=0
     await page.route('**/api/v1/**',async route=>{
       const req=route.request(),url=new URL(req.url()),pathname=url.pathname
       if(req.method()==='OPTIONS'){await route.fulfill({status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*','Access-Control-Allow-Methods':'*'}});return}
@@ -42,8 +42,9 @@ try {
         check(url.searchParams.get('idempotency_key')===createKey,'recovery queries the original operation key')
         data={operation_id:wid,workflow_id:wid,revision_id:rid,action:'create',state:'succeeded',failure_code:null,result:{},created_at:summary.created_at}
       }
-      else if(pathname===`${root}/${wid}`)data=workflow
-      else if(pathname.endsWith('/operations'))data={items:[]}
+      else if(pathname===`${root}/${wid}`)data=unknownRetry?{...workflow,processing_state:'failed',usage:{known_usd:'0.002',reserved_usd:'0.02',has_unknown_charges:true}}:workflow
+      else if(pathname.endsWith('/operations'))data={items:unknownRetry?[{operation_id:wid,workflow_id:wid,revision_id:rid,action:'continue',state:'failed',failure_code:'LLM_TRANSPORT',result:{stage:'annotate_sample'},created_at:summary.created_at}]:[]}
+      else if(pathname.endsWith('/retries')){retryCount++;const body=req.postDataJSON();check(body.retry_of_operation_id===wid&&body.expected_workflow_version===7,'retry retains failed operation and version');check(Boolean(req.headers()['idempotency-key']),'retry has an idempotency key');data={operation_id:rid,workflow_id:wid,revision_id:rid,action:'retry',state:'accepted',failure_code:null,result:{stage:'annotate_sample'},created_at:summary.created_at}}
       else if(pathname.endsWith('/questions'))data={items:[question(1),question(2)],total:2,result_hash:hash,next_cursor:null}
       else if(pathname.endsWith(`/review-sessions/${session}`))data={row_version:sessionVersion,items:[],result_hash:hash,state:'draft',total:2,next_cursor:null}
       else if(pathname.endsWith('/items')){const body=req.postDataJSON();check(Boolean(req.headers()['idempotency-key']),'review save carries original operation key');check(body.expected_result_hash===hash,'review save binds immutable final result');sessionVersion++;
@@ -84,6 +85,13 @@ try {
     await page.getByRole('button',{name:'查询原操作',exact:true}).click()
     await page.getByText('第1题审核意见',{exact:true}).waitFor()
     check(createCount===1,`${width}: recovering creation does not create a second workflow`)
+    unknownRetry=true
+    await page.reload();await page.getByText('有未确认计费',{exact:false}).waitFor()
+    const retry=page.getByRole('button',{name:'重试失败阶段',exact:true})
+    check(await retry.isEnabled(),`${width}: unknown charges do not disable explicit retry`)
+    await retry.click();await page.getByText('操作已受理，状态以服务器记录为准',{exact:true}).waitFor()
+    check(retryCount===1,`${width}: explicit retry sends only one command`)
+    check((await page.locator('body').innerText()).includes('预留 $0.02'),`${width}: retry preserves unknown fee indicator`)
     await context.close()
   }
   check(errors.length===0,'no browser runtime errors')

@@ -37,7 +37,7 @@ export interface QuestionView {
   options: Array<{display_letter: string; base_option_letter: string; text: string; error_causes: Array<{
     relation_src_id: string; code: string; rationale: string; evidence: Evidence[]
   }>}>
-  skills: Array<{_src_id: string; skill_code: string; role: string; attributes_json?: {annotation_reason?: string}; evidence: Evidence[]}>
+  skills: Array<{_src_id: string; skill_code: string; skill_name?: string | null; role: string; attributes_json?: {annotation_reason?: string}; evidence: Evidence[]}>
   answer_evidence: Evidence[]; review_requirements: Record<string, string[]>
 }
 export interface ReviewItem {

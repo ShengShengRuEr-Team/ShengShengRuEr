@@ -3,6 +3,7 @@ import { Alert, Button, Card, Checkbox, Input, Radio, Select, Space, Typography 
 import { request } from '../../../api/client'
 import { WORKFLOWS } from '../../../api/processing'
 import type { QuestionView, ReviewItem, WorkflowDetail } from '../../../api/processing-types'
+import { skillName } from '../../../api/processing-adapters'
 
 function blank(question: QuestionView): ReviewItem { return {question_src_id:question.question_src_id,content:'changes_required',primary_skills:[],answer_evidence:[],error_causes:[],empty_errors_confirmed:false,note:'',issues:[]} }
 export default function ReviewPanel({owner, workflow, question, busy, dirtyChanged, command}: {
@@ -47,7 +48,7 @@ export default function ReviewPanel({owner, workflow, question, busy, dirtyChang
     update({[field]:checked?[...item[field].filter(row=>row.reference!==ref),{reference:ref,decision:'approved'}]:item[field].filter(row=>row.reference!==ref)})
   }
   const readable:Record<string,string> = {}
-  for (const skill of question.skills) {readable[skill._src_id]=`技能 ${skill.skill_code}`;for(const ev of skill.evidence) readable[ev.relation_src_id]=`技能证据：${ev.evidence_text}`}
+  for (const skill of question.skills) {readable[skill._src_id]=`${skill.role === 'PRIMARY' ? '主要技能' : '辅助技能'} ${skill.skill_code} · ${skillName(skill)}`;for(const ev of skill.evidence) readable[ev.relation_src_id]=`技能证据：${ev.evidence_text}`}
   for(const ev of question.answer_evidence) readable[ev.relation_src_id]=`答案证据：${ev.evidence_text}`
   for(const option of question.options) for(const cause of option.error_causes) {readable[cause.relation_src_id]=`${option.display_letter} 选项错因 ${cause.code}`;for(const ev of cause.evidence) readable[ev.relation_src_id]=`错因证据：${ev.evidence_text}`}
   return <Card title={`第${question.question_no}题审核意见`}>

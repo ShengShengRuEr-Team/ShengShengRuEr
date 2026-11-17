@@ -21,6 +21,18 @@ def dictionary_names():
     }
 
 
+@cache
+def skill_names():
+    from app.services.processing.validation import load_dictionary
+
+    return {
+        row["skill_code"]: row["skill_name"]
+        for table in load_dictionary()["tables"]
+        if table["name"] == "skill"
+        for row in table["rows"]
+    }
+
+
 def public_value(value):
     if isinstance(value, list):
         return [public_value(item) for item in value]
@@ -111,7 +123,11 @@ def question_view(content, question):
             "correct_option_display": inverse[question["correct_option"]],
             "options": sorted(options, key=lambda row: row["display_letter"]),
             "skills": [
-                {**row, "evidence": evidence_groups(skill_rows, row["_src_id"])}
+                {
+                    **row,
+                    "skill_name": skill_names().get(row["skill_code"]),
+                    "evidence": evidence_groups(skill_rows, row["_src_id"]),
+                }
                 for row in skill_rows
                 if row.get("question_src_id") == qid
             ],

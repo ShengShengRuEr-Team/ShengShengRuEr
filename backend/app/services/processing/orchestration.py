@@ -434,19 +434,8 @@ def retry(db, workflow_id, payload, user_id, key, settings):
         raise w.conflict(
             "PUBLICATION_RETRY_REQUIRED", "发布重试须使用原最终结果与已有pending批次"
         )
-    pending = db.scalar(
-        # A publication retry preserves the generation task; it has its own
-        # authenticated command and recoverable pending-batch checkpoints.
-        select(p.LlmAttempt.id)
-        .join(p.ProcessingTask, p.ProcessingTask.id == p.LlmAttempt.task_id)
-        .where(
-            p.ProcessingTask.workflow_id == workflow.id,
-            p.LlmAttempt.billing_status == "unknown",
-        )
-        .limit(1)
-    )
-    if pending:
-        raise w.conflict("BILLING_LEDGER_UNAVAILABLE", "存在未知收费请求，请先核实账本")
+    # Unknown charges remain visible and count at their reserved amount. They
+    # do not block an explicit retry; reservation still enforces shared budgets.
     recovery_task = tasks.get_task(db, UUID(previous.result["task_id"]))
     if revision.rules_manifest != rules_manifest():
         from app.services.processing.candidate_recovery import runtime_compatible

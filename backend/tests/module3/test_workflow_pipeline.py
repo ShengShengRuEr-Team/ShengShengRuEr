@@ -508,6 +508,14 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline):
     )
     assert response.status_code == 200, response.text
     q = response.json()["data"]["items"][0]
+    skill = q["skills"][0]
+    assert skill["skill_name"] == next(
+        row["skill_name"]
+        for table in load_dictionary()["tables"]
+        if table["name"] == "skill"
+        for row in table["rows"]
+        if row["skill_code"] == skill["skill_code"]
+    )
     assert (
         len(q["options"][1]["error_causes"])
         == len(q["options"][2]["error_causes"])
@@ -1269,3 +1277,81 @@ heartbeat(UUID(sys.argv[1]), UUID(sys.argv[2]),
     with SessionLocal() as db:
         task = db.get(p.ProcessingTask, UUID(operation["result"]["task_id"]))
         assert task.heartbeat_at is not None
+
+
+def test_unknown_charges_allow_explicit_retry_without_resetting_budget(
+    pipeline, monkeypatch
+):
+    from app.db import models_processing as p
+    from app.db import models_processing_workflows as m
+    from app.db.base import SessionLocal
+    from app.module3 import llm
+    from app.module3.contracts import ProcessingError, fingerprint
+    from app.services.processing import tasks
+
+    c = pipeline
+    failed = c["execute"](c["post"]("start", {"reason": "Synthetic recovery policy"}))
+    run_key = "synthetic-unknown-" + uuid4().hex
+    with SessionLocal() as db:
+        workflow = db.get(m.ProcessingWorkflow, UUID(c["id"]))
+        command = db.get(m.ProcessingWorkflowCommand, UUID(failed["operation_id"]))
+        task = db.get(p.ProcessingTask, UUID(failed["result"]["task_id"]))
+        # Inject a failed execution and its unresolved charge, never a fake debit.
+        workflow.processing_state = task.state = command.state = "failed"
+        attempt = p.LlmAttempt(
+            task_id=task.id,
+            run_key=run_key,
+            phase="sample",
+            request_hash=fingerprint({}),
+            request_payload={},
+            reserved_usd=Decimal("0.02"),
+            billing_status="unknown",
+            status="failed",
+        )
+        db.add(attempt)
+        db.commit()
+        original_id = attempt.id
+    response = c["post"](
+        "retries",
+        {
+            "reason": "Explicit retry with unknown charges retained",
+            "retry_of_operation_id": failed["operation_id"],
+        },
+    )
+    assert response.status_code == 202, response.text
+    operation = response.json()["data"]
+    token = uuid4()
+    with SessionLocal() as db:
+        command = db.get(m.ProcessingWorkflowCommand, UUID(operation["operation_id"]))
+        task = db.get(p.ProcessingTask, UUID(operation["result"]["task_id"]))
+        command.state = task.state = "running"
+        command.execution_token = task.lease_token = token
+        command.lease_expires_at = task.expires_at = tasks.utcnow() + timedelta(
+            seconds=120
+        )
+        db.commit()
+        task_id = task.id
+    # Another database's unknown commitment also counts without a hard stop.
+    monkeypatch.setattr(
+        llm,
+        "external_commitments",
+        lambda _: (Decimal("0.03"), Decimal("0.03"), Decimal("0.03"), 1),
+    )
+    settings = c["context"]["settings"]
+    new_id = llm.reserve(
+        task_id, run_key, "sample", {}, settings, execution_token=token
+    )
+    assert new_id != original_id
+    # 0.02 local + 0.03 external + the existing new reservation exceeds 0.05.
+    monkeypatch.setattr(settings, "m3_sample_budget_usd", 0.05)
+    with pytest.raises(ProcessingError, match="预算"):
+        llm.reserve(task_id, run_key, "sample", {}, settings, execution_token=token)
+    with SessionLocal() as db:
+        original = db.get(p.LlmAttempt, original_id)
+        assert original.billing_status == "unknown"
+        assert original.charged_usd is None
+        assert original.reserved_usd == Decimal("0.02")
+        assert db.get(p.ProcessingTask, task_id).parent_task_id == UUID(
+            failed["result"]["task_id"]
+        )
+    assert c["detail"]()["usage"]["has_unknown_charges"] is True

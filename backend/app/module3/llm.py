@@ -117,19 +117,11 @@ def reserve(task_id, run_key, phase, request, settings, *, execution_token=None)
         def cost(row):
             return row.charged_usd if row.charged_usd is not None else row.reserved_usd
 
-        external_total, external_run, external_sample, external_unknown = (
+        external_total, external_run, external_sample, _external_unknown = (
             external_commitments(run_key)
         )
-        if execution_token is not None and (
-            external_unknown
-            or any(
-                row.run_key == run_key and row.billing_status == "unknown"
-                for row in rows
-            )
-        ):
-            raise ProcessingError(
-                "BILLING_LEDGER_UNAVAILABLE", "同一原音存在未确认计费，停止新调用"
-            )
+        # Unknown charges are informational, conservatively included above at
+        # the reserved amount. They never become a zero-cost successful call.
         total = sum((cost(r) for r in rows), external_total)
         run = sum((cost(r) for r in rows if r.run_key == run_key), external_run)
         sample = sum(
@@ -230,6 +222,9 @@ def request_json(
                     "IDs within each evidence group, with no omitted middle sentence. "
                     "Split disconnected groups; quote each group exactly. Return fewer "
                     "candidate errors when support is insufficient. "
+                    "For skills, answer evidence and every error evidence group, "
+                    "copy each full segments._src_id verbatim, including its passage "
+                    "prefix; never abbreviate IDs or copy IDs from the question. "
                     "Never invent evidence."
                 )
     attempts = 1 if execution_token is not None else 3

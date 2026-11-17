@@ -96,7 +96,7 @@ export default function ProcessingDetailPage() {
     ]}/><Space wrap style={{marginTop:16}}>
       <Button type="primary" disabled={busy||!workflow.allowed_actions.find(action=>action.action==='start')?.enabled} onClick={()=>void command('start','start',{reason:'管理员显式开始处理'})}>开始处理</Button>
       <Button danger disabled={busy||!operations.some(operation=>['running','accepted'].includes(operation.state))} onClick={()=>void command('stop','stop',{reason:'管理员显式停止处理'})}>停止处理</Button>
-      <Button disabled={busy||!failed||(failed.result.stage!=='publish'&&workflow.usage.has_unknown_charges)} onClick={retryFailed}>重试失败阶段</Button>
+      <Button disabled={busy||!failed} onClick={retryFailed}>重试失败阶段</Button>
       <Button disabled={busy||dirty||operations.some(operation=>['running','accepted'].includes(operation.state))} onClick={()=>setRevisionOpen(true)}>创建材料子修订</Button>
       <Button disabled={busy||dirty||workflow.content_review_state!=='approved'||workflow.error_review_state!=='approved'||workflow.publication_state==='published'} onClick={()=>void command('publish','publish',{
         expected_result_hash:workflow.result_hash,review_session_id:workflow.review_session_id,expected_current_batch_id:workflow.current_batch_id})}>正式入库并激活</Button>
