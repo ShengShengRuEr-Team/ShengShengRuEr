@@ -52,7 +52,9 @@ class Settings(BaseSettings):
     m3_upload_max_bytes: int = Field(default=536870912, gt=0, le=536870912)
     m3_upload_lease_seconds: int = Field(default=120, ge=30)
     m3_upload_heartbeat_seconds: int = Field(default=10, ge=1)
-    m3_sample_budget_usd: float = Field(default=0.50, gt=0, le=0.50)
+    # Default remains unchanged; an explicit runtime authorization may raise
+    # the shared sample ceiling to 0.75 without resetting historical costs.
+    m3_sample_budget_usd: float = Field(default=0.50, gt=0, le=0.75)
     m3_run_budget_usd: float = Field(default=2.0, gt=0, le=2.0)
     m3_total_budget_usd: float = Field(default=5.0, gt=0, le=5.0)
     m3_sentence_tolerance_ms: int = Field(default=300, ge=0, le=300)
