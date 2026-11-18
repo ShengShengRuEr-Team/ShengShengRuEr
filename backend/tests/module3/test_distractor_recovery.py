@@ -63,6 +63,25 @@ def test_unresolved_sample_blocks_approval_and_can_be_reprocessed(
         },
     )
     assert rejected.status_code in {409, 422}, rejected.text
+    returned = c["post"](
+        "stage-approvals",
+        {
+            "stage": "sample",
+            "artifact_hash": stage["artifact_hash"],
+            "expected_stage_dependency_hash": stage["dependency_hash"],
+            "decision": "changes_required",
+            "reviewer_kind": "codex",
+            "items": [
+                {
+                    "reference": r["_src_id"],
+                    "decision": "changes_required",
+                    "reason": "Synthetic unresolved source requires reprocessing",
+                }
+                for r in stage["items"]
+            ],
+        },
+    )
+    assert returned.status_code == 200, returned.text
     body = {
         "expected_result_hash": detail["sample_result_hash"],
         "question_src_ids": ["q:1"],

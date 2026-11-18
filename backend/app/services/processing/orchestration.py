@@ -282,7 +282,8 @@ def approve_stage(db, workflow_id, payload, user_id, key, settings):
         from app.module3.distractor_annotations import validate_option_relations
 
         sample = {**content, "questions": content["questions"][:5]}
-        validate_option_relations(sample)
+        if payload.decision == "approved":
+            validate_option_relations(sample)
         expected |= {a["_src_id"] for a in content.get("distractor_assessments", [])}
     items = payload.items
     if (
