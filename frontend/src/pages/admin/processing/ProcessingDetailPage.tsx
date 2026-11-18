@@ -95,7 +95,7 @@ export default function ProcessingDetailPage() {
     {error&&<Alert type="error" showIcon title={error} closable onClose={()=>setError('')}/>}{notice&&<Alert type="success" title={notice}/>}
     <Card><ProcessingProgress workflow={workflow}/><Descriptions column={3} size="small" items={[
       {key:'content',label:'内容审核',children:stateLabel(workflow.content_review_state)},{key:'errors',label:'错因审核',children:stateLabel(workflow.error_review_state)},
-      {key:'publish',label:'正式入库',children:stateLabel(workflow.publication_state)},{key:'visible',label:'学生可见',children:workflow.is_student_visible?'已开放':'未开放'},
+      {key:'publish',label:'本次结果入库',children:stateLabel(workflow.publication_state)},{key:'visible',label:'当前正式卷学生可见',children:workflow.is_student_visible?'已开放':'未开放'},
       {key:'cost',label:'本任务费用账本',children:`已知 $${workflow.usage.known_usd} / 预留 $${workflow.usage.reserved_usd}${workflow.usage.has_unknown_charges?'（有未确认计费）':''}`},
     ]}/><Space wrap style={{marginTop:16}}>
       <Button type="primary" disabled={busy||!workflow.allowed_actions.find(action=>action.action==='start')?.enabled} onClick={()=>void command('start','start',{reason:'管理员显式开始处理'})}>开始处理</Button>
