@@ -441,6 +441,16 @@ def workflow_data(db, workflow):
 
         sample, _ = stage_payload(db, revision, "sample", get_settings())
         sample_hash = result_hash(sample)
+    reprocess_hash = revision.final_result_hash or sample_hash
+    if reprocess_hash is None:
+        from app.module3.contracts import result_hash
+        from app.services.processing import orchestration, reprocessing
+
+        if reprocessing.reprocess_stage(db, workflow, revision) == "source":
+            source, _ = orchestration.stage_payload(
+                db, revision, "source", get_settings()
+            )
+            reprocess_hash = result_hash(source)
     materials = []
     for kind in MATERIAL_KINDS:
         row = uploads.get(kind)
@@ -465,6 +475,7 @@ def workflow_data(db, workflow):
         "task_id": workflow.current_task_id,
         "result_hash": revision.final_result_hash,
         "sample_result_hash": sample_hash,
+        "reprocess_result_hash": reprocess_hash,
         "current_batch_id": batch.id if batch else None,
         "is_student_visible": visible,
         "source_check_required": source_check_required(

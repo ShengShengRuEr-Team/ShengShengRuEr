@@ -83,6 +83,28 @@ def test_schema_file_matches_active_contract():
     )
 
 
+@pytest.mark.parametrize("kind", ["comparison", "candidate"])
+def test_repair_feedback_identifies_original_v7_evidence(coverage, kind):
+    payload, q, raw, ev = coverage
+    segment = copy.deepcopy(payload["transcript_segments"][0])
+    segment.update(_src_id="s:next", segment_index=2, text="Another exact sentence.")
+    payload["transcript_segments"].append(segment)
+    invalid = {**ev, "evidence_segment_src_ids": ["s:1", "s:next"]}
+    if kind == "comparison":
+        raw["distractor_assessments"][0]["comparison_evidence"] = [invalid]
+        expected_path = "distractor_assessments[0].comparison_evidence[0]"
+    else:
+        supported(raw, ev)["evidence"] = [invalid]
+        expected_path = "distractor_assessments[0].candidates[0].evidence[0]"
+    before = copy.deepcopy(raw)
+    with pytest.raises(ProcessingError) as error:
+        check_option_candidate(payload, q, raw)
+    assert error.value.code == "ANNOTATION_QUOTE_INVALID"
+    assert str(error.value).startswith(expected_path + ": ")
+    assert "The answer is Alpha. Another exact sentence." in str(error.value)
+    assert raw == before
+
+
 @pytest.mark.parametrize(
     "mutation", ["missing", "duplicate", "correct", "foreign_question"]
 )

@@ -34,6 +34,26 @@ def ancestor_revision(db, revision, task):
     return False
 
 
+def reprocess_stage(db, workflow, revision):
+    if revision.final_result_hash:
+        return "final"
+    if "sample" in revision.stage_fingerprints:
+        return "sample"
+    if workflow.processing_state != "failed" or not workflow.current_task_id:
+        return None
+    task = db.get(p.ProcessingTask, workflow.current_task_id)
+    if (
+        workflow.processing_state == "failed"
+        and task
+        and task.request.get("workflow_stage") in {"annotate", "annotate_sample"}
+        and "source" in revision.stage_fingerprints
+    ):
+        # A failed annotation has no completed result to repair. Its immutable
+        # source is an explicit restart anchor, never a completed empty sample.
+        return "source"
+    return None
+
+
 def context(db, workflow_id, payload, settings, *, allow_source=False):
     workflow, revision = w.locked_current(db, workflow_id, payload)
     if workflow.processing_state in {
@@ -48,14 +68,12 @@ def context(db, workflow_id, payload, settings, *, allow_source=False):
     }:
         raise w.conflict("WORKFLOW_BUSY", "请先等待或停止当前操作")
     stage = (
-        "final"
-        if revision.final_result_hash
-        else "source"
-        if allow_source
-        else "sample"
-        if "sample" in revision.stage_fingerprints
-        else "final"
+        "source"
+        if allow_source and not revision.final_result_hash
+        else reprocess_stage(db, workflow, revision)
     )
+    if not stage:
+        raise w.conflict("RESULT_NOT_READY", "尚无可修复的结果或失败标注来源")
     content, _ = o.stage_payload(db, revision, stage, settings)
     if result_hash(content) != payload.expected_result_hash:
         raise w.conflict("ARTIFACT_CHANGED", "父结果身份变化")
@@ -180,6 +198,9 @@ def execute(db, workflow_id, payload, user_id, key, settings):
     plan = build_plan(db, parent, content, payload.question_src_ids, payload.feedback)
     if payload.expected_plan_hash != plan["plan_hash"]:
         raise w.conflict("PLAN_CHANGED", "修复范围或方法变化，请重新预览", plan=plan)
+    parent_projection = copy.deepcopy(
+        parent.stage_fingerprints[reprocess_stage(db, workflow, parent)]
+    )
     revision = child_revision(db, workflow, parent, user_id, payload.feedback)
     if plan["sample_valid"]:
         clone_sample_gate(db, revision, parent, plan, user_id)
@@ -189,9 +210,7 @@ def execute(db, workflow_id, payload, user_id, key, settings):
     task.request = {
         **task.request,
         "repair_plan": plan,
-        "reuse_final_projection": parent.stage_fingerprints[
-            "final" if parent.final_result_hash else "sample"
-        ],
+        "reuse_final_projection": parent_projection,
     }
     task.input_hash = fingerprint(
         {

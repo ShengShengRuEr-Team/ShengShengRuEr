@@ -271,6 +271,7 @@ class WorkflowDetailDto(WorkflowSummaryDto):
     task_id: UUID | None
     result_hash: Sha256 | None
     sample_result_hash: Sha256 | None = None
+    reprocess_result_hash: Sha256 | None = None
     current_batch_id: int | None
     is_student_visible: bool
     document_mode: Literal["text", "scan"]

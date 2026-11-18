@@ -25,14 +25,14 @@ try{
   const context=await browser.newContext({viewport:{width,height}}),page=await context.newPage()
   await page.addInitScript(()=>localStorage.setItem('ssre_access_token','synthetic-v7-token'))
   page.on('pageerror',e=>errors.push(e.message))
-  let version=1,saved=[],conflict=false
+  let version=1,saved=[],conflict=false,failedSource=false
   await page.route('**/api/v1/**',async route=>{
    const req=route.request(),p=new URL(req.url()).pathname
    if(req.method()==='OPTIONS')return route.fulfill({status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*','Access-Control-Allow-Methods':'*'}})
    let data
    if(p==='/api/v1/getInfo')data={user:{user_id:1,username:'synthetic-admin',nickname:'V7技术验证'},roles:['admin'],is_admin:true,permissions:[]}
    else if(p===root+'/capabilities')data={max_upload_bytes:536870912,processing_ready:true,blocked_reason:null}
-   else if(p===`${root}/${wid}`)data={...workflow,review_session_version:version}
+   else if(p===`${root}/${wid}`)data=failedSource?{...workflow,processing_state:'failed',result_hash:null,reprocess_result_hash:hash,review_session_id:null,stages:{source:workflow.stages.final}}:{...workflow,review_session_version:version}
    else if(p.endsWith('/operations'))data={items:[]}
    else if(p.endsWith('/questions'))data={items:[makeQuestion(1),makeQuestion(2)],total:2,result_hash:hash,next_cursor:null}
    else if(p.endsWith(`/review-sessions/${sid}`))data={row_version:version,items:saved,state:'draft',total:2,result_hash:hash,next_cursor:null}
@@ -43,6 +43,9 @@ try{
     check(body.items[0].candidate_changes.length===1,`${width}: save separately reviews deletion diff`)
     if(conflict)return route.fulfill({status:409,json:{code:409,msg:'Synthetic version conflict',error_code:'VERSION_CONFLICT',data:null}})
     saved=body.items;version++;data={operation_id:rid,workflow_id:wid,revision_id:rid,action:'review_save',state:'succeeded',failure_code:null,result:{session_version:version},created_at:workflow.created_at}
+   }else if(p.endsWith('/reprocess-preview')){
+    const body=req.postDataJSON();check(body.expected_result_hash===hash,`${width}: failed restart binds frozen source hash`)
+    data={plan_hash:hash,sample_valid:false,generation_count:25,review_count:25,affected_question_ids:['q:1','q:2'],reusable_question_ids:[]}
    }else throw Error(`Unexpected request ${req.method()} ${p}`)
    await route.fulfill({status:200,json:{code:200,msg:'Synthetic V7 contract',data}})
   })
@@ -74,6 +77,15 @@ try{
   await page.screenshot({path:path.join(output,`${width}-distractor-review.png`),fullPage:true})
   check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${width}: desktop has no horizontal overflow`)
   check(await page.locator('input:not([type=checkbox]):not([type=radio]),textarea').count()>0,`${width}: review opinion controls remain reachable`)
+  failedSource=true;await page.reload()
+  await page.getByText('退回后局部重生成',{exact:true}).click()
+  check(await page.getByText('本次标注失败，尚无完整结果',{exact:true}).isVisible(),`${width}: failed annotation is not presented as an empty sample`)
+  await page.getByLabel('待修复题目',{exact:true}).click()
+  await page.getByText('第1题',{exact:true}).last().click();await page.keyboard.press('Escape')
+  await page.getByLabel('重生成具体反馈',{exact:true}).fill('Synthetic bounded-failure restart from frozen source')
+  await page.getByRole('button',{name:'预览修复范围和小样影响',exact:true}).click()
+  check(await page.getByText('本次生成 25 题；最终审核 25 题',{exact:true}).isVisible(),`${width}: restart previews full regeneration and whole-paper review`)
+  await page.screenshot({path:path.join(output,`${width}-failed-restart.png`),fullPage:true})
   await context.close()
  }
  check(errors.length===0,'no browser runtime errors')

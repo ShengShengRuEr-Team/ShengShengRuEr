@@ -17,6 +17,7 @@ export interface WorkflowMaterial {
 export interface Projection { task_id: string; artifact_id: number; artifact_hash: string; dependency_hash: string }
 export interface WorkflowDetail extends WorkflowSummary {
   sample_result_hash?: string | null
+  reprocess_result_hash?: string | null
   error_generation_summary?: {assessed:number;expected:number;resolved:number;reviewed:number}
   task_id: string | null; result_hash: string | null; document_mode: 'text' | 'scan'
   listening_pages: { paper: number[]; answer: number[] }; materials: WorkflowMaterial[]

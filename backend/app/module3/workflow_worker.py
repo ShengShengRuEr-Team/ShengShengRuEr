@@ -325,7 +325,7 @@ def annotate(command_id, token, task, revision, settings):
             parent, _ = o.artifact_payload(
                 db, task.request["reuse_final_projection"]["artifact_id"], settings
             )
-            for receipt in parent["generation_receipts"]:
+            for receipt in parent.get("generation_receipts", []):
                 if receipt["question_src_id"] in plan["reusable_question_ids"]:
                     raw, _ = o.artifact_payload(db, receipt["artifact_id"], settings)
                     samples.setdefault(
