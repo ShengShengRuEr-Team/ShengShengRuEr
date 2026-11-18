@@ -285,6 +285,7 @@ def approve_stage(db, workflow_id, payload, user_id, key, settings):
         if payload.decision == "approved":
             validate_option_relations(sample)
         expected |= {a["_src_id"] for a in content.get("distractor_assessments", [])}
+        expected |= {d["reference"] for d in content.get("candidate_changes", [])}
     items = payload.items
     if (
         {item.reference for item in items} != expected

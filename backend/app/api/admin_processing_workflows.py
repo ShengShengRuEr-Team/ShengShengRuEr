@@ -496,6 +496,20 @@ def stage(
             }
             for a in content.get("distractor_assessments", [])
         ]
+        items += [
+            {
+                "_src_id": d["reference"],
+                "text": (
+                    f"{d['question_src_id']} 候选删改复核："
+                    + "；".join(
+                        f"{r.get('option_letter', '')}/{r.get('error_cause_code', '')} "
+                        f"{r['kind']}"
+                        for r in d["diff"]["changes"]
+                    )
+                ),
+            }
+            for d in content.get("candidate_changes", [])
+        ]
     return ok(
         {
             **projection,
