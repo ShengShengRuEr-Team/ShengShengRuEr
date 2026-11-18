@@ -346,6 +346,29 @@ def copy_revision(
     return revision
 
 
+def annotation_summary(db, revision, session, settings):
+    from app.services.processing import orchestration, reading
+
+    stage = next(
+        (s for s in ("final", "sample") if s in revision.stage_fingerprints), None
+    )
+    if not stage:
+        return {"assessed": 0, "expected": 0, "resolved": 0, "reviewed": 0}
+    content, _ = orchestration.stage_payload(db, revision, stage, settings)
+    decisions = (
+        db.scalars(
+            select(m.ProcessingReviewItem).where(
+                m.ProcessingReviewItem.session_id == session.id
+            )
+        ).all()
+        if session
+        else []
+    )
+    if stage == "sample":
+        content = {**content, "questions": content["questions"][:5]}
+    return reading.coverage_summary(content, (r.decisions for r in decisions))
+
+
 def workflow_data(db, workflow):
     revision = db.get(m.ProcessingWorkflowRevision, workflow.current_revision_id)
     rows = db.scalars(
@@ -411,6 +434,13 @@ def workflow_data(db, workflow):
         listening.student_access(db, workflow.exam_paper_id)[0] if batch else False
     )
     now = db.scalar(select(func.now()))
+    sample_hash = None
+    if "sample" in revision.stage_fingerprints:
+        from app.module3.contracts import result_hash
+        from app.services.processing.orchestration import stage_payload
+
+        sample, _ = stage_payload(db, revision, "sample", get_settings())
+        sample_hash = result_hash(sample)
     materials = []
     for kind in MATERIAL_KINDS:
         row = uploads.get(kind)
@@ -434,6 +464,7 @@ def workflow_data(db, workflow):
         "row_version": workflow.row_version,
         "task_id": workflow.current_task_id,
         "result_hash": revision.final_result_hash,
+        "sample_result_hash": sample_hash,
         "current_batch_id": batch.id if batch else None,
         "is_student_visible": visible,
         "source_check_required": source_check_required(
@@ -460,7 +491,9 @@ def workflow_data(db, workflow):
         "document_mode": revision.document_mode,
         "listening_pages": revision.listening_pages,
         "materials": materials,
-        "error_generation_summary": {},
+        "error_generation_summary": annotation_summary(
+            db, revision, session, get_settings()
+        ),
         "progress": workflow_progress(
             db, workflow, task, materials, now, get_settings(), revision
         ),

@@ -20,21 +20,34 @@ from app.db import models_processing as p
 from app.db import models_processing_workflows as m
 from app.db.base import SessionLocal
 from app.db.models_listening import ExamPaper
-from app.module3.annotation_identity import question_input_hash, sample_dependency_hash
+from app.module3.annotation_identity import (
+    RESULT_VERSION,
+    question_input_hash,
+    sample_dependency_hash,
+)
+from app.module3.candidate_diff import candidate_diff
 from app.module3.contracts import ProcessingError, atomic_json, fingerprint, result_hash
-from app.module3.option_annotations import (
+from app.module3.distractor_annotations import (
     PROMPT_VERSION,
-    SYSTEM_PROMPT_V2,
+    SYSTEM_PROMPT_V7,
     check_option_candidate,
     merge_option_candidate,
     normalize_candidate,
     option_input,
 )
+from app.module3.distractor_contract import generation_state
 from app.services.processing import orchestration as o
 from app.services.processing import tasks
 
 MAX_EVIDENCE_CORRECTIONS = 2
-CORRECTABLE_EVIDENCE_CODES = {"ANNOTATION_EVIDENCE_INVALID", "ANNOTATION_QUOTE_INVALID"}
+CORRECTABLE_EVIDENCE_CODES = {
+    "ANNOTATION_EVIDENCE_INVALID",
+    "ANNOTATION_QUOTE_INVALID",
+    "DISTRACTOR_OPTION_SET_INVALID",
+    "DISTRACTOR_ASSESSMENT_MISSING",
+    "ASSESSMENT_STATUS_CONFLICT",
+    "ANNOTATION_SCHEMA_INVALID",
+}
 
 
 def annotation_checkpoint(command_id, token, task, payload, settings):
@@ -59,21 +72,53 @@ def candidate_receipt(task, question, result, revision, artifact, raw, attempt):
             generation_input(result, question, task.request)
         ),
         "prompt_version": PROMPT_VERSION,
-        "prompt_sha256": fingerprint(SYSTEM_PROMPT_V2),
+        "prompt_sha256": fingerprint(SYSTEM_PROMPT_V7),
         "rules_manifest_hash": revision.rules_manifest["manifest_hash"],
-        "state": "generated" if raw.get("candidate_errors") else "generated_empty",
+        "state": generation_state(raw),
     }
 
 
 def generate_candidate(
     command_id, token, task, revision, result, question, done, settings
 ):
+    from app.module3.annotation_identity import rules_manifest
     from app.module3.llm import request_json
-    from app.services.processing.candidate_recovery import saved_candidate
+    from app.services.processing.candidate_recovery import (
+        runtime_compatible,
+        saved_candidate,
+    )
+
+    if not runtime_compatible(revision.rules_manifest, rules_manifest()):
+        raise ProcessingError(
+            "ANNOTATION_VERSION_MISMATCH", "生成方法已变化，旧任务不能收费继续"
+        )
 
     with SessionLocal() as db:
         saved = saved_candidate(db, task, revision, result, question, settings)
     feedback = None
+    previous_raw, previous_call = None, None
+    history = []
+    # An explicit semantic reprocess compares against the parent's raw response.
+    projection = task.request.get("reuse_final_projection")
+    if projection:
+        with SessionLocal() as db:
+            parent, _ = o.artifact_payload(db, projection["artifact_id"], settings)
+            receipt = next(
+                (
+                    r
+                    for r in parent.get("generation_receipts", [])
+                    if r["question_src_id"] == question["_src_id"]
+                ),
+                None,
+            )
+            if receipt and parent.get("rules_manifest", {}).get(
+                "candidate_version"
+            ) == revision.rules_manifest.get("candidate_version"):
+                original, _ = o.artifact_payload(db, receipt["artifact_id"], settings)
+                previous_raw, previous_call = (
+                    original["candidate"],
+                    original["call"]["attempt_id"],
+                )
     for correction in range(MAX_EVIDENCE_CORRECTIONS + 1):
         annotation_checkpoint(
             command_id,
@@ -99,7 +144,7 @@ def generate_candidate(
                 task.id,
                 fingerprint({"audio": result["audio"]["file_hash"]}),
                 "sample" if done < 5 else "run",
-                SYSTEM_PROMPT_V2,
+                SYSTEM_PROMPT_V7,
                 generation_input(result, question, task.request),
                 settings,
                 **kwargs,
@@ -134,10 +179,21 @@ def generate_candidate(
                     "question_input_hash": question_input_hash(result, question),
                     "rules_manifest": revision.rules_manifest,
                     "validation": validation,
+                    "revision_diff": candidate_diff(
+                        previous_raw,
+                        raw,
+                        before_call=previous_call,
+                        after_call=call["attempt_id"],
+                    )
+                    if previous_raw is not None
+                    else None,
                 },
                 settings,
             )
             receipt = None
+            history.append(
+                {"artifact_id": artifact.id, "artifact_hash": artifact.artifact_hash}
+            )
             if error is None:
                 receipt = candidate_receipt(
                     task,
@@ -148,15 +204,22 @@ def generate_candidate(
                     raw,
                     db.get(p.LlmAttempt, call["attempt_id"]),
                 )
+                receipt["revision_history"] = list(history)
             db.commit()
+        previous_raw, previous_call = raw, call["attempt_id"]
         if error is None:
             return raw, receipt
         if (
-            getattr(error, "code", None) not in CORRECTABLE_EVIDENCE_CODES
+            getattr(error, "code", "ANNOTATION_SCHEMA_INVALID")
+            not in CORRECTABLE_EVIDENCE_CODES
             or correction == MAX_EVIDENCE_CORRECTIONS
         ):
             raise error
-        feedback = {"candidate": raw, "code": error.code, "message": str(error)}
+        feedback = {
+            "candidate": raw,
+            "code": getattr(error, "code", "ANNOTATION_SCHEMA_INVALID"),
+            "message": str(error),
+        }
         # A saved response has already passed current checks; never repair cache
         # corruption in place. A fresh request below is always separately fenced.
         saved = None
@@ -218,7 +281,7 @@ def record_artifact(db, command, task, stage, payload, settings):
         storage_key=key,
         artifact_hash=sha,
         size_bytes=size,
-        schema_version="m3.v2",
+        schema_version=RESULT_VERSION,
     )
     db.add(row)
     db.flush()
@@ -249,6 +312,7 @@ def annotate(command_id, token, task, revision, settings):
     with SessionLocal() as db:
         assembly, _ = o.stage_payload(db, revision, "source", settings)
         result = copy.deepcopy(assembly)
+        result["schema_version"] = RESULT_VERSION
         result["rules_manifest"] = revision.rules_manifest
         samples = {}
         if task.request.get("workflow_stage") == "annotate":
@@ -296,6 +360,10 @@ def annotate(command_id, token, task, revision, settings):
         check_option_candidate(result, question, raw)
         merge_option_candidate(result, question, raw)
         receipts.append(receipt)
+        with SessionLocal() as db:
+            result.setdefault("candidate_changes", []).extend(
+                receipt_changes(db, receipt, settings)
+            )
         annotation_checkpoint(
             command_id,
             token,
@@ -352,7 +420,7 @@ def execute(command_id, token, settings):
                 else:
                     content = copy.deepcopy(tasks.get_draft(db, current).payload)
                     content.update(
-                        schema_version="m3.v2",
+                        schema_version=RESULT_VERSION,
                         rules_manifest=revision.rules_manifest,
                         generation_receipts=[],
                         source_materials=[
@@ -401,7 +469,14 @@ def execute(command_id, token, settings):
             if stage == "annotate":
                 from app.services.processing.reviewing import validate_final
 
-                validate_final(db, content, current.request, revision, settings)
+                validate_final(
+                    db,
+                    content,
+                    current.request,
+                    revision,
+                    settings,
+                    allow_incomplete=True,
+                )
                 tasks.store_draft(db, current, content, view="auto_draft")
                 tasks.store_draft(db, current, content, view="final")
                 revision.final_task_id, revision.final_result_hash = (
@@ -485,6 +560,27 @@ def generation_input(payload, question, request):
     if plan and question["_src_id"] in plan["affected_question_ids"]:
         data = {**data, "review_feedback": plan["feedback"]}
     return data
+
+
+def receipt_changes(db, receipt, settings):
+    changes = []
+    for ref in receipt.get("revision_history", []):
+        item, artifact = o.artifact_payload(db, ref["artifact_id"], settings)
+        if (
+            artifact.artifact_hash != ref["artifact_hash"]
+            or item["question_src_id"] != receipt["question_src_id"]
+        ):
+            raise ProcessingError("ARTIFACT_CHANGED", "候选删改记录身份错误")
+        diff = item.get("revision_diff")
+        if diff and diff["changes"]:
+            changes.append(
+                {
+                    "reference": "diff:" + fingerprint(diff),
+                    "question_src_id": receipt["question_src_id"],
+                    "diff": diff,
+                }
+            )
+    return changes
 
 
 def run_one(settings):

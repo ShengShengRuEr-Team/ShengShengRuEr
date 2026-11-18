@@ -5,14 +5,14 @@ import { WORKFLOWS } from '../../../api/processing'
 import type { QuestionView, ReviewItem, WorkflowDetail } from '../../../api/processing-types'
 import { skillName } from '../../../api/processing-adapters'
 
-function blank(question: QuestionView): ReviewItem { return {question_src_id:question.question_src_id,content:'changes_required',primary_skills:[],answer_evidence:[],error_causes:[],empty_errors_confirmed:false,note:'',issues:[]} }
-const fields = ['primary_skills','answer_evidence','error_causes'] as const
+function blank(question: QuestionView): ReviewItem { return {question_src_id:question.question_src_id,content:'changes_required',primary_skills:[],answer_evidence:[],error_causes:[],distractor_assessments:[],candidate_changes:[],empty_errors_confirmed:false,note:'',issues:[]} }
+const fields = ['primary_skills','answer_evidence','error_causes','distractor_assessments','candidate_changes'] as const
 const suggestedNote = '已逐题核对本次结果的题干、选项、来源答案与解析、技能、答案证据及错因证据，未发现需修改项。'
 type Drafts = Record<string,ReviewItem>
 function complete(question:QuestionView,item?:ReviewItem) {
   return Boolean(item && item.content==='approved' && !item.issues.length && fields.every(field=>
-    item[field].length===question.review_requirements[field].length && question.review_requirements[field].every(ref=>
-      item[field].some(row=>row.reference===ref&&row.decision==='approved'))) &&
+    (item[field]??[]).length===(question.review_requirements[field]??[]).length && (question.review_requirements[field]??[]).every(ref=>
+      (item[field]??[]).some(row=>row.reference===ref&&row.decision==='approved'))) &&
     (question.generation_state!=='generated_empty'||item.empty_errors_confirmed))
 }
 export default function ReviewPanel({owner, workflow, question, questions, busy, dirtyChanged, command}: {
@@ -29,6 +29,7 @@ export default function ReviewPanel({owner, workflow, question, questions, busy,
   const disabled=busy||saving||!ready||workflow.content_review_state==='approved'
   const selectedCount=questions.filter(q=>complete(q,drafts[q.question_src_id])).length
   const allSelected=questions.length>0&&selectedCount===questions.length
+  const conclusionsComplete=questions.every(q=>q.generation_state!=='generation_incomplete'&&(!q.assessment_summary||q.assessment_summary.resolved===3))
   function persist(changes:Drafts,nextVersion=version,form:Record<string,unknown>={}) {
     localStorage.setItem(key,JSON.stringify({version:nextVersion,drafts:changes,audio,reference,bulkNote,...form}))
   }
@@ -60,7 +61,7 @@ export default function ReviewPanel({owner, workflow, question, questions, busy,
     for(const q of questions) {
       const value=drafts[q.question_src_id]??blank(q)
       changes[q.question_src_id]={...value,content:checked?'approved':'changes_required',
-        ...Object.fromEntries(fields.map(field=>[field,checked?q.review_requirements[field].map(ref=>({reference:ref,decision:'approved'})):[]])),
+        ...Object.fromEntries(fields.map(field=>[field,checked?(q.review_requirements[field]??[]).map(ref=>({reference:ref,decision:'approved'})):[]])),
         empty_errors_confirmed:checked&&q.generation_state==='generated_empty'}
     }
     changeItems(changes)
@@ -98,13 +99,15 @@ export default function ReviewPanel({owner, workflow, question, questions, busy,
     const value=returned?{...item,content:'changes_required' as const,issues:[{field:issueField,message:item.note}]}:item
     void saveItems([value],returned)
   }
-  function toggle(field:keyof Pick<ReviewItem,'primary_skills'|'answer_evidence'|'error_causes'>, ref:string, checked:boolean) {
-    update({[field]:checked?[...item[field].filter(row=>row.reference!==ref),{reference:ref,decision:'approved'}]:item[field].filter(row=>row.reference!==ref)})
+  function toggle(field:typeof fields[number], ref:string, checked:boolean) {
+    update({[field]:checked?[...(item[field]??[]).filter(row=>row.reference!==ref),{reference:ref,decision:'approved'}]:(item[field]??[]).filter(row=>row.reference!==ref)})
   }
   const readable:Record<string,string> = {}
   for (const skill of question.skills) {readable[skill._src_id]=`${skill.role === 'PRIMARY' ? '主要技能' : '辅助技能'} ${skill.skill_code} · ${skillName(skill)}`;for(const ev of skill.evidence) readable[ev.relation_src_id]=`技能证据：${ev.evidence_text}`}
   for(const ev of question.answer_evidence) readable[ev.relation_src_id]=`答案证据：${ev.evidence_text}`
   for(const option of question.options) for(const cause of option.error_causes) {readable[cause.relation_src_id]=`${option.display_letter} 选项错因 ${cause.code}`;for(const ev of cause.evidence) readable[ev.relation_src_id]=`错因证据：${ev.evidence_text}`}
+  for(const option of question.options) if(option.assessment) readable[option.assessment._src_id]=`${option.display_letter} 干扰项比较、候选及无候选理由`
+  for(const change of question.candidate_changes??[]) readable[change.reference]='候选删改及材料依据已逐项核对'
   return <Card title={`第${question.question_no}题审核意见`}>
     <Space orientation="vertical" size={16} style={{width:'100%'}}>
       {notice && <Alert type="info" title={notice} />}{error && <Alert type="error" title={error} />}
@@ -124,10 +127,11 @@ export default function ReviewPanel({owner, workflow, question, questions, busy,
       </Space></section>
       <Radio.Group disabled={disabled} aria-label="题干选项和来源答案解析审核" value={item.content} onChange={event=>update({content:event.target.value as ReviewItem['content']})}>
         <Radio value="approved">题干、选项、来源答案与解析通过</Radio><Radio value="changes_required">内容待核对 / 需修改</Radio></Radio.Group>
-      {(['primary_skills','answer_evidence','error_causes'] as const).map(field=><div key={field}>
-        {question.review_requirements[field].map(ref=><div key={ref}><Checkbox disabled={disabled} checked={item[field].some(row=>row.reference===ref&&row.decision==='approved')}
+      {fields.map(field=><div key={field}>
+        {(question.review_requirements[field]??[]).map(ref=><div key={ref}><Checkbox disabled={disabled} checked={(item[field]??[]).some(row=>row.reference===ref&&row.decision==='approved')}
           onChange={event=>toggle(field,ref,event.target.checked)}>{readable[ref]??ref}</Checkbox></div>)}
       </div>)}
+      {question.assessment_summary&&<Typography.Text>干扰项已勾选审核 {(item.distractor_assessments??[]).filter(row=>row.decision==='approved').length} / 3；结论完整 {question.assessment_summary.resolved} / 3</Typography.Text>}
       {question.generation_state==='generated_empty'&&<Checkbox disabled={disabled} checked={item.empty_errors_confirmed} onChange={event=>update({empty_errors_confirmed:event.target.checked})}>确认本题无有依据的错因标注</Checkbox>}
       <label htmlFor="review-note">审核意见 / 退回原因</label><Input.TextArea disabled={disabled} id="review-note" value={item.note} rows={3} maxLength={4000} onChange={event=>update({note:event.target.value})} />
       <Space wrap><Button disabled={disabled} onClick={()=>save()}>保存本题意见</Button>
@@ -137,7 +141,7 @@ export default function ReviewPanel({owner, workflow, question, questions, busy,
       <Typography.Title level={5}>提交整套审核</Typography.Title>
       <Checkbox disabled={disabled} checked={audio} onChange={event=>{setAudio(event.target.checked);persist(unsaved,version,{audio:event.target.checked})}}>已完成当前最终版本的原音核听确认</Checkbox>
       <Input disabled={disabled} aria-label="整套审核实际依据" value={reference} maxLength={2000} onChange={event=>{setReference(event.target.value);persist(unsaved,version,{reference:event.target.value})}} placeholder="填写本次最终审核、核听的实际依据或记录" />
-      <Button type="primary" disabled={disabled||!allSelected||Object.keys(unsaved).length>0||!audio||!reference.trim()} onClick={()=>void command('review_submit',`${root}/submit`,{
+      <Button type="primary" disabled={disabled||!allSelected||!conclusionsComplete||Object.keys(unsaved).length>0||!audio||!reference.trim()} onClick={()=>void command('review_submit',`${root}/submit`,{
         expected_result_hash:workflow.result_hash,expected_session_version:version,audio_confirmed:audio,approval_reference:reference})}>提交整套审核</Button>
     </Space>
   </Card>

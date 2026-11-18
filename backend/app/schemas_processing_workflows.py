@@ -78,6 +78,7 @@ class StageApprovalRequest(WorkflowPreconditions):
     items: list[StageApprovalItem] = Field(min_length=1, max_length=500)
     review_basis: Literal["itemized", "user_confirmation"] = "itemized"
     approval_reference: NonEmpty | None = None
+    reviewer_kind: Literal["human", "codex"] = "human"
 
 
 class ContinueRequest(WorkflowPreconditions):
@@ -100,6 +101,9 @@ class ReviewItemRequest(StrictModel):
     primary_skills: list[ReviewDecision]
     answer_evidence: list[ReviewDecision]
     error_causes: list[ReviewDecision]
+    distractor_assessments: list[ReviewDecision]
+    candidate_changes: list[ReviewDecision]
+    reviewer_kind: Literal["human", "codex"] = "human"
     empty_errors_confirmed: bool
     note: str = Field(default="", max_length=4000)
     issues: list[dict] = Field(default_factory=list, max_length=30)
@@ -266,6 +270,7 @@ class WorkflowUsageDto(StrictModel):
 class WorkflowDetailDto(WorkflowSummaryDto):
     task_id: UUID | None
     result_hash: Sha256 | None
+    sample_result_hash: Sha256 | None = None
     current_batch_id: int | None
     is_student_visible: bool
     document_mode: Literal["text", "scan"]

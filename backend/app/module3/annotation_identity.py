@@ -1,14 +1,14 @@
-"""Version-two fingerprints, separate from the immutable legacy hash algorithm."""
+"""Versioned fingerprints; historical V2 payloads retain their original hash."""
 
 from copy import deepcopy
 from pathlib import Path
 
 from app.module3.contracts import file_hash, fingerprint, result_identity
 
-RESULT_VERSION = "m3.v2"
-ERROR_RULE_VERSION = "m3.option-errors.v1"
-PROMPT_VERSION = "m3.annotations.v6"
-CHECK_VERSION = "m3.checks.v2"
+RESULT_VERSION = "m3.v3"
+ERROR_RULE_VERSION = "m3.option-errors.v2"
+PROMPT_VERSION = "m3.annotations.v7"
+CHECK_VERSION = "m3.checks.v3"
 
 
 def request_hash(action: str, target: str | None, payload: dict) -> str:
@@ -17,12 +17,22 @@ def request_hash(action: str, target: str | None, payload: dict) -> str:
 
 
 def rules_manifest() -> dict:
+    from app.module3.distractor_annotations import SYSTEM_PROMPT_V7
+    from app.module3.distractor_contract import CANDIDATE_VERSION, AnnotationCandidateV7
+    from app.module3.generation_config import generation_parameters
+
     root = Path(__file__).resolve().parents[2]
     files = (
         "app/module3/annotation_identity.py",
         "app/module3/annotations.py",
         "app/module3/annotation_checks.py",
         "app/module3/option_annotations.py",
+        "app/module3/distractor_annotations.py",
+        "app/module3/distractor_contract.py",
+        "app/module3/candidate_diff.py",
+        "app/module3/llm.py",
+        "app/module3/generation_config.py",
+        "config/module3/annotation-candidate-v7.schema.json",
         "app/module3/workflow_worker.py",
         "app/services/processing/reviewing.py",
         "app/services/processing/reprocessing.py",
@@ -33,6 +43,10 @@ def rules_manifest() -> dict:
         "error_rule_version": ERROR_RULE_VERSION,
         "prompt_version": PROMPT_VERSION,
         "check_version": CHECK_VERSION,
+        "candidate_version": CANDIDATE_VERSION,
+        "prompt_sha256": fingerprint(SYSTEM_PROMPT_V7),
+        "schema_sha256": fingerprint(AnnotationCandidateV7.model_json_schema()),
+        "generation_parameters": generation_parameters(),
         "dictionary_sha256": file_hash(root / "config/module3/dictionary-schema.json"),
         "implementation": {name: file_hash(root / name) for name in files},
         # Enabled only after the new candidate/worker path is actually implemented.
@@ -153,7 +167,7 @@ def result_hash(payload: dict, manifest: dict) -> str:
         ]
     return fingerprint(
         {
-            "version": RESULT_VERSION,
+            "version": payload.get("schema_version", RESULT_VERSION),
             "rules_manifest": manifest,
             "content": result_identity(source_identity(normalized, payload)),
         }

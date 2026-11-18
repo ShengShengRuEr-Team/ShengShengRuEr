@@ -9,6 +9,7 @@ from app.db import models_listening as l
 from app.db import models_processing as p
 from app.db import models_processing_workflows as m
 from app.db.base import SessionLocal
+from app.module3.annotation_identity import CHECK_VERSION, ERROR_RULE_VERSION
 from app.module3.contracts import ProcessingError
 from app.schemas_processing import ActivationRequest
 from app.services.processing import persistence, reviewing, tasks
@@ -99,10 +100,11 @@ def insert_annotation_states(db, task, paper, batch, payload, maps):
           (batch_id,question_id,revision_id,result_hash,rule_version,rules_manifest_hash,
            question_input_hash,generation_state,generation_task_id,
            candidate_artifact_id,review_session_id)
-          VALUES (:b,:q,:r,:h,'m3.option-errors.v1',:rules,:input,
+          VALUES (:b,:q,:r,:h,:rule,:rules,:input,
                   :state,:task,:artifact,:session)"""),
             {
                 "b": batch.id,
+                "rule": ERROR_RULE_VERSION,
                 "q": maps["questions"][receipt["question_src_id"]],
                 "r": revision.id,
                 "h": revision.final_result_hash,
@@ -114,6 +116,37 @@ def insert_annotation_states(db, task, paper, batch, payload, maps):
                 "session": session.id,
             },
         )
+    for assessment in payload["distractor_assessments"]:
+        qid = maps["questions"][assessment["question_src_id"]]
+        db.execute(
+            text("""INSERT INTO question_distractor_assessments
+          (batch_id,question_id,option_letter,rule_version,status,reason,unresolved_points,source_candidate_hash)
+          VALUES(:b,:q,:o,:rule,:s,:reason,CAST(:g AS jsonb),:hash)"""),
+            {
+                "b": batch.id,
+                "q": qid,
+                "o": assessment["option_letter"],
+                "rule": ERROR_RULE_VERSION,
+                "s": assessment["status"],
+                "reason": assessment["reason"],
+                "g": __import__("json").dumps(assessment["unresolved_points"]),
+                "hash": assessment["source_candidate_hash"],
+            },
+        )
+        for order, ref in enumerate(assessment["comparison_evidence_refs"], 1):
+            db.execute(
+                text("""INSERT INTO question_distractor_comparison_evidences
+              (batch_id,question_id,option_letter,sort_order,evidence_id,support_note)
+              VALUES(:b,:q,:o,:n,:e,:note)"""),
+                {
+                    "b": batch.id,
+                    "q": qid,
+                    "o": assessment["option_letter"],
+                    "n": order,
+                    "e": maps["evidences"][ref["evidence_src_id"]],
+                    "note": ref["support_note"],
+                },
+            )
     db.flush()
 
 
@@ -159,6 +192,52 @@ def verify_actual_batch(db, batch, payload):
     maps = {}
     for section, src_id, identity in rows:
         maps.setdefault(section, {})[src_id] = identity
+    actual_assessments = (
+        db.execute(
+            text("SELECT * FROM question_distractor_assessments WHERE batch_id=:b"),
+            {"b": batch.id},
+        )
+        .mappings()
+        .all()
+    )
+    expected_assessments = payload.get("distractor_assessments", [])
+    if len(actual_assessments) != len(expected_assessments):
+        raise ProcessingError("BATCH_INCOMPLETE", "评估数量与冻结结果不符")
+    for assessment in expected_assessments:
+        qid = maps["questions"][assessment["question_src_id"]]
+        actual = next(
+            (
+                a
+                for a in actual_assessments
+                if a["question_id"] == qid
+                and a["option_letter"] == assessment["option_letter"]
+            ),
+            None,
+        )
+        if not actual or any(
+            actual[k] != assessment[k]
+            for k in (
+                "rule_version",
+                "status",
+                "reason",
+                "unresolved_points",
+                "source_candidate_hash",
+            )
+        ):
+            raise ProcessingError("BATCH_INCOMPLETE", "评估内容与冻结结果不符")
+        actual_refs = db.execute(
+            text("""SELECT evidence_id,sort_order,support_note
+          FROM question_distractor_comparison_evidences
+          WHERE batch_id=:b AND question_id=:q
+          AND option_letter=:o ORDER BY sort_order"""),
+            {"b": batch.id, "q": qid, "o": assessment["option_letter"]},
+        ).all()
+        expected_refs = [
+            (maps["evidences"][r["evidence_src_id"]], n, r["support_note"])
+            for n, r in enumerate(assessment["comparison_evidence_refs"], 1)
+        ]
+        if [tuple(r) for r in actual_refs] != expected_refs:
+            raise ProcessingError("BATCH_INCOMPLETE", "比较证据或顺序与冻结结果不符")
     states = (
         db.execute(
             text("SELECT * FROM question_annotation_states WHERE batch_id=:b"),
@@ -354,7 +433,7 @@ def execute_publication(command_id, token, settings):
                 .values(review_status="已通过")
             )
         check = tasks.check_result(db, task.id, revision.final_result_hash, settings)
-        check.rule_version = "m3.checks.v2"
+        check.rule_version = CHECK_VERSION
         if not check.is_passed:
             db.commit()
             raise ProcessingError("BATCH_INCOMPLETE", "实际pending批次检查未通过")

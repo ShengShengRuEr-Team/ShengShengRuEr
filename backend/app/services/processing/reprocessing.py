@@ -48,7 +48,13 @@ def context(db, workflow_id, payload, settings, *, allow_source=False):
     }:
         raise w.conflict("WORKFLOW_BUSY", "请先等待或停止当前操作")
     stage = (
-        "final" if revision.final_result_hash else "source" if allow_source else "final"
+        "final"
+        if revision.final_result_hash
+        else "source"
+        if allow_source
+        else "sample"
+        if "sample" in revision.stage_fingerprints
+        else "final"
     )
     content, _ = o.stage_payload(db, revision, stage, settings)
     if result_hash(content) != payload.expected_result_hash:
@@ -64,6 +70,13 @@ def build_plan(db, revision, content, selected, feedback):
     method_same = manifest == revision.rules_manifest
     # Shared method changes invalidate every candidate and the sample gate.
     affected = set(selected) if method_same else set(questions)
+    if not revision.final_result_hash:
+        # A sample contains source for the whole paper, but receipts for at most
+        # five questions. Unattempted questions cannot be declared reusable.
+        generated = {
+            r["question_src_id"] for r in content.get("generation_receipts", [])
+        }
+        affected |= set(questions) - generated
     sample_ids = {q["_src_id"] for q in content["questions"][:5]}
     projection = revision.stage_fingerprints.get("sample")
     approval = db.scalar(
@@ -91,7 +104,7 @@ def build_plan(db, revision, content, selected, feedback):
         affected |= sample_ids
     plan = {
         "parent_revision_id": str(revision.id),
-        "parent_result_hash": revision.final_result_hash,
+        "parent_result_hash": revision.final_result_hash or result_hash(content),
         "selected_question_ids": sorted(selected),
         "affected_question_ids": sorted(affected),
         "reusable_question_ids": sorted(set(questions) - affected),
@@ -176,7 +189,9 @@ def execute(db, workflow_id, payload, user_id, key, settings):
     task.request = {
         **task.request,
         "repair_plan": plan,
-        "reuse_final_projection": parent.stage_fingerprints["final"],
+        "reuse_final_projection": parent.stage_fingerprints[
+            "final" if parent.final_result_hash else "sample"
+        ],
     }
     task.input_hash = fingerprint(
         {

@@ -336,7 +336,7 @@ def test_v2_sample_dependency_scope_and_fixed_vectors():
             ],
             "text",
         )
-        == "a3d486753129b32f3b12afa62fdf6643fb2ce84fb0a11c97adcb855b443a2253"
+        == "a6184e40eb9c3963ada1c4fab908c4f5635de799caefe8ef217970b3896cf370"
     )
     assert (
         result_hash(
@@ -345,7 +345,7 @@ def test_v2_sample_dependency_scope_and_fixed_vectors():
                 "error_rule_version": "m3.option-errors.v1",
             },
         )
-        == "f42961e762034f4336f7f757671aaaa686104741e40fc8fe481cff2d8ee8f175"
+        == "e7de882e7935c5dc0125d23109edfe71edb9283c1a8caffa4723b8a1496a55ad"
     )
 
     assert request_hash("create", None, {"b": 2, "a": 1}) == request_hash(

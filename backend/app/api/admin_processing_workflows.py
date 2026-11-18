@@ -485,13 +485,24 @@ def stage(
         if stage == "align"
         else content.get("questions", [])
     )
+    if stage == "sample":
+        items = content.get("questions", [])[:5] + [
+            {
+                **a,
+                "text": (
+                    f"{a['question_src_id']} / {a['option_letter']} · "
+                    f"{a['status']}：{a['reason']}"
+                ),
+            }
+            for a in content.get("distractor_assessments", [])
+        ]
     return ok(
         {
             **projection,
             "result_hash": __import__(
                 "app.module3.contracts", fromlist=["result_hash"]
             ).result_hash(content)
-            if content.get("schema_version") == "m3.v2"
+            if content.get("schema_version") in {"m3.v2", "m3.v3"}
             else None,
             "items": reading.public_value(items[cursor : cursor + limit]),
             "total": len(items),
