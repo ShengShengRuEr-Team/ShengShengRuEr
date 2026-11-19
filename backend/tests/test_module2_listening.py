@@ -5,6 +5,7 @@
 scripts/acceptance_module2.py 在开发库上另行验收。
 """
 
+from tests.batch_preconditions import current_batch_id
 import hashlib
 import json
 
@@ -128,7 +129,9 @@ def test_repeat_import_is_idempotent(module2_paper_id: int) -> None:
             )
         ).one()
         questions = db.scalars(
-            select(func.count()).select_from(Question)
+            select(func.count()).select_from(Question).join(
+                ImportBatch, ImportBatch.id == Question.batch_id
+            ).where(ImportBatch.exam_paper_id == module2_paper_id)
         ).one()
     assert batches == 1
     assert questions == 1
@@ -151,7 +154,7 @@ def test_confirm_then_student_sees(
 ) -> None:
     confirm = client.post(
         f"/api/v1/admin/listening-papers/{module2_paper_id}/visibility",
-        json={"action": "confirm", "reason": "测试确认"},
+        json={"expected_batch_id": current_batch_id(module2_paper_id), "action": "confirm", "reason": "测试确认"},
         headers=auth_headers(admin_token),
     )
     assert confirm.status_code == 200, confirm.text
@@ -171,7 +174,7 @@ def test_student_response_excludes_restricted_fields(
 ) -> None:
     client.post(
         f"/api/v1/admin/listening-papers/{module2_paper_id}/visibility",
-        json={"action": "confirm", "reason": ""},
+        json={"expected_batch_id": current_batch_id(module2_paper_id), "action": "confirm", "reason": ""},
         headers=auth_headers(admin_token),
     )
     detail = client.get(
@@ -194,7 +197,7 @@ def test_student_cannot_call_admin_endpoints(client: TestClient, student_token: 
         assert response.status_code == 403, url
     response = client.post(
         f"/api/v1/admin/listening-papers/{module2_paper_id}/visibility",
-        json={"action": "confirm", "reason": ""},
+        json={"expected_batch_id": current_batch_id(module2_paper_id), "action": "confirm", "reason": ""},
         headers=auth_headers(student_token),
     )
     assert response.status_code == 403
@@ -205,7 +208,7 @@ def test_audio_range_and_cancel_blocks_student(
 ) -> None:
     client.post(
         f"/api/v1/admin/listening-papers/{module2_paper_id}/visibility",
-        json={"action": "confirm", "reason": ""},
+        json={"expected_batch_id": current_batch_id(module2_paper_id), "action": "confirm", "reason": ""},
         headers=auth_headers(admin_token),
     )
     audio = client.get(
@@ -218,7 +221,7 @@ def test_audio_range_and_cancel_blocks_student(
 
     cancel = client.post(
         f"/api/v1/admin/listening-papers/{module2_paper_id}/visibility",
-        json={"action": "cancel", "reason": "测试取消"},
+        json={"expected_batch_id": current_batch_id(module2_paper_id), "action": "cancel", "reason": "测试取消"},
         headers=auth_headers(admin_token),
     )
     assert cancel.status_code == 200
@@ -312,7 +315,7 @@ def test_invalid_option_mapping_blocks_confirm(
 
             response = client.post(
                 f"/api/v1/admin/listening-papers/{module2_paper_id}/visibility",
-                json={"action": "confirm", "reason": ""},
+                json={"expected_batch_id": current_batch_id(module2_paper_id), "action": "confirm", "reason": ""},
                 headers=auth_headers(admin_token),
             )
             assert response.status_code == 400, response.text
@@ -365,7 +368,7 @@ def test_audio_code_conflict_is_rejected(module2_paper_id: int, tmp_path) -> Non
     with SessionLocal() as db:
         from sqlalchemy import select
 
-        audio = db.scalar(select(AudioFile))
+        audio = db.scalar(select(AudioFile).where(AudioFile.audio_code == "TEST_M2_AUDIO"))
         existing_code = audio.audio_code
 
     new_bytes = b"MODULE2-DIFFERENT-AUDIO-BYTES"
@@ -401,7 +404,7 @@ def test_failed_import_keeps_existing_audio(module2_paper_id: int, tmp_path) -> 
 
     settings = get_settings()
     with SessionLocal() as db:
-        audio = db.scalar(select(AudioFile))
+        audio = db.scalar(select(AudioFile).where(AudioFile.audio_code == "TEST_M2_AUDIO"))
         key = audio.storage_key
         original_hash = audio.file_hash
 

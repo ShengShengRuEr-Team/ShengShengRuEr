@@ -8,6 +8,7 @@ import { formatDuration } from '../utils/format'
 
 interface AudioPlayerProps {
   examPaperId: number
+  expectedBatchId?: number
   /** 接口给出的总时长，媒体元数据就绪前用作占位。 */
   fallbackDurationMs?: number | null
   /** 是否吸顶（学生端整卷页使用）。 */
@@ -23,7 +24,7 @@ type LoadStatus = 'loading' | 'ready' | 'error'
  * - 组件卸载、切换试卷、重试时取消请求并释放对象 URL；
  * - 进度拖动只在已下载数据内定位，不产生服务端 Range 请求。
  */
-export default function AudioPlayer({ examPaperId, fallbackDurationMs, sticky }: AudioPlayerProps) {
+export default function AudioPlayer({ examPaperId, expectedBatchId, fallbackDurationMs, sticky }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const sourceRef = useRef<AudioSource | null>(null)
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
@@ -44,7 +45,7 @@ export default function AudioPlayer({ examPaperId, fallbackDurationMs, sticky }:
     setMediaDurationMs(0)
     setObjectUrl(null)
 
-    loadAudioSource(examPaperId, controller.signal)
+    loadAudioSource(examPaperId, controller.signal, expectedBatchId)
       .then((source) => {
         if (controller.signal.aborted) {
           source.release()
@@ -67,7 +68,7 @@ export default function AudioPlayer({ examPaperId, fallbackDurationMs, sticky }:
       sourceRef.current?.release()
       sourceRef.current = null
     }
-  }, [examPaperId, reloadKey])
+  }, [examPaperId, expectedBatchId, reloadKey])
 
   useEffect(() => {
     if (audioRef.current) {

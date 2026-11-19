@@ -34,9 +34,9 @@ http.interceptors.response.use(
         new ApiError('响应格式异常：缺少统一响应外壳', -1, response.status),
       )
     }
-    if (body.code !== 200) {
+    if (body.code < 200 || body.code >= 300) {
       return Promise.reject(
-        new ApiError(body.msg || '请求失败', body.code, response.status),
+        new ApiError(body.msg || '请求失败', body.code, response.status, body.error_code, body.context),
       )
     }
     return response
@@ -58,7 +58,7 @@ http.interceptors.response.use(
       showError(message)
     }
 
-    return Promise.reject(new ApiError(message, body?.code ?? status, status))
+    return Promise.reject(new ApiError(message, body?.code ?? status, status, body?.error_code, body?.context))
   },
 )
 

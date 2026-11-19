@@ -8,6 +8,8 @@ export interface ApiResponse<T> {
   code: number
   msg: string
   data: T | null
+  error_code?: string
+  context?: Record<string, unknown>
 }
 
 /* ---------- 认证 ---------- */
@@ -117,6 +119,8 @@ export interface PassageAdminDto {
 
 /** 管理员配套内容（接口 ④）。 */
 export interface PaperCompanionDto extends PaperListItemDto {
+  batch_id: number | null
+  result_hash: string | null
   batch_code: string | null
   is_current: boolean
   check_passed: boolean
@@ -155,4 +159,46 @@ export interface VisibilityStateDto {
   is_visible: boolean
   check_passed: boolean
   action: string
+}
+
+/* ---------- 作答系统（API-1 提交 / API-3 状态） ---------- */
+
+/** 单题作答：question_id 为题目身份，selected_option 为本套原卷字母。 */
+export interface AttemptAnswerDto {
+  question_id: number
+  selected_option: string
+}
+
+/** API-1 请求体：loaded_question_ids 为整卷题目身份，answers 只含已答。 */
+export interface AttemptSubmitRequestDto {
+  loaded_question_ids: number[]
+  answers: AttemptAnswerDto[]
+}
+
+/** 练习估分快照；不可用时 available=false 且 value=null（不输出 0 分）。 */
+export interface PracticeScoreDto {
+  available: boolean
+  value: number | null
+  max: number
+  label: string
+  reason: string | null
+}
+
+/** API-1 成功 / API-3 latest_attempt 共用汇总（字段与后端完全一致）。 */
+export interface AttemptSummaryDto {
+  attempt_code: string
+  exam_paper_id: number
+  submitted_at: string
+  question_count: number
+  correct_count: number
+  correct_rate: number
+  practice_score: PracticeScoreDto
+}
+
+/** API-3 响应 data。 */
+export interface AttemptStatusDto {
+  exam_paper_id: number
+  submitted: boolean
+  attempt_count: number
+  latest_attempt: AttemptSummaryDto | null
 }

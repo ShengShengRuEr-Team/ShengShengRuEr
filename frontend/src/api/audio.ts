@@ -33,6 +33,7 @@ export interface AudioSource {
 export async function loadAudioSource(
   examPaperId: number,
   signal?: AbortSignal,
+  expectedBatchId?: number,
 ): Promise<AudioSource> {
   try {
     const token = getAccessToken()
@@ -41,6 +42,7 @@ export async function loadAudioSource(
       {
         responseType: 'blob',
         signal,
+        params: expectedBatchId ? {expected_batch_id:expectedBatchId} : undefined,
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       },
     )

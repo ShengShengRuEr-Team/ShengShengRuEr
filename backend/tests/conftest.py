@@ -104,6 +104,20 @@ def client(prepared_database: None) -> Generator[TestClient]:
         yield test_client
 
 
+@pytest.fixture(autouse=True)
+def cleanup_attempt_support() -> Generator[None]:
+    """用例结束后清理 attempt_support 创建的试卷/批次/音频/作答记录。
+
+    只在夹具内延迟 import app.*，避免收集阶段把 engine 绑定到开发库。
+    """
+
+    from tests.attempt_support import cleanup_since, registry_size
+
+    marker = registry_size()
+    yield
+    cleanup_since(marker)
+
+
 def login(client: TestClient, username: str, password: str) -> str:
     response = client.post(
         "/api/v1/login",

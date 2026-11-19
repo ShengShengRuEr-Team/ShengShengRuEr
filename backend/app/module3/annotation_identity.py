@@ -1,0 +1,174 @@
+"""Versioned fingerprints; historical V2 payloads retain their original hash."""
+
+from copy import deepcopy
+from pathlib import Path
+
+from app.module3.contracts import file_hash, fingerprint, result_identity
+
+RESULT_VERSION = "m3.v3"
+ERROR_RULE_VERSION = "m3.option-errors.v2"
+PROMPT_VERSION = "m3.annotations.v7"
+CHECK_VERSION = "m3.checks.v3"
+
+
+def request_hash(action: str, target: str | None, payload: dict) -> str:
+    # Original preconditions are deliberately part of the accepted request.
+    return fingerprint({"action": action, "target": target, "payload": payload})
+
+
+def rules_manifest() -> dict:
+    from app.module3.distractor_annotations import SYSTEM_PROMPT_V7
+    from app.module3.distractor_contract import CANDIDATE_VERSION, AnnotationCandidateV7
+    from app.module3.generation_config import generation_parameters
+
+    root = Path(__file__).resolve().parents[2]
+    files = (
+        "app/module3/annotation_identity.py",
+        "app/module3/annotations.py",
+        "app/module3/annotation_checks.py",
+        "app/module3/option_annotations.py",
+        "app/module3/distractor_annotations.py",
+        "app/module3/distractor_contract.py",
+        "app/module3/candidate_diff.py",
+        "app/module3/llm.py",
+        "app/module3/generation_config.py",
+        "config/module3/annotation-candidate-v7.schema.json",
+        "app/module3/workflow_worker.py",
+        "app/services/processing/reviewing.py",
+        "app/services/processing/reprocessing.py",
+        "app/services/processing/candidate_recovery.py",
+    )
+    content = {
+        "result_version": RESULT_VERSION,
+        "error_rule_version": ERROR_RULE_VERSION,
+        "prompt_version": PROMPT_VERSION,
+        "check_version": CHECK_VERSION,
+        "candidate_version": CANDIDATE_VERSION,
+        "prompt_sha256": fingerprint(SYSTEM_PROMPT_V7),
+        "schema_sha256": fingerprint(AnnotationCandidateV7.model_json_schema()),
+        "generation_parameters": generation_parameters(),
+        "dictionary_sha256": file_hash(root / "config/module3/dictionary-schema.json"),
+        "implementation": {name: file_hash(root / name) for name in files},
+        # Enabled only after the new candidate/worker path is actually implemented.
+        "generation_enabled": True,
+    }
+    return {**content, "manifest_hash": fingerprint(content)}
+
+
+def materials_hash(materials: list[dict], document_mode: str) -> str:
+    return fingerprint(
+        {
+            "version": RESULT_VERSION,
+            "document_mode": document_mode,
+            "materials": sorted(materials, key=lambda row: row["kind"]),
+        }
+    )
+
+
+def source_identity(value, payload):
+    materials = {
+        row["material_id"]: row["sha256"] for row in payload.get("source_materials", [])
+    }
+
+    def normalize(item):
+        if isinstance(item, list):
+            return [normalize(row) for row in item]
+        if isinstance(item, dict):
+            result = {
+                key: normalize(row)
+                for key, row in item.items()
+                if key != "source_materials"
+            }
+            if "material_id" in result and result["material_id"] in materials:
+                result["material_sha256"] = materials[result.pop("material_id")]
+            return result
+        return item
+
+    return normalize(value)
+
+
+def question_input_hash(payload: dict, question: dict) -> str:
+    passage = question["passage_src_id"]
+    source_ids = {question["_src_id"], passage} | {
+        s["_src_id"]
+        for s in payload["transcript_segments"]
+        if s["passage_src_id"] == passage
+    }
+    return fingerprint(
+        source_identity(
+            {
+                "version": RESULT_VERSION,
+                "audio_sha256": payload.get("audio", {}).get("file_hash"),
+                "presentation": [
+                    p
+                    for p in payload.get("presentations", [])
+                    if p.get("question_src_id") == question["_src_id"]
+                ],
+                "question": question,
+                "passage": [p for p in payload["passages"] if p["_src_id"] == passage],
+                "segments": sorted(
+                    [
+                        s
+                        for s in payload["transcript_segments"]
+                        if s["passage_src_id"] == passage
+                    ],
+                    key=lambda row: (row["segment_index"], row["_src_id"]),
+                ),
+                "source_refs": sorted(
+                    [
+                        r
+                        for r in payload.get("source_refs", [])
+                        if r.get("src_id") in source_ids
+                    ],
+                    key=fingerprint,
+                ),
+            },
+            payload,
+        )
+    )
+
+
+def sample_dependency_hash(payload: dict, manifest: dict) -> str:
+    return fingerprint(
+        {
+            "version": RESULT_VERSION,
+            "rules_manifest": manifest,
+            "sample": [
+                {
+                    "question_src_id": q["_src_id"],
+                    "input_hash": question_input_hash(payload, q),
+                }
+                for q in payload["questions"][:5]
+            ],
+        }
+    )
+
+
+def result_hash(payload: dict, manifest: dict) -> str:
+    normalized = deepcopy(payload)
+    # Review/progress metadata cannot change immutable content identity.
+    for key in ("review", "review_session", "read_at", "row_version"):
+        normalized.pop(key, None)
+    if "generation_receipts" in normalized:
+        normalized["generation_receipts"] = [
+            {
+                k: v
+                for k, v in receipt.items()
+                if k
+                not in {
+                    "artifact_id",
+                    "artifact_hash",
+                    "task_id",
+                    "attempt_id",
+                    "reused_from_task_id",
+                }
+            }
+            for receipt in normalized["generation_receipts"]
+        ]
+    return fingerprint(
+        {
+            "version": payload.get("schema_version", RESULT_VERSION),
+            "rules_manifest": manifest,
+            "content": result_identity(source_identity(normalized, payload)),
+        }
+    )

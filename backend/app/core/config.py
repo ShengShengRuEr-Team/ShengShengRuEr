@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -38,6 +38,39 @@ class Settings(BaseSettings):
     # 模块二：音频受控目录（storage_key 的相对根；音频本体不入库，不进 Git）。
     audio_storage_dir: str = "var/audio"
 
+    m3_materials_dir: str = "var/materials"
+    m3_artifacts_dir: str = "var/processing"
+    m3_model_root: str = "var/models"
+    m3_profile_path: str = "config/module3/processing-profile.json"
+    m3_asr_python: str = ""
+    m3_ocr_python: str = ""
+    ffmpeg_dll_dir: str = ""
+    nltk_data: str = ""
+    deepseek_api_key: SecretStr | None = None
+    m3_lease_seconds: int = Field(default=120, ge=30)
+    m3_heartbeat_seconds: int = Field(default=10, ge=1)
+    m3_upload_max_bytes: int = Field(default=536870912, gt=0, le=536870912)
+    m3_upload_lease_seconds: int = Field(default=120, ge=30)
+    m3_upload_heartbeat_seconds: int = Field(default=10, ge=1)
+    # Default remains unchanged; an explicit runtime authorization may raise
+    # the shared sample ceiling to 0.75 without resetting historical costs.
+    m3_sample_budget_usd: float = Field(default=0.50, gt=0, le=0.75)
+    m3_run_budget_usd: float = Field(default=2.0, gt=0, le=2.0)
+    m3_total_budget_usd: float = Field(default=5.0, gt=0, le=5.0)
+    m3_sentence_tolerance_ms: int = Field(default=300, ge=0, le=300)
+
+    def m3_path(self, field: str) -> Path:
+        path = Path(getattr(self, field))
+        return (path if path.is_absolute() else BASE_DIR / path).resolve()
+
+    @model_validator(mode="after")
+    def finite_lease_intervals(self):
+        if self.m3_heartbeat_seconds * 2 >= self.m3_lease_seconds:
+            raise ValueError("处理心跳须小于租约时长的一半")
+        if self.m3_upload_heartbeat_seconds * 2 >= self.m3_upload_lease_seconds:
+            raise ValueError("上传心跳须小于租约时长的一半")
+        return self
+
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
         env_file_encoding="utf-8",
@@ -57,9 +90,7 @@ class Settings(BaseSettings):
     def validate_jwt_secret_key(cls, value: SecretStr) -> SecretStr:
         secret = value.get_secret_value().strip()
         if len(secret) < MIN_JWT_SECRET_LENGTH:
-            raise ValueError(
-                f"JWT_SECRET_KEY 至少需要 {MIN_JWT_SECRET_LENGTH} 个字符"
-            )
+            raise ValueError(f"JWT_SECRET_KEY 至少需要 {MIN_JWT_SECRET_LENGTH} 个字符")
         if secret.lower() in JWT_PLACEHOLDER_VALUES or "change_me" in secret.lower():
             raise ValueError("JWT_SECRET_KEY 不能使用占位值")
         return SecretStr(secret)

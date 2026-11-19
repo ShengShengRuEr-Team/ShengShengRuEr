@@ -1,0 +1,401 @@
+{
+  "$defs": {
+    "AnswerEvidenceV7": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_segment_src_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Segment Src Ids",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "support_note": {
+          "minLength": 1,
+          "title": "Support Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_segment_src_ids",
+        "quote",
+        "support_note"
+      ],
+      "title": "AnswerEvidenceV7",
+      "type": "object"
+    },
+    "DistractorAssessment": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "SUPPORTED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "candidates": {
+                "minItems": 1
+              },
+              "unresolved_points": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "NO_SUPPORTED_CANDIDATE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "candidates": {
+                "maxItems": 0
+              },
+              "unresolved_points": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "INSUFFICIENT_EVIDENCE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "candidates": {
+                "maxItems": 0
+              },
+              "unresolved_points": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "option_letter": {
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D"
+          ],
+          "title": "Option Letter",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "SUPPORTED",
+            "NO_SUPPORTED_CANDIDATE",
+            "INSUFFICIENT_EVIDENCE"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "comparison_evidence": {
+          "items": {
+            "$ref": "#/$defs/EvidenceV7"
+          },
+          "title": "Comparison Evidence",
+          "type": "array"
+        },
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/DistractorErrorCandidate"
+          },
+          "title": "Candidates",
+          "type": "array"
+        },
+        "unresolved_points": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Unresolved Points",
+          "type": "array"
+        }
+      },
+      "required": [
+        "option_letter",
+        "status",
+        "reason",
+        "comparison_evidence",
+        "candidates",
+        "unresolved_points"
+      ],
+      "title": "DistractorAssessment",
+      "type": "object"
+    },
+    "DistractorErrorCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "error_cause_code": {
+          "enum": [
+            "E1.1",
+            "E1.3",
+            "E1.2",
+            "E2.1",
+            "E3.1",
+            "E3.2",
+            "E3.3",
+            "E4.2",
+            "E5.1",
+            "E5.2",
+            "E7.1",
+            "E4.3"
+          ],
+          "title": "Error Cause Code",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/EvidenceV7"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "personal_verification_needed": {
+          "minLength": 1,
+          "title": "Personal Verification Needed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "error_cause_code",
+        "rationale",
+        "evidence",
+        "personal_verification_needed"
+      ],
+      "title": "DistractorErrorCandidate",
+      "type": "object"
+    },
+    "EvidenceV7": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_segment_src_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Segment Src Ids",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "support_note": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Support Note"
+        }
+      },
+      "required": [
+        "evidence_segment_src_ids",
+        "quote"
+      ],
+      "title": "EvidenceV7",
+      "type": "object"
+    },
+    "SkillV7": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_segment_src_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Segment Src Ids",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "support_note": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Support Note"
+        },
+        "skill_code": {
+          "enum": [
+            "S08",
+            "S09",
+            "S10",
+            "S11",
+            "S15",
+            "S16",
+            "S17",
+            "S18",
+            "S25",
+            "S26",
+            "S27",
+            "S28",
+            "S29",
+            "S31",
+            "S32",
+            "S33",
+            "S35",
+            "S19",
+            "S21",
+            "S22",
+            "S23",
+            "S24"
+          ],
+          "title": "Skill Code",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "PRIMARY",
+            "AUXILIARY"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_segment_src_ids",
+        "quote",
+        "skill_code",
+        "role",
+        "rationale"
+      ],
+      "title": "SkillV7",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "question_src_id": {
+      "minLength": 1,
+      "title": "Question Src Id",
+      "type": "string"
+    },
+    "skills": {
+      "contains": {
+        "properties": {
+          "role": {
+            "const": "PRIMARY"
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "items": {
+        "$ref": "#/$defs/SkillV7"
+      },
+      "maxContains": 1,
+      "minContains": 1,
+      "minItems": 1,
+      "title": "Skills",
+      "type": "array"
+    },
+    "answer_evidence": {
+      "items": {
+        "$ref": "#/$defs/AnswerEvidenceV7"
+      },
+      "minItems": 1,
+      "title": "Answer Evidence",
+      "type": "array"
+    },
+    "distractor_assessments": {
+      "items": {
+        "$ref": "#/$defs/DistractorAssessment"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "Distractor Assessments",
+      "type": "array"
+    },
+    "uncertainties": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Uncertainties",
+      "type": "array"
+    },
+    "language_items": {
+      "items": {},
+      "maxItems": 0,
+      "title": "Language Items",
+      "type": "array"
+    },
+    "genre_candidate": {
+      "title": "Genre Candidate",
+      "type": "null"
+    }
+  },
+  "required": [
+    "question_src_id",
+    "skills",
+    "answer_evidence",
+    "distractor_assessments",
+    "uncertainties",
+    "language_items",
+    "genre_candidate"
+  ],
+  "title": "AnnotationCandidateV7",
+  "type": "object"
+}

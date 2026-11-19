@@ -41,6 +41,10 @@ pnpm-debug.log*
 
 # Python environments and generated output.
 .venv/
+.venv-*/
+.pgtest/
+backend/var/
+/var/
 venv/
 __pycache__/
 *.py[cod]

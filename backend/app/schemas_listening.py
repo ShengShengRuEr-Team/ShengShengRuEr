@@ -110,6 +110,8 @@ class PaperCompanionAdmin(BaseModel):
     duration_ms: int | None = None
     # 状态字段：彼此独立，不合并为一个“完成”状态。
     batch_code: str | None = None
+    batch_id: int | None = None
+    result_hash: str | None = None
     is_current: bool = False
     check_passed: bool = False
     is_visible: bool = False
@@ -136,6 +138,7 @@ class CheckResultData(BaseModel):
 # 请求
 # --------------------------------------------------------------------------- #
 class VisibilityActionRequest(BaseModel):
+    expected_batch_id: int = Field(gt=0, strict=True)
     action: str = Field(pattern="^(confirm|cancel)$")
     reason: str = Field(default="", max_length=255)
 
