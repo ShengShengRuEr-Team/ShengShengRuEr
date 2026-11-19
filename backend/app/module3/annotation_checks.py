@@ -369,11 +369,11 @@ def annotate_questions(task, token, result, settings, checkpoint):
                     "issue_code": getattr(error, "code", "ANNOTATION_SCHEMA_INVALID"),
                     "message": str(error)[:1200],
                     "previous_candidate": raw,
-                    "optional_candidate_policy": (
-                        "candidate_errors is OPTIONAL. If an error names "
-                        "candidate_errors[i], fix that exact object or omit it. "
-                        "Prefer [] over stretching a quote across unrelated "
-                        "sentences. Keep required skills and answer evidence."
+                    "candidate_repair_policy": (
+                        "Fix the exact failing evidence; never silently erase "
+                        "a failed candidate to pass validation. Unresolved "
+                        "support must be explicitly reported and reviewed. "
+                        "Keep required skills and answer evidence."
                     ),
                     "repair_contract": (
                         "Correct the cited output-contract failure. Use existing "

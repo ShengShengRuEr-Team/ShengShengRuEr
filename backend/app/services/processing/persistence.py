@@ -178,7 +178,7 @@ def persist_result(
     # Read the paper identity before taking locks. Both old workers and new
     # publication operations take the paper lock BEFORE the task lock.
     task = db.get(p.ProcessingTask, task_id)
-    is_v2 = payload.get("schema_version") == "m3.v2"
+    is_v2 = payload.get("schema_version") in {"m3.v2", "m3.v3"}
     if (is_v2 or task.workflow_id) and execution_guard is None:
         raise ProcessingError("REVIEW_REQUIRED", "新规则结果只能通过工作流发布服务入库")
     # Paper-level lock also protects first-create and result-fingerprint races.

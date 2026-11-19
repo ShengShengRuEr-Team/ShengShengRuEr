@@ -273,10 +273,12 @@ def validate_result(
                 "notes",
             }
             if (
-                payload.get("schema_version") == "m3.v2"
+                payload.get("schema_version") in {"m3.v2", "m3.v3"}
                 and section == "error_question_relations"
             ):
                 common |= {"rule_version", "business_eligible"}
+                if payload.get("schema_version") == "m3.v3":
+                    common.add("personal_verification_needed")
             if any(v is not None and k not in fields | common for k, v in r.items()):
                 issue("RELATION_FIELDS_INVALID", "关系存在不允许的对象字段", rid)
             attr = r.get("attributes_json") or {}
@@ -372,11 +374,18 @@ def validate_result(
             for r in answer_rows
         ):
             issue("ANSWER_EVIDENCE_MISSING", "每题必须有答案证据", qid)
-    if payload.get("schema_version") == "m3.v2":
-        from app.module3.option_annotations import validate_option_relations
+    if payload.get("schema_version") in {"m3.v2", "m3.v3"}:
+        from app.module3.distractor_annotations import validate_option_relations
 
         try:
-            validate_option_relations(payload)
+            validate_option_relations(payload, allow_incomplete=True)
+            for assessment in payload.get("distractor_assessments", []):
+                if assessment["status"] == "INSUFFICIENT_EVIDENCE":
+                    issue(
+                        "CANDIDATE_UNRESOLVED",
+                        "依据不足待核，不能批准",
+                        assessment["_src_id"],
+                    )
         except ProcessingError as error:
             issue(error.code, str(error))
     return issues

@@ -95,7 +95,7 @@ export default function ProcessingDetailPage() {
     {error&&<Alert type="error" showIcon title={error} closable onClose={()=>setError('')}/>}{notice&&<Alert type="success" title={notice}/>}
     <Card><ProcessingProgress workflow={workflow}/><Descriptions column={3} size="small" items={[
       {key:'content',label:'内容审核',children:stateLabel(workflow.content_review_state)},{key:'errors',label:'错因审核',children:stateLabel(workflow.error_review_state)},
-      {key:'publish',label:'正式入库',children:stateLabel(workflow.publication_state)},{key:'visible',label:'学生可见',children:workflow.is_student_visible?'已开放':'未开放'},
+      {key:'publish',label:'本次结果入库',children:stateLabel(workflow.publication_state)},{key:'visible',label:'当前正式卷学生可见',children:workflow.is_student_visible?'已开放':'未开放'},
       {key:'cost',label:'本任务费用账本',children:`已知 $${workflow.usage.known_usd} / 预留 $${workflow.usage.reserved_usd}${workflow.usage.has_unknown_charges?'（有未确认计费）':''}`},
     ]}/><Space wrap style={{marginTop:16}}>
       <Button type="primary" disabled={busy||!workflow.allowed_actions.find(action=>action.action==='start')?.enabled} onClick={()=>void command('start','start',{reason:'管理员显式开始处理'})}>开始处理</Button>
@@ -121,7 +121,8 @@ export default function ProcessingDetailPage() {
     {media&&<Card title={media.label} extra={<Button onClick={()=>{setMedia(null);if(mediaUrl.current){URL.revokeObjectURL(mediaUrl.current);mediaUrl.current=null}}}>关闭预览</Button>}>
       {media.audio?<audio key={media.url} src={media.url} controls preload="metadata" style={{width:'100%'}}/>:<iframe title={media.label} src={media.url} style={{width:'100%',height:500,border:0}}/>}</Card>}
     {waitingStage&&workflow.stages[waitingStage]&&<StageApprovalPanel key={`${workflow.revision_id}:${waitingStage}`} workflow={workflow} stage={waitingStage} busy={busy} command={command}/>}
-    {workflow.result_hash&&<ReprocessPanel key={workflow.revision_id} workflow={workflow} questions={questions} busy={busy||dirty} command={command}/>}
+    {(workflow.reprocess_result_hash||workflow.result_hash||workflow.sample_result_hash)&&<ReprocessPanel key={workflow.revision_id} workflow={workflow} questions={questions} busy={busy||dirty} command={command}/>}
+    {workflow.error_generation_summary&&<Typography.Text>本阶段干扰项检查 {workflow.error_generation_summary.assessed} / {workflow.error_generation_summary.expected} · 结论完整 {workflow.error_generation_summary.resolved} / {workflow.error_generation_summary.expected} · 已勾选审核 {workflow.error_generation_summary.reviewed} / {workflow.error_generation_summary.expected}</Typography.Text>}
     {question?<div className="processing-review-grid"><Card title="题目与标注（只读）" extra={<Select aria-label="跳转题目" value={question.question_no} options={questions.map(item=>({value:item.question_no,label:`第 ${item.question_no} 题`}))} onChange={value=>{const next=new URLSearchParams(search);next.set('question',String(value));setSearch(next,{replace:true})}}/>}>
       <QuestionContent question={question} play={play}/></Card>
       {workflow.review_session_id?<ReviewPanel key={`${workflow.review_session_id}:${workflow.result_hash}`} owner={owner} workflow={workflow} question={question} questions={questions} busy={busy} dirtyChanged={dirtyChanged} command={command}/>:<Card><Empty description="当前阶段尚未生成最终逐题审核会话"/></Card>}</div>:<Card><Empty description="来源处理完成后显示题目与标注"/></Card>}

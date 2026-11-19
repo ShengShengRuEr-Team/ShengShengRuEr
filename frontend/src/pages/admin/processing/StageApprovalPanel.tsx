@@ -64,7 +64,7 @@ export default function StageApprovalPanel({workflow, stage, busy, command}: {
         combined.push(...result.items); cursor = result.next_cursor
       }
       if (cursor !== null) throw new Error('阶段内容超过单次审核范围，请联系维护人员分批核对')
-      if (!controller.signal.aborted) setItems(stage === 'sample' ? combined.slice(0,5) : combined.filter(item => stage !== 'align' || item.segment_type === 'body'))
+      if (!controller.signal.aborted) setItems(combined.filter(item => stage !== 'align' || item.segment_type === 'body'))
     }
     void load().catch(cause => {if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : '阶段读取失败')})
     return () => controller.abort()

@@ -364,7 +364,7 @@ def test_contract_retry_is_bounded_and_retains_rejected_output(
         feedback["previous_candidate"]["answer_evidence"][0]["quote"]
         == "Fabricated quote"
     )
-    assert "OPTIONAL" in feedback["optional_candidate_policy"]
+    assert "never silently erase" in feedback["candidate_repair_policy"]
     assert (
         sum(stage == "annotation_rejected" for stage, _ in artifacts) == failure_count
     )

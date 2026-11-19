@@ -16,6 +16,9 @@ export interface WorkflowMaterial {
 }
 export interface Projection { task_id: string; artifact_id: number; artifact_hash: string; dependency_hash: string }
 export interface WorkflowDetail extends WorkflowSummary {
+  sample_result_hash?: string | null
+  reprocess_result_hash?: string | null
+  error_generation_summary?: {assessed:number;expected:number;resolved:number;reviewed:number}
   task_id: string | null; result_hash: string | null; document_mode: 'text' | 'scan'
   listening_pages: { paper: number[]; answer: number[] }; materials: WorkflowMaterial[]
   current_batch_id: number | null; is_student_visible: boolean; stages: Record<string, Projection>
@@ -35,9 +38,12 @@ export interface Evidence {
 export interface QuestionView {
   question_src_id: string; question_no: number; question_text: string; explanation_text: string
   correct_option_base: string; correct_option_display: string; generation_state: string
+  assessment_summary?: {expected:number;assessed:number;resolved:number}
+  rule_version?: string; result_version?: string
+  candidate_changes?: Array<{reference:string;diff:{changes:Array<{kind:string;option_letter:string;error_cause_code?:string;before:unknown;after:unknown}>;semantic_deletion_review_required:boolean}}>
   options: Array<{display_letter: string; base_option_letter: string; text: string; error_causes: Array<{
-    relation_src_id: string; code: string; rationale: string; evidence: Evidence[]
-  }>}>
+    relation_src_id: string; code: string; rationale: string; evidence: Evidence[]; personal_verification_needed?:string
+  }>;assessment?: {_src_id:string;status:'SUPPORTED'|'NO_SUPPORTED_CANDIDATE'|'INSUFFICIENT_EVIDENCE';reason:string;unresolved_points:string[];comparison_evidence:Evidence[]}|null}>
   skills: Array<{_src_id: string; skill_code: string; skill_name?: string | null; role: string; attributes_json?: {annotation_reason?: string}; evidence: Evidence[]}>
   answer_evidence: Evidence[]; review_requirements: Record<string, string[]>
 }
@@ -45,6 +51,8 @@ export interface ReviewItem {
   question_src_id: string; content: 'approved' | 'changes_required'
   primary_skills: Array<{reference: string; decision: string}>; answer_evidence: Array<{reference: string; decision: string}>
   error_causes: Array<{reference: string; decision: string}>; empty_errors_confirmed: boolean
+  distractor_assessments: Array<{reference:string;decision:string}>
+  candidate_changes: Array<{reference:string;decision:string}>
   note: string; issues: Array<Record<string, unknown>>
 }
 export interface PendingOperation {action: string; url: string; method: 'POST' | 'PATCH'; key: string; body: Record<string, unknown>}

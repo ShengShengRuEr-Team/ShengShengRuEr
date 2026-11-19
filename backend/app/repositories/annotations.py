@@ -99,6 +99,17 @@ def current_annotations(db, paper_id, expected_batch_id, cursor, limit):
         "result_hash": revision.final_result_hash,
         "annotation_state": "approved",
         "rule_version": ERROR_RULE_VERSION,
+        "assessment_summary": reading.coverage_summary(
+            draft.payload,
+            (
+                row.decisions
+                for row in db.scalars(
+                    select(m.ProcessingReviewItem).where(
+                        m.ProcessingReviewItem.session_id == session.id
+                    )
+                ).all()
+            ),
+        ),
         "items": items,
         "next_cursor": cursor + limit
         if cursor + limit < len(draft.payload["questions"])

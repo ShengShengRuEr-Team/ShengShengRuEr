@@ -8,14 +8,19 @@ from sqlalchemy import func, select
 from app.core.errors import AppError
 from app.db import models_processing as p
 from app.db import models_processing_workflows as m
-from app.module3.annotation_identity import question_input_hash, rules_manifest
+from app.module3.annotation_identity import (
+    RESULT_VERSION,
+    question_input_hash,
+    rules_manifest,
+)
 from app.module3.contracts import fingerprint, result_hash
-from app.module3.option_annotations import (
-    SYSTEM_PROMPT_V2,
+from app.module3.distractor_annotations import (
+    SYSTEM_PROMPT_V7,
     check_option_candidate,
     merge_option_candidate,
     normalize_candidate,
 )
+from app.module3.distractor_contract import generation_state
 from app.schemas_processing import ReviewRequest
 from app.services.processing import orchestration as o
 from app.services.processing import tasks
@@ -23,8 +28,8 @@ from app.services.processing import workflows as w
 from app.services.processing.validation import validate_result
 
 
-def validate_final(db, payload, request, revision, settings):
-    from app.module3.workflow_worker import generation_input
+def validate_final(db, payload, request, revision, settings, *, allow_incomplete=False):
+    from app.module3.workflow_worker import generation_input, receipt_changes
     from app.services.processing.candidate_recovery import (
         response_task_matches,
         runtime_compatible,
@@ -32,7 +37,7 @@ def validate_final(db, payload, request, revision, settings):
     from app.services.processing.reprocessing import ancestor_revision
 
     if (
-        payload.get("schema_version") != "m3.v2"
+        payload.get("schema_version") != RESULT_VERSION
         or payload.get("rules_manifest") != revision.rules_manifest
         or revision.rules_manifest.get("manifest_hash")
         != fingerprint(
@@ -42,6 +47,8 @@ def validate_final(db, payload, request, revision, settings):
     ):
         raise w.conflict("ARTIFACT_CHANGED", "当前结果不属于有效的新规则方法")
     issues = validate_result(payload, request)
+    if allow_incomplete:
+        issues = [r for r in issues if r["issue_code"] != "CANDIDATE_UNRESOLVED"]
     if issues:
         raise w.conflict(
             "OPTION_ERROR_INVALID",
@@ -79,6 +86,8 @@ def validate_final(db, payload, request, revision, settings):
             not call
             or not response_task_matches(db, artifact, call, raw, revision, settings)
             or call.status != "succeeded"
+            or call.response_payload.get("choices", [{}])[0].get("finish_reason")
+            != "stop"
             or not ancestor_revision(db, revision, generation_task)
             or str(generation_task.id) != receipt["task_id"]
             or raw["rules_manifest"] != revision.rules_manifest
@@ -94,7 +103,7 @@ def validate_final(db, payload, request, revision, settings):
             or json.loads(call.request_payload["messages"][1]["content"])
             != generation_input(payload, question, generation_task.request)
             or not call.request_payload["messages"][0]["content"].startswith(
-                SYSTEM_PROMPT_V2
+                SYSTEM_PROMPT_V7
             )
             or json.loads(call.response_payload["choices"][0]["message"]["content"])
             != raw["candidate"]
@@ -103,17 +112,24 @@ def validate_final(db, payload, request, revision, settings):
                 "ARTIFACT_CHANGED", "生成receipt、模型响应或题目依赖不匹配"
             )
         check_option_candidate(payload, question, raw["candidate"])
-        expected_state = (
-            "generated" if raw["candidate"]["candidate_errors"] else "generated_empty"
-        )
+        expected_state = generation_state(raw["candidate"])
         if receipt["state"] != expected_state:
             raise w.conflict("OPTION_ERROR_INVALID", "错因生成状态与原始响应不匹配")
         merge_option_candidate(rebuilt, question, raw["candidate"])
+        rebuilt.setdefault("candidate_changes", []).extend(
+            receipt_changes(db, receipt, settings)
+        )
+    if rebuilt.get("annotation_uncertainties", {}) != payload.get(
+        "annotation_uncertainties", {}
+    ):
+        raise w.conflict("ANNOTATION_CONFLICT", "边界说明与模型原始响应不匹配")
     for section in (
         "evidences",
         "skill_question_relations",
         "error_question_relations",
         "other_relations",
+        "distractor_assessments",
+        "candidate_changes",
     ):
         if sorted(rebuilt[section], key=fingerprint) != sorted(
             payload[section], key=fingerprint
@@ -186,6 +202,16 @@ def review_requirements(payload, question_id):
             and r["relation_kind"] == "ANSWER_EVIDENCE"
         },
         "error_causes": error_ids,
+        "distractor_assessments": {
+            a["_src_id"]
+            for a in payload.get("distractor_assessments", [])
+            if a["question_src_id"] == question_id
+        },
+        "candidate_changes": {
+            d["reference"]
+            for d in payload.get("candidate_changes", [])
+            if d["question_src_id"] == question_id
+        },
     }
 
 

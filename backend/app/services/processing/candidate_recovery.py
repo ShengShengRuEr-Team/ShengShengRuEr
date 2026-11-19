@@ -8,8 +8,8 @@ from sqlalchemy import select
 from app.db import models_processing as p
 from app.module3.annotation_identity import question_input_hash
 from app.module3.contracts import ProcessingError, fingerprint
-from app.module3.option_annotations import (
-    SYSTEM_PROMPT_V2,
+from app.module3.distractor_annotations import (
+    SYSTEM_PROMPT_V7,
     check_option_candidate,
 )
 from app.services.processing import orchestration as o
@@ -65,6 +65,8 @@ def saved_candidate(db, task, revision, payload, question, settings):
         if (
             not call
             or call.status != "succeeded"
+            or call.response_payload.get("choices", [{}])[0].get("finish_reason")
+            != "stop"
             or not response_task_matches(db, artifact, call, raw, revision, settings)
         ):
             continue
@@ -74,7 +76,7 @@ def saved_candidate(db, task, revision, payload, question, settings):
             or json.loads(call.request_payload["messages"][1]["content"])
             != generation_input(payload, question, task.request)
             or not call.request_payload["messages"][0]["content"].startswith(
-                SYSTEM_PROMPT_V2
+                SYSTEM_PROMPT_V7
             )
             or json.loads(call.response_payload["choices"][0]["message"]["content"])
             != raw["candidate"]

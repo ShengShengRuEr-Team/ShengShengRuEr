@@ -124,7 +124,7 @@ def result_identity(payload: dict) -> dict:
 
 
 def result_hash(payload: dict) -> str:
-    if payload.get("schema_version") == "m3.v2":
+    if payload.get("schema_version") in {"m3.v2", "m3.v3"}:
         from app.module3.annotation_identity import result_hash as v2_hash
 
         return v2_hash(payload, payload["rules_manifest"])

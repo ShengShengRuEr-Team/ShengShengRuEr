@@ -485,13 +485,38 @@ def stage(
         if stage == "align"
         else content.get("questions", [])
     )
+    if stage == "sample":
+        items = content.get("questions", [])[:5] + [
+            {
+                **a,
+                "text": (
+                    f"{a['question_src_id']} / {a['option_letter']} · "
+                    f"{a['status']}：{a['reason']}"
+                ),
+            }
+            for a in content.get("distractor_assessments", [])
+        ]
+        items += [
+            {
+                "_src_id": d["reference"],
+                "text": (
+                    f"{d['question_src_id']} 候选删改复核："
+                    + "；".join(
+                        f"{r.get('option_letter', '')}/{r.get('error_cause_code', '')} "
+                        f"{r['kind']}"
+                        for r in d["diff"]["changes"]
+                    )
+                ),
+            }
+            for d in content.get("candidate_changes", [])
+        ]
     return ok(
         {
             **projection,
             "result_hash": __import__(
                 "app.module3.contracts", fromlist=["result_hash"]
             ).result_hash(content)
-            if content.get("schema_version") == "m3.v2"
+            if content.get("schema_version") in {"m3.v2", "m3.v3"}
             else None,
             "items": reading.public_value(items[cursor : cursor + limit]),
             "total": len(items),

@@ -58,6 +58,27 @@ def public_value(value):
     return value
 
 
+def coverage_summary(content, decisions=()):
+    assessments = content.get("distractor_assessments", [])
+    expected = {a["_src_id"] for a in assessments}
+    reviewed = {
+        r["reference"]
+        for item in decisions
+        for r in item.get("distractor_assessments", [])
+        if r.get("decision") == "approved" and r.get("reference") in expected
+    }
+    return {
+        "assessed": len(assessments),
+        "expected": len(content["questions"]) * 3,
+        "resolved": sum(a["status"] != "INSUFFICIENT_EVIDENCE" for a in assessments),
+        "reviewed": len(reviewed),
+        "empty_options": sum(
+            a["status"] == "NO_SUPPORTED_CANDIDATE" for a in assessments
+        ),
+        "unresolved": sum(a["status"] == "INSUFFICIENT_EVIDENCE" for a in assessments),
+    }
+
+
 def question_view(content, question):
     qid = question["_src_id"]
     evidences = {r["_src_id"]: r for r in content.get("evidences", [])}
@@ -82,6 +103,11 @@ def question_view(content, question):
         ]
 
     options = []
+    assessments = {
+        a["option_letter"]: a
+        for a in content.get("distractor_assessments", [])
+        if a["question_src_id"] == qid
+    }
     for display, base in presentation["option_letter_mapping"].items():
         errors = [
             {
@@ -93,6 +119,7 @@ def question_view(content, question):
                 "rationale": (row.get("attributes_json") or {}).get(
                     "trigger_mechanism", ""
                 ),
+                "personal_verification_needed": row.get("personal_verification_needed"),
                 "evidence": evidence_groups(error_rows, row["_src_id"]),
             }
             for row in error_rows
@@ -104,6 +131,24 @@ def question_view(content, question):
                 "base_option_letter": base,
                 "text": question["option_" + base.lower()],
                 "error_causes": errors,
+                "assessment": (
+                    {
+                        **{
+                            k: v
+                            for k, v in assessments[base].items()
+                            if k != "comparison_evidence_refs"
+                        },
+                        "comparison_evidence": [
+                            {
+                                **evidences[ref["evidence_src_id"]],
+                                "support_note": ref.get("support_note"),
+                            }
+                            for ref in assessments[base]["comparison_evidence_refs"]
+                        ],
+                    }
+                    if base in assessments
+                    else None
+                ),
             }
         )
     receipt = next(
@@ -144,6 +189,23 @@ def question_view(content, question):
                 and row["relation_kind"] == "ANSWER_EVIDENCE"
             ],
             "generation_state": receipt["state"] if receipt else "not_generated",
+            "assessment_summary": {
+                "expected": 3,
+                "assessed": len(assessments),
+                "resolved": sum(
+                    a["status"] != "INSUFFICIENT_EVIDENCE" for a in assessments.values()
+                ),
+            },
+            "candidate_changes": [
+                d
+                for d in content.get("candidate_changes", [])
+                if d["question_src_id"] == qid
+            ],
+            "annotation_uncertainties": content.get("annotation_uncertainties", {}).get(
+                qid, []
+            ),
+            "rule_version": content.get("rules_manifest", {}).get("error_rule_version"),
+            "result_version": content.get("schema_version"),
             "review_requirements": {
                 key: sorted(refs)
                 for key, refs in reviewing.review_requirements(content, qid).items()
@@ -186,6 +248,7 @@ def questions(db, revision, settings, expected_hash=None, cursor=0, limit=25):
         }
     return {
         "items": [question_view(display_content, q) for q in selected],
+        "assessment_summary": coverage_summary(display_content),
         "result_hash": identity,
         "total": len(content["questions"]),
         "next_cursor": cursor + limit

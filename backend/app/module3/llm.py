@@ -13,10 +13,10 @@ from sqlalchemy import create_engine, select, text
 from app.db.base import SessionLocal, engine
 from app.db.models_processing import LlmAttempt
 from app.module3.contracts import ProcessingError, canonical_bytes, fingerprint
+from app.module3.generation_config import MAX_OUTPUT, generation_parameters
 
 INPUT_PER_TOKEN = Decimal("0.00000030")
 OUTPUT_PER_TOKEN = Decimal("0.00000120")
-MAX_OUTPUT = 4096
 
 
 @contextmanager
@@ -111,7 +111,19 @@ def reserve(task_id, run_key, phase, request, settings, *, execution_token=None)
             if command_id is None:
                 raise ProcessingError("LEASE_REVOKED", "收费请求执行权已撤销")
             fence(db, command_id, execution_token)
-            fenced_task(db, task_id, execution_token)
+            active_task = fenced_task(db, task_id, execution_token)
+            if active_task.workflow_id:
+                from app.module3.annotation_identity import rules_manifest
+                from app.services.processing.candidate_recovery import (
+                    runtime_compatible,
+                )
+
+                if not runtime_compatible(
+                    active_task.method.get("rules_manifest", {}), rules_manifest()
+                ):
+                    raise ProcessingError(
+                        "ANNOTATION_VERSION_MISMATCH", "方法身份变化，停止收费预留"
+                    )
         rows = db.scalars(select(LlmAttempt)).all()
 
         def cost(row):
@@ -196,12 +208,7 @@ def request_json(
     ):
         raise ProcessingError("CREDENTIALS_MISSING", "未配置DeepSeek受控密钥")
     request = {
-        "model": "deepseek-flash",
-        "thinking": {"type": "disabled"},
-        "temperature": 0,
-        "max_tokens": MAX_OUTPUT,
-        "response_format": {"type": "json_object"},
-        "stream": False,
+        **generation_parameters(),
         "messages": [
             {
                 "role": "system",
@@ -221,8 +228,9 @@ def request_json(
                     "\nRetry validation feedback: use consecutive ordered BODY "
                     "sentence "
                     "IDs within each evidence group, with no omitted middle sentence. "
-                    "Split disconnected groups; quote each group exactly. Return fewer "
-                    "candidate errors when support is insufficient. "
+                    "Split disconnected groups; quote each group exactly. Preserve "
+                    "all three assessments. Unresolved support must stay explicitly "
+                    "INSUFFICIENT_EVIDENCE, never silently become an empty result. "
                     "For skills, answer evidence and every error evidence group, "
                     "copy each full segments._src_id verbatim, including its passage "
                     "prefix; never abbreviate IDs or copy IDs from the question. "
@@ -254,8 +262,12 @@ def request_json(
                                 "consecutive ordered aligned BODY sentences "
                                 "and an exact source "
                                 "quote. Split disconnected error evidence into "
-                                "separate groups. Do not invent intervening support; "
-                                "omit unsupported error annotations."
+                                "separate groups. Do not invent intervening support. "
+                                "Keep all three distractor assessments. Repair the "
+                                "exact failing evidence or mark that option "
+                                "INSUFFICIENT_EVIDENCE with unresolved_points. "
+                                "A semantic deletion requires a specific material "
+                                "comparison reason, and separate deletion review."
                             ),
                         }
                     ).decode("utf-8"),

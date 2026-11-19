@@ -149,8 +149,8 @@ def queue_task(db, workflow, revision, stage, user_id, settings):
     task.parent_task_id = workflow.current_task_id
     task.method = {
         **task.method,
-        "prompt_version": "m3.annotations.v6",
-        "rule_version": "m3.checks.v2",
+        "prompt_version": "m3.annotations.v7",
+        "rule_version": "m3.checks.v3",
         "rules_manifest": revision.rules_manifest,
     }
     task.method_hash = fingerprint(task.method)
@@ -250,7 +250,11 @@ def approve_stage(db, workflow_id, payload, user_id, key, settings):
             issue
             for issue in validate_result(content, source_task.request)
             if issue["issue_code"]
-            not in {"PRIMARY_SKILL_MISSING", "ANSWER_EVIDENCE_MISSING"}
+            not in {
+                "PRIMARY_SKILL_MISSING",
+                "ANSWER_EVIDENCE_MISSING",
+                "DISTRACTOR_ASSESSMENT_MISSING",
+            }
         ]
         if issues:
             raise w.conflict(
@@ -274,6 +278,14 @@ def approve_stage(db, workflow_id, payload, user_id, key, settings):
             for q in content["questions"][: 5 if payload.stage == "sample" else None]
         }
     )
+    if payload.stage == "sample":
+        from app.module3.distractor_annotations import validate_option_relations
+
+        sample = {**content, "questions": content["questions"][:5]}
+        if payload.decision == "approved":
+            validate_option_relations(sample)
+        expected |= {a["_src_id"] for a in content.get("distractor_assessments", [])}
+        expected |= {d["reference"] for d in content.get("candidate_changes", [])}
     items = payload.items
     if (
         {item.reference for item in items} != expected
@@ -301,6 +313,7 @@ def approve_stage(db, workflow_id, payload, user_id, key, settings):
             "items": [item.model_dump() for item in items],
             "review_basis": payload.review_basis,
             "approval_reference": payload.approval_reference,
+            "reviewer_kind": payload.reviewer_kind,
         },
         operator_user_id=user_id,
     )

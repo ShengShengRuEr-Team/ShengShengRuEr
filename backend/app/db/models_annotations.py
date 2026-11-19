@@ -16,9 +16,84 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.db.base import Base
+
+
+class QuestionAnnotationState(Base):
+    __tablename__ = "question_annotation_states"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["question_id", "batch_id"], ["questions.id", "questions.batch_id"]
+        ),
+    )
+    batch_id = Column(BigInteger, ForeignKey("import_batches.id"), primary_key=True)
+    question_id = Column(BigInteger, primary_key=True)
+    revision_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("processing_workflow_revisions.id"),
+        nullable=False,
+    )
+    result_hash = Column(String(64), nullable=False)
+    rule_version = Column(String(32), nullable=False)
+    rules_manifest_hash = Column(String(64), nullable=False)
+    question_input_hash = Column(String(64), nullable=False)
+    generation_state = Column(String(32), nullable=False)
+    generation_task_id = Column(
+        UUID(as_uuid=True), ForeignKey("processing_tasks.id"), nullable=False
+    )
+    candidate_artifact_id = Column(
+        BigInteger, ForeignKey("processing_artifacts.id"), nullable=False
+    )
+    review_session_id = Column(
+        UUID(as_uuid=True), ForeignKey("processing_review_sessions.id"), nullable=False
+    )
+
+
+class QuestionDistractorAssessment(Base):
+    __tablename__ = "question_distractor_assessments"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["batch_id", "question_id"],
+            [
+                "question_annotation_states.batch_id",
+                "question_annotation_states.question_id",
+            ],
+        ),
+    )
+    batch_id = Column(BigInteger, primary_key=True)
+    question_id = Column(BigInteger, primary_key=True)
+    option_letter = Column(String(1), primary_key=True)
+    rule_version = Column(String(32), nullable=False)
+    status = Column(String(32), nullable=False)
+    reason = Column(Text, nullable=False)
+    unresolved_points = Column(JSONB, nullable=False)
+    source_candidate_hash = Column(String(64), nullable=False)
+
+
+class QuestionDistractorComparisonEvidence(Base):
+    __tablename__ = "question_distractor_comparison_evidences"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["batch_id", "question_id", "option_letter"],
+            [
+                "question_distractor_assessments.batch_id",
+                "question_distractor_assessments.question_id",
+                "question_distractor_assessments.option_letter",
+            ],
+        ),
+        ForeignKeyConstraint(
+            ["evidence_id", "batch_id"],
+            ["evidence_items.id", "evidence_items.batch_id"],
+        ),
+    )
+    batch_id = Column(BigInteger, primary_key=True)
+    question_id = Column(BigInteger, primary_key=True)
+    option_letter = Column(String(1), primary_key=True)
+    sort_order = Column(Integer, primary_key=True)
+    evidence_id = Column(BigInteger, nullable=False)
+    support_note = Column(Text)
 
 
 class Skill(Base):
@@ -119,8 +194,12 @@ class ErrorQuestionRelation(Base):
         ),
     )
     id = Column(BigInteger, primary_key=True)
-    rule_version = Column(String(32), nullable=False, default="legacy", server_default="legacy")
-    business_eligible = Column(Boolean, nullable=False, default=False, server_default="false")
+    rule_version = Column(
+        String(32), nullable=False, default="legacy", server_default="legacy"
+    )
+    business_eligible = Column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     batch_id = Column(BigInteger, ForeignKey("import_batches.id"), nullable=False)
     relation_kind = Column(String(32), nullable=False)
     relation_code = Column(String(64), nullable=False)
@@ -129,6 +208,7 @@ class ErrorQuestionRelation(Base):
     question_id = Column(BigInteger, ForeignKey("questions.id"), nullable=True)
     error_cause_id = Column(BigInteger, ForeignKey("error_causes.id"), nullable=True)
     option_letter = Column(String(1), nullable=True)
+    personal_verification_needed = Column(Text, nullable=True)
     owner_relation_id = Column(
         BigInteger, ForeignKey("error_question_relations.id"), nullable=True
     )

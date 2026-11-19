@@ -34,6 +34,26 @@ def ancestor_revision(db, revision, task):
     return False
 
 
+def reprocess_stage(db, workflow, revision):
+    if revision.final_result_hash:
+        return "final"
+    if "sample" in revision.stage_fingerprints:
+        return "sample"
+    if workflow.processing_state != "failed" or not workflow.current_task_id:
+        return None
+    task = db.get(p.ProcessingTask, workflow.current_task_id)
+    if (
+        workflow.processing_state == "failed"
+        and task
+        and task.request.get("workflow_stage") in {"annotate", "annotate_sample"}
+        and "source" in revision.stage_fingerprints
+    ):
+        # A failed annotation has no completed result to repair. Its immutable
+        # source is an explicit restart anchor, never a completed empty sample.
+        return "source"
+    return None
+
+
 def context(db, workflow_id, payload, settings, *, allow_source=False):
     workflow, revision = w.locked_current(db, workflow_id, payload)
     if workflow.processing_state in {
@@ -48,8 +68,12 @@ def context(db, workflow_id, payload, settings, *, allow_source=False):
     }:
         raise w.conflict("WORKFLOW_BUSY", "请先等待或停止当前操作")
     stage = (
-        "final" if revision.final_result_hash else "source" if allow_source else "final"
+        "source"
+        if allow_source and not revision.final_result_hash
+        else reprocess_stage(db, workflow, revision)
     )
+    if not stage:
+        raise w.conflict("RESULT_NOT_READY", "尚无可修复的结果或失败标注来源")
     content, _ = o.stage_payload(db, revision, stage, settings)
     if result_hash(content) != payload.expected_result_hash:
         raise w.conflict("ARTIFACT_CHANGED", "父结果身份变化")
@@ -64,6 +88,13 @@ def build_plan(db, revision, content, selected, feedback):
     method_same = manifest == revision.rules_manifest
     # Shared method changes invalidate every candidate and the sample gate.
     affected = set(selected) if method_same else set(questions)
+    if not revision.final_result_hash:
+        # A sample contains source for the whole paper, but receipts for at most
+        # five questions. Unattempted questions cannot be declared reusable.
+        generated = {
+            r["question_src_id"] for r in content.get("generation_receipts", [])
+        }
+        affected |= set(questions) - generated
     sample_ids = {q["_src_id"] for q in content["questions"][:5]}
     projection = revision.stage_fingerprints.get("sample")
     approval = db.scalar(
@@ -91,7 +122,7 @@ def build_plan(db, revision, content, selected, feedback):
         affected |= sample_ids
     plan = {
         "parent_revision_id": str(revision.id),
-        "parent_result_hash": revision.final_result_hash,
+        "parent_result_hash": revision.final_result_hash or result_hash(content),
         "selected_question_ids": sorted(selected),
         "affected_question_ids": sorted(affected),
         "reusable_question_ids": sorted(set(questions) - affected),
@@ -167,6 +198,9 @@ def execute(db, workflow_id, payload, user_id, key, settings):
     plan = build_plan(db, parent, content, payload.question_src_ids, payload.feedback)
     if payload.expected_plan_hash != plan["plan_hash"]:
         raise w.conflict("PLAN_CHANGED", "修复范围或方法变化，请重新预览", plan=plan)
+    parent_projection = copy.deepcopy(
+        parent.stage_fingerprints[reprocess_stage(db, workflow, parent)]
+    )
     revision = child_revision(db, workflow, parent, user_id, payload.feedback)
     if plan["sample_valid"]:
         clone_sample_gate(db, revision, parent, plan, user_id)
@@ -176,7 +210,7 @@ def execute(db, workflow_id, payload, user_id, key, settings):
     task.request = {
         **task.request,
         "repair_plan": plan,
-        "reuse_final_projection": parent.stage_fingerprints["final"],
+        "reuse_final_projection": parent_projection,
     }
     task.input_hash = fingerprint(
         {

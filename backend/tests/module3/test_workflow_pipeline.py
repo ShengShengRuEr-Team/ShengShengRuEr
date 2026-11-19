@@ -181,7 +181,32 @@ def pipeline(client, context, monkeypatch):
                     "support_note": "Synthetic source states Alpha, matching option A.",
                 }
             ],
-            "candidate_errors": copy.deepcopy(synthetic_errors),
+            "distractor_assessments": [
+                {
+                    "option_letter": letter,
+                    "status": "SUPPORTED"
+                    if any(e["option_letter"] == letter for e in synthetic_errors)
+                    else "NO_SUPPORTED_CANDIDATE",
+                    "reason": f"Synthetic {letter} differs from source Alpha.",
+                    "comparison_evidence": [],
+                    "candidates": [
+                        {
+                            k: v
+                            for k, v in {
+                                **copy.deepcopy(e),
+                                "personal_verification_needed": "Collect paraphrase.",
+                            }.items()
+                            if k != "option_letter"
+                        }
+                        for e in synthetic_errors
+                        if e["option_letter"] == letter
+                    ],
+                    "unresolved_points": [],
+                }
+                for letter in "ABCD"
+                if letter != data["question"]["correct_option"]
+            ],
+            "uncertainties": [],
             "language_items": [],
             "genre_candidate": None,
         }
@@ -267,8 +292,6 @@ def pipeline(client, context, monkeypatch):
             for row in stage_data["items"]
             if stage != "align" or row["segment_type"] == "body"
         ]
-        if stage == "sample":
-            refs = refs[:5]
         response = post(
             "stage-approvals",
             {
@@ -548,6 +571,12 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline):
             "UPDATE transcript_segments SET segment_type='question' WHERE id IN "
             "(SELECT segment_id FROM evidence_segments WHERE batch_id=:b)",
             "UPDATE processing_review_sessions SET state='draft' WHERE id=:s",
+            "DELETE FROM question_distractor_assessments WHERE batch_id=:b",
+            "UPDATE question_distractor_assessments "
+            "SET status='NO_SUPPORTED_CANDIDATE' "
+            "WHERE batch_id=:b AND option_letter='B'",
+            "UPDATE question_distractor_assessments "
+            "SET reason='altered' WHERE batch_id=:b",
         ):
             with pytest.raises(DBAPIError):
                 db.execute(
@@ -1270,6 +1299,8 @@ def test_source_projection_before_annotation_preserves_frozen_payload(client, pi
         "primary_skills": [],
         "answer_evidence": [],
         "error_causes": [],
+        "distractor_assessments": [],
+        "candidate_changes": [],
     }
     with SessionLocal() as db:
         revision = db.get(m.ProcessingWorkflowRevision, UUID(detail["revision_id"]))
