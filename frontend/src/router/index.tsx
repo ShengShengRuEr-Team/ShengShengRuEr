@@ -20,6 +20,7 @@ const ProcessingListPage = lazy(() => import('../pages/admin/processing/Processi
 const NewWorkflowPage = lazy(() => import('../pages/admin/processing/NewWorkflowPage'))
 const ProcessingDetailPage = lazy(() => import('../pages/admin/processing/ProcessingDetailPage'))
 const StudentHomePage = lazy(() => import('../pages/student/HomePage'))
+const WrongAnswersPage = lazy(() => import('../pages/student/WrongAnswersPage'))
 const StudentListeningPaperListPage = lazy(() => import('../pages/student/ListeningPaperListPage'))
 const StudentListeningPaperPage = lazy(() => import('../pages/student/ListeningPaperPage'))
 
@@ -85,6 +86,7 @@ export default function AppRouter() {
           }
         >
           <Route index element={<StudentHomePage />} />
+          <Route path={ROUTES.STUDENT_WRONG_ANSWERS} element={<WrongAnswersPage />} />
           <Route
             path={ROUTES.STUDENT_LISTENING_PAPERS}
             element={<StudentListeningPaperListPage />}

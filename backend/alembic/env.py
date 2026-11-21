@@ -13,6 +13,7 @@ from app.db import (  # noqa: F401
     models_listening,
     models_processing,
     models_processing_workflows,
+    models_wrong_answers,
 )
 from app.db.base import Base
 

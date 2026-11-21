@@ -484,7 +484,7 @@ def test_pending_publication_failure_keeps_old_batch_and_retry_reuses_pending(
         assert response.status_code == 409, response.text
 
 
-def test_option_errors_database_guards_and_formal_read(client, pipeline):
+def test_option_errors_database_guards_and_formal_read(client, pipeline, student_token):
     from sqlalchemy.exc import DBAPIError
 
     from app.db.base import SessionLocal
@@ -519,6 +519,9 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline):
             },
         ]
     )
+    c["source"]["presentations"][0]["option_letter_mapping"] = dict(
+        zip("ABCD", "BCDA", strict=True)
+    )
     complete_to_review(c)
     synthetic_review_publish(client, c)
     detail = c["detail"]()
@@ -530,6 +533,37 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline):
         headers=c["headers"],
     )
     assert response.status_code == 200, response.text
+    student = {"Authorization": "Bearer " + student_token}
+    visibility = client.post(
+        f"/api/v1/admin/listening-papers/{pid}/visibility",
+        headers=c["headers"],
+        json={"action": "confirm", "expected_batch_id": batch},
+    )
+    assert visibility.status_code == 200, visibility.text
+    paper_url = f"/api/v1/listening-papers/{pid}"
+    paper = client.get(paper_url, headers=student).json()["data"]
+    question = paper["passages"][0]["questions"][0]
+    submitted = client.post(
+        paper_url + "/attempts",
+        headers={**student, "Idempotency-Key": str(uuid4())},
+        json={
+            "loaded_question_ids": [question["question_id"]],
+            "answers": [{"question_id": question["question_id"], "selected_option": "A"}],
+        },
+    )
+    assert submitted.status_code == 200, submitted.text
+    attempt_code = submitted.json()["data"]["attempt_code"]
+    notebook = client.get(f"/api/v1/wrong-answers/{attempt_code}/1", headers=student)
+    assert notebook.status_code == 200, notebook.text
+    review = notebook.json()["data"]
+    assert review["selected_option"] == "A" and review["correct_option"] == "D"
+    assert review["skills"][0]["role"] == "PRIMARY"
+    assert review["personal_cause_status"] == "unconfirmed"
+    (candidate,) = review["candidate_causes"]
+    assert candidate["option_letter"] == "A"
+    assert candidate["reason"] == "Synthetic distractor mechanism for Beta"
+    assert candidate["evidence"][0]["text"] == "The answer is Alpha."
+
     q = response.json()["data"]["items"][0]
     skill = q["skills"][0]
     assert skill["skill_name"] == next(
@@ -540,12 +574,12 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline):
         if row["skill_code"] == skill["skill_code"]
     )
     assert (
-        len(q["options"][1]["error_causes"])
-        == len(q["options"][2]["error_causes"])
+        len(q["options"][0]["error_causes"])
+        == len(q["options"][1]["error_causes"])
         == 1
     )
-    assert len(q["options"][1]["error_causes"][0]["evidence"]) == 1
-    assert q["options"][0]["error_causes"] == []
+    assert len(q["options"][0]["error_causes"][0]["evidence"]) == 1
+    assert q["options"][3]["error_causes"] == []
     companion = client.get(
         f"/api/v1/admin/listening-papers/{pid}/companion",
         params={"expected_batch_id": batch},
