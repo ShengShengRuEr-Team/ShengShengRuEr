@@ -548,7 +548,9 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline, student
         headers={**student, "Idempotency-Key": str(uuid4())},
         json={
             "loaded_question_ids": [question["question_id"]],
-            "answers": [{"question_id": question["question_id"], "selected_option": "A"}],
+            "answers": [
+                {"question_id": question["question_id"], "selected_option": "A"}
+            ],
         },
     )
     assert submitted.status_code == 200, submitted.text

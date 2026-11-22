@@ -9,13 +9,15 @@ NOTEBOOK = "/api/v1/wrong-answers"
 
 
 def test_wrong_answers_are_owned_reviewable_and_independently_removable(
-    client, student_token, admin_token
+    client, admin_token
 ):
     from app.db.base import SessionLocal
     from app.db.models_listening import Question, TranscriptSegment
 
     paper = create_visible_paper(code="NOTEBOOK_TEST", correct_letters=("A", "B", "C"))
-    student = auth_headers(student_token)
+    username = "notebook_student_a"
+    create_student(username)
+    student = auth_headers(login(client, username, "attempt123"))
     assert client.get(NOTEBOOK).status_code == 401
     assert client.get(NOTEBOOK, headers=auth_headers(admin_token)).status_code == 403
 
