@@ -484,11 +484,16 @@ def test_pending_publication_failure_keeps_old_batch_and_retry_reuses_pending(
         assert response.status_code == 409, response.text
 
 
-def test_option_errors_database_guards_and_formal_read(client, pipeline, student_token):
+def test_option_errors_database_guards_and_formal_read(client, pipeline, monkeypatch):
     from sqlalchemy.exc import DBAPIError
 
+    from app.core.config import get_settings
     from app.db.base import SessionLocal
     from app.services.processing.validation import load_dictionary
+    from tests.attempt_support import create_student
+    from tests.conftest import login
+
+    monkeypatch.setattr(get_settings(), "wrong_answers_protected_details_enabled", True)
 
     c = pipeline
     code = next(
@@ -533,7 +538,9 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline, student
         headers=c["headers"],
     )
     assert response.status_code == 200, response.text
-    student = {"Authorization": "Bearer " + student_token}
+    username = f"notebook_annotations_{uuid4().hex[:12]}"
+    create_student(username)
+    student = {"Authorization": "Bearer " + login(client, username, "attempt123")}
     visibility = client.post(
         f"/api/v1/admin/listening-papers/{pid}/visibility",
         headers=c["headers"],
@@ -559,12 +566,22 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline, student
     assert notebook.status_code == 200, notebook.text
     review = notebook.json()["data"]
     assert review["selected_option"] == "A" and review["correct_option"] == "D"
-    assert review["skills"][0]["role"] == "PRIMARY"
+    (review_skill,) = review["skills"]
+    assert review_skill["role"] == "PRIMARY"
+    assert set(review_skill) == {"code", "name", "role", "has_restricted_evidence"}
     assert review["personal_cause_status"] == "unconfirmed"
     (candidate,) = review["candidate_causes"]
     assert candidate["option_letter"] == "A"
-    assert candidate["reason"] == "Synthetic distractor mechanism for Beta"
-    assert candidate["evidence"][0]["text"] == "The answer is Alpha."
+    assert candidate["has_restricted_evidence"] is True
+    assert set(candidate) == {
+        "code",
+        "name",
+        "option_letter",
+        "has_restricted_evidence",
+    }
+    assert "transcript" not in review
+    assert "Synthetic distractor mechanism for Beta" not in notebook.text
+    assert "The answer is Alpha." not in notebook.text
 
     q = response.json()["data"]["items"][0]
     skill = q["skills"][0]

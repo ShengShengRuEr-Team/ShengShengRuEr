@@ -1,81 +1,104 @@
 """Notebook projection over immutable grades and their original content batch."""
 
-from collections import defaultdict
+import logging
+from typing import NamedTuple
+from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, false, func, select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
-from app.core.errors import not_found
 from app.db.models_annotations import (
     ErrorCause,
     ErrorQuestionRelation,
     EvidenceItem,
     QuestionAnnotationState,
+    QuestionDistractorAssessment,
     Skill,
     SkillQuestionRelation,
 )
 from app.db.models_attempt import Attempt, AttemptAnswer
-from app.db.models_listening import (
-    ExamPaper,
-    ImportBatch,
-    Passage,
-    Presentation,
-    Question,
-    TranscriptSegment,
-)
+from app.db.models_listening import ExamPaper, ImportBatch, Presentation, Question
+from app.db.models_processing import DictionarySnapshot
 from app.db.models_processing_workflows import (
     ProcessingReviewSession,
     ProcessingWorkflowRevision,
 )
-from app.db.models_wrong_answers import WrongAnswerDismissal
-from app.module3.annotation_identity import ERROR_RULE_VERSION
+from app.db.models_wrong_answers import WrongAnswerState
+from app.module3.annotation_identity import ERROR_RULE_VERSION, RESULT_VERSION
 from app.repositories import listening
-from app.schemas_wrong_answers import ReviewCandidate, ReviewEvidence, ReviewSkill
+from app.schemas_wrong_answers import (
+    LearningStatus,
+    NotebookVisibility,
+    ReviewCandidate,
+    ReviewSkill,
+    WrongAnswerType,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class NotebookEntry(NamedTuple):
+    answer: AttemptAnswer
+    attempt: Attempt
+    paper: ExamPaper
+    current_batch: ImportBatch
+    state: WrongAnswerState | None
 
 
 def _owned_wrong_answers(student_id: int):
+    accessible = (
+        listening.student_accessible_papers()
+        .with_only_columns(
+            ExamPaper.id.label("exam_paper_id"), ImportBatch.id.label("batch_id")
+        )
+        .subquery()
+    )
     return (
-        select(AttemptAnswer, Attempt, ExamPaper)
+        select(AttemptAnswer, Attempt, ExamPaper, ImportBatch, WrongAnswerState)
         .join(Attempt, Attempt.id == AttemptAnswer.attempt_id)
-        .join(ExamPaper, ExamPaper.id == Attempt.exam_paper_id)
+        .join(accessible, accessible.c.exam_paper_id == Attempt.exam_paper_id)
+        .join(ExamPaper, ExamPaper.id == accessible.c.exam_paper_id)
+        .join(ImportBatch, ImportBatch.id == accessible.c.batch_id)
+        .outerjoin(WrongAnswerState, WrongAnswerState.answer_id == AttemptAnswer.id)
         .where(Attempt.student_id == student_id, AttemptAnswer.is_correct.is_(False))
     )
 
 
-def _visible(query):
-    return query.where(
-        ~select(WrongAnswerDismissal.answer_id)
-        .where(WrongAnswerDismissal.answer_id == AttemptAnswer.id)
-        .exists()
+def _is_hidden():
+    return func.coalesce(WrongAnswerState.is_hidden, false())
+
+
+def list_entries(
+    db: Session,
+    student_id: int,
+    *,
+    page: int,
+    limit: int,
+    exam_paper_id: int | None,
+    answer_type: WrongAnswerType | None,
+    learning_status: LearningStatus | None,
+    visibility: NotebookVisibility,
+) -> tuple[list[NotebookEntry], int]:
+    query = _owned_wrong_answers(student_id).where(
+        _is_hidden().is_(visibility == "hidden")
     )
-
-
-def _item(answer, attempt, paper):
-    return {
-        "attempt_code": attempt.attempt_code,
-        "question_no": answer.question_no,
-        "question_text": answer.question_text,
-        "paper_title": (
-            f"{paper.exam_level} {paper.exam_year}年{paper.exam_month}月"
-            f"第{paper.paper_set}套"
-        ),
-        "submitted_at": attempt.submitted_at,
-        "selected_option": answer.selected_option,
-    }
-
-
-def list_entries(db: Session, student_id: int, keyword: str, page: int, limit: int):
-    query = _visible(_owned_wrong_answers(student_id))
-    if keyword:
+    if exam_paper_id is not None:
+        query = query.where(Attempt.exam_paper_id == exam_paper_id)
+    if answer_type == "incorrect":
+        query = query.where(AttemptAnswer.selected_option.is_not(None))
+    if answer_type == "unanswered":
+        query = query.where(AttemptAnswer.selected_option.is_(None))
+    if learning_status is not None:
         query = query.where(
-            or_(
-                AttemptAnswer.question_text.icontains(keyword, autoescape=True),
-                ExamPaper.exam_level.icontains(keyword, autoescape=True),
-                ExamPaper.exam_paper_code.icontains(keyword, autoescape=True),
-            )
+            func.coalesce(WrongAnswerState.learning_status, "pending")
+            == learning_status
         )
-    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    total = db.scalar(
+        select(func.count()).select_from(
+            query.with_only_columns(AttemptAnswer.id).subquery()
+        )
+    )
     rows = db.execute(
         query.order_by(
             Attempt.submitted_at.desc(), Attempt.id.desc(), AttemptAnswer.question_no
@@ -83,41 +106,52 @@ def list_entries(db: Session, student_id: int, keyword: str, page: int, limit: i
         .offset((page - 1) * limit)
         .limit(limit)
     )
-    return {"items": [_item(*row) for row in rows], "total": total}
+    return [NotebookEntry(*row) for row in rows], total
 
 
-def _get_entry(db, student_id, attempt_code, question_no, *, include_dismissed=False):
+def find_entry(
+    db: Session,
+    student_id: int,
+    attempt_code: UUID,
+    question_no: int,
+    *,
+    include_hidden: bool = False,
+) -> NotebookEntry | None:
     query = _owned_wrong_answers(student_id).where(
         Attempt.attempt_code == str(attempt_code),
         AttemptAnswer.question_no == question_no,
     )
-    row = db.execute(query if include_dismissed else _visible(query)).one_or_none()
-    if row is None:
-        raise not_found("错题记录不存在")
-    return row
+    if not include_hidden:
+        query = query.where(_is_hidden().is_(False))
+    row = db.execute(query).one_or_none()
+    return NotebookEntry(*row) if row is not None else None
 
 
-def dismiss_entry(db: Session, student_id: int, attempt_code, question_no: int):
-    answer, _, _ = _get_entry(
-        db, student_id, attempt_code, question_no, include_dismissed=True
-    )
-    db.execute(
-        insert(WrongAnswerDismissal)
-        .values(answer_id=answer.id)
-        .on_conflict_do_nothing(index_elements=[WrongAnswerDismissal.answer_id])
-    )
-    db.commit()
+def update_state(db: Session, answer_id: int, changes: dict) -> WrongAnswerState:
+    # Update only supplied fields, so review and visibility changes can run
+    # concurrently without overwriting one another.
+    patch = dict(changes)
+    initial = dict(changes)
+    if "learning_status" in patch:
+        status = patch["learning_status"]
+        patch["reviewed_at"] = case(
+            (WrongAnswerState.learning_status != status, func.now()),
+            else_=WrongAnswerState.reviewed_at,
+        )
+        if status != "pending":
+            initial["reviewed_at"] = func.now()
+    return db.scalars(
+        insert(WrongAnswerState)
+        .values(answer_id=answer_id, **initial)
+        .on_conflict_do_update(index_elements=[WrongAnswerState.answer_id], set_=patch)
+        .returning(WrongAnswerState),
+        execution_options={"populate_existing": True},
+    ).one()
 
 
 def _source(db, answer, attempt):
     return db.execute(
-        select(Question, Passage, ImportBatch, Presentation)
-        .join(
-            Passage,
-            and_(
-                Passage.id == Question.passage_id, Passage.batch_id == Question.batch_id
-            ),
-        )
+        select(Question, ImportBatch, Presentation)
         .join(ImportBatch, ImportBatch.id == Question.batch_id)
         .outerjoin(
             Presentation,
@@ -132,201 +166,194 @@ def _source(db, answer, attempt):
             Question.id == answer.question_id,
             Question.batch_id == attempt.import_batch_id,
             ImportBatch.exam_paper_id == attempt.exam_paper_id,
+            ImportBatch.status == "active",
         )
     ).one_or_none()
 
 
-def _evidence(db, relation, batch_id, owners, kind, *, candidate=False):
-    if not owners:
-        return {}
-    query = (
-        select(
-            relation.owner_relation_id,
-            EvidenceItem.evidence_text,
-            relation.attributes_json,
-        )
-        .join(
-            EvidenceItem,
-            and_(
-                EvidenceItem.id == relation.evidence_id,
-                EvidenceItem.batch_id == relation.batch_id,
-            ),
-        )
-        .where(
-            relation.batch_id == batch_id,
-            relation.owner_relation_id.in_(owners),
-            relation.relation_kind == kind,
-            relation.is_current.is_(True),
-        )
-        .order_by(relation.sort_order, relation.id)
-    )
-    if candidate:
-        query = query.where(
-            relation.business_eligible.is_(True),
-            relation.rule_version == ERROR_RULE_VERSION,
-        )
-    result = defaultdict(list)
-    for owner, text, attributes in db.execute(query):
-        result[owner].append(
-            ReviewEvidence(text=text, note=(attributes or {}).get("support_note"))
-        )
-    return result
-
-
-def _skills(db, question, batch):
-    relation = SkillQuestionRelation
-    rows = db.execute(
-        select(relation, Skill)
-        .join(Skill, Skill.id == relation.skill_id)
-        .where(
-            relation.batch_id == batch.id,
-            relation.question_id == question.id,
-            relation.relation_kind == "QUESTION_SKILL",
-            relation.is_current.is_(True),
-        )
-        .order_by(relation.id)
-    ).all()
-    evidence = _evidence(
-        db, relation, batch.id, [row.id for row, _ in rows], "SKILL_EVIDENCE"
-    )
-    return [
-        ReviewSkill(
-            code=skill.display_code,
-            name=skill.skill_name,
-            role=row.role,
-            reason=(row.attributes_json or {}).get("annotation_reason"),
-            evidence=evidence.get(row.id, []),
-        )
-        for row, skill in rows
-    ]
-
-
-def _candidate_causes(db, answer, question, batch, presentation):
-    if not answer.selected_option or presentation is None:
-        return []
-    try:
-        options = listening.paper_options_for(question, presentation)
-        correct = listening.paper_letter_for(question, presentation)
-    except listening.PaperUnavailable:
-        return []
-    if (
-        options != (answer.option_a, answer.option_b, answer.option_c, answer.option_d)
-        or correct != answer.correct_option
-    ):
-        return []
-    base_option = presentation.option_letter_mapping[answer.selected_option]
-
+def _approved_annotation(db, question, batch):
     state = QuestionAnnotationState
     revision = ProcessingWorkflowRevision
     review = ProcessingReviewSession
-    relation = ErrorQuestionRelation
-    rows = db.execute(
-        select(relation, ErrorCause)
-        .join(ErrorCause, ErrorCause.id == relation.error_cause_id)
-        .join(
-            state,
-            and_(
-                state.batch_id == relation.batch_id,
-                state.question_id == relation.question_id,
-            ),
-        )
+    return db.execute(
+        select(DictionarySnapshot.id, state.generation_state)
+        .select_from(state)
         .join(revision, revision.id == state.revision_id)
         .join(review, review.id == state.review_session_id)
+        .join(
+            DictionarySnapshot,
+            DictionarySnapshot.schema_sha256
+            == revision.rules_manifest["dictionary_sha256"].astext,
+        )
         .where(
-            relation.batch_id == batch.id,
-            relation.question_id == question.id,
-            relation.relation_kind == "QUESTION_ERROR_CANDIDATE",
-            relation.is_current.is_(True),
-            relation.option_letter == base_option,
-            relation.business_eligible.is_(True),
-            relation.rule_version == ERROR_RULE_VERSION,
+            state.batch_id == batch.id,
+            state.question_id == question.id,
             state.rule_version == ERROR_RULE_VERSION,
-            state.generation_state == "generated_nonempty",
+            state.generation_state.in_(("generated_empty", "generated_nonempty")),
             state.result_hash == batch.result_hash,
             revision.batch_id == batch.id,
             revision.final_result_hash == state.result_hash,
+            revision.rules_manifest["result_version"].astext == RESULT_VERSION,
+            revision.rules_manifest["error_rule_version"].astext == state.rule_version,
             revision.rules_manifest["manifest_hash"].astext
             == state.rules_manifest_hash,
             review.revision_id == revision.id,
             review.result_hash == state.result_hash,
             review.state == "approved",
         )
+    ).one_or_none()
+
+
+def _has_restricted_evidence(relation, kind: str, *, candidate: bool = False):
+    evidence_relation = aliased(relation)
+    query = (
+        select(evidence_relation.id)
+        .join(
+            EvidenceItem,
+            and_(
+                EvidenceItem.id == evidence_relation.evidence_id,
+                EvidenceItem.batch_id == evidence_relation.batch_id,
+            ),
+        )
+        .where(
+            evidence_relation.batch_id == relation.batch_id,
+            evidence_relation.owner_relation_id == relation.id,
+            evidence_relation.relation_kind == kind,
+            evidence_relation.is_current.is_(True),
+            evidence_relation.review_status == "已通过",
+            EvidenceItem.review_status == "已通过",
+        )
+    )
+    if candidate:
+        query = query.where(
+            evidence_relation.business_eligible.is_(True),
+            evidence_relation.rule_version == ERROR_RULE_VERSION,
+        )
+    return query.exists()
+
+
+def _skills(db, question, batch, dictionary_id):
+    relation = SkillQuestionRelation
+    rows = db.execute(
+        select(
+            Skill.display_code,
+            Skill.skill_name,
+            relation.role,
+            _has_restricted_evidence(relation, "SKILL_EVIDENCE"),
+        )
+        .select_from(relation)
+        .join(Skill, Skill.id == relation.skill_id)
+        .where(
+            relation.batch_id == batch.id,
+            relation.question_id == question.id,
+            relation.relation_kind == "QUESTION_SKILL",
+            relation.is_current.is_(True),
+            relation.review_status == "已通过",
+            relation.role.in_(("PRIMARY", "AUXILIARY")),
+            Skill.snapshot_id == dictionary_id,
+            Skill.skill_level == 3,
+            Skill.status == "启用",
+        )
         .order_by(relation.id)
-    ).all()
-    evidence = _evidence(
-        db,
-        relation,
-        batch.id,
-        [row.id for row, _ in rows],
-        "CANDIDATE_EVIDENCE",
-        candidate=True,
     )
     return [
-        ReviewCandidate(
-            code=cause.display_code,
-            name=cause.cause_name,
-            option_letter=answer.selected_option,
-            reason=(row.attributes_json or {}).get("trigger_mechanism"),
-            evidence=evidence.get(row.id, []),
-        )
-        for row, cause in rows
+        ReviewSkill(code=code, name=name, role=role, has_restricted_evidence=evidence)
+        for code, name, role, evidence in rows
     ]
 
 
-def _entry_material(db, answer, attempt):
-    source = _source(db, answer, attempt)
-    if source is None:
-        return None, []
-    question, passage, batch, _ = source
-    transcript = db.scalars(
-        select(TranscriptSegment.text)
-        .where(
-            TranscriptSegment.batch_id == batch.id,
-            TranscriptSegment.passage_id == passage.id,
-            or_(
-                TranscriptSegment.segment_type == "body",
-                TranscriptSegment.id == question.question_segment_id,
+def _candidate_causes(db, answer, question, batch, presentation, dictionary_id):
+    if not answer.selected_option:
+        return []
+    base_option = _mapped_option(answer, question, batch, presentation)
+    if base_option is None:
+        return []
+
+    relation = ErrorQuestionRelation
+    assessment = QuestionDistractorAssessment
+    rows = db.execute(
+        select(
+            ErrorCause.display_code,
+            ErrorCause.cause_name,
+            _has_restricted_evidence(relation, "CANDIDATE_EVIDENCE", candidate=True),
+        )
+        .select_from(relation)
+        .join(ErrorCause, ErrorCause.id == relation.error_cause_id)
+        .join(
+            assessment,
+            and_(
+                assessment.batch_id == relation.batch_id,
+                assessment.question_id == relation.question_id,
+                assessment.option_letter == relation.option_letter,
             ),
         )
-        .order_by(TranscriptSegment.segment_index)
-    ).all()
-    return source, transcript
+        .where(
+            relation.batch_id == batch.id,
+            relation.question_id == question.id,
+            relation.relation_kind == "QUESTION_ERROR_CANDIDATE",
+            relation.is_current.is_(True),
+            relation.review_status == "已通过",
+            relation.option_letter == base_option,
+            relation.business_eligible.is_(True),
+            relation.rule_version == ERROR_RULE_VERSION,
+            assessment.rule_version == ERROR_RULE_VERSION,
+            assessment.status == "SUPPORTED",
+            ErrorCause.snapshot_id == dictionary_id,
+            ErrorCause.cause_level == 3,
+            ErrorCause.status == "启用",
+        )
+        .order_by(relation.id)
+    )
+    return [
+        ReviewCandidate(
+            code=code,
+            name=name,
+            option_letter=answer.selected_option,
+            has_restricted_evidence=evidence,
+        )
+        for code, name, evidence in rows
+    ]
 
 
-def get_entry(db: Session, student_id: int, attempt_code, question_no: int):
-    answer, attempt, paper = _get_entry(db, student_id, attempt_code, question_no)
-    source, transcript = _entry_material(db, answer, attempt)
-    skills, candidates, audio_url = [], [], None
-    if source is not None:
-        question, passage, batch, presentation = source
-        skills = _skills(db, question, batch)
-        candidates = _candidate_causes(db, answer, question, batch, presentation)
-        if passage.audio_id or batch.audio_id:
-            audio_url = f"/api/v1/wrong-answers/{attempt_code}/{question_no}/audio"
-    return {
-        **_item(answer, attempt, paper),
-        "options": {
-            "A": answer.option_a,
-            "B": answer.option_b,
-            "C": answer.option_c,
-            "D": answer.option_d,
-        },
-        "correct_option": answer.correct_option,
-        "explanation_text": answer.explanation_text,
-        "transcript": transcript,
-        "audio_url": audio_url,
-        "skills": skills,
-        "candidate_causes": candidates,
-    }
+def _mapped_option(answer, question, batch, presentation):
+    if presentation is not None:
+        try:
+            options = listening.paper_options_for(question, presentation)
+            correct = listening.paper_letter_for(question, presentation)
+        except listening.PaperUnavailable:
+            pass
+        else:
+            snapshot = (
+                answer.option_a,
+                answer.option_b,
+                answer.option_c,
+                answer.option_d,
+            )
+            if options == snapshot and correct == answer.correct_option:
+                return presentation.option_letter_mapping[answer.selected_option]
+    logger.warning(
+        "错题本跳过不匹配的选项标注 answer_id=%s question_id=%s batch_id=%s",
+        answer.id,
+        question.id,
+        batch.id,
+    )
+    return None
 
 
-def get_entry_audio(db: Session, student_id: int, attempt_code, question_no: int):
-    answer, attempt, _ = _get_entry(db, student_id, attempt_code, question_no)
+def review_annotations(
+    db: Session, answer: AttemptAnswer, attempt: Attempt
+) -> tuple[list[ReviewSkill], list[ReviewCandidate]]:
     source = _source(db, answer, attempt)
     if source is None:
-        raise not_found("音频文件不可用")
-    _, passage, batch, _ = source
-    audio = listening.get_audio(db, passage.audio_id or batch.audio_id)
-    if audio is None:
-        raise not_found("音频文件不可用")
-    return audio
+        return [], []
+    question, batch, presentation = source
+    annotation = _approved_annotation(db, question, batch)
+    if annotation is None:
+        return [], []
+    dictionary_id, generation = annotation
+    skills = _skills(db, question, batch, dictionary_id)
+    if generation != "generated_nonempty":
+        return skills, []
+    return skills, _candidate_causes(
+        db, answer, question, batch, presentation, dictionary_id
+    )

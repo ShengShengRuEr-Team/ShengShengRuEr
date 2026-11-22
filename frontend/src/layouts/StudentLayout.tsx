@@ -9,12 +9,10 @@ const { Header, Content } = Layout
 const STUDENT_ITEMS: MenuProps['items'] = [
   { key: ROUTES.STUDENT_HOME, label: '首页' },
   { key: ROUTES.STUDENT_LISTENING_PAPERS, label: '听力练习' },
-  { key: ROUTES.STUDENT_WRONG_ANSWERS, label: '错题本' },
 ]
 
 /** 当前路由属于哪个菜单项：整卷页也高亮「听力练习」。 */
 function resolveSelectedKey(pathname: string): string {
-  if (pathname === ROUTES.STUDENT_WRONG_ANSWERS) return ROUTES.STUDENT_WRONG_ANSWERS
   if (pathname.startsWith(ROUTES.STUDENT_LISTENING_PAPERS)) {
     return ROUTES.STUDENT_LISTENING_PAPERS
   }

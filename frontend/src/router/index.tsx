@@ -88,6 +88,10 @@ export default function AppRouter() {
           <Route index element={<StudentHomePage />} />
           <Route path={ROUTES.STUDENT_WRONG_ANSWERS} element={<WrongAnswersPage />} />
           <Route
+            path={ROUTES.STUDENT_WRONG_ANSWERS_LEGACY}
+            element={<Navigate to={ROUTES.STUDENT_WRONG_ANSWERS} replace />}
+          />
+          <Route
             path={ROUTES.STUDENT_LISTENING_PAPERS}
             element={<StudentListeningPaperListPage />}
           />
