@@ -64,7 +64,13 @@ def test_mapping_reordered_detection():
     from app.services.skill_error_query.questions import _mapping_state
 
     class PresentationStub:
-        option_letter_mapping = {"A": "B", "B": "A", "C": "C", "D": "D"}
+        def __init__(self):
+            self.option_letter_mapping = {
+                "A": "B",
+                "B": "A",
+                "C": "C",
+                "D": "D",
+            }
 
     state, mapping, reordered = _mapping_state(PresentationStub())
     assert state == "已知"
@@ -72,7 +78,13 @@ def test_mapping_reordered_detection():
     assert reordered is True
 
     class IdentityStub:
-        option_letter_mapping = {"A": "A", "B": "B", "C": "C", "D": "D"}
+        def __init__(self):
+            self.option_letter_mapping = {
+                "A": "A",
+                "B": "B",
+                "C": "C",
+                "D": "D",
+            }
 
     state, _, reordered = _mapping_state(IdentityStub())
     assert state == "已知"
