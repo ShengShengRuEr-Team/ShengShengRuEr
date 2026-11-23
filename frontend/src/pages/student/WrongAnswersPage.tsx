@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Alert, Button, Card, Drawer, Empty, Pagination, Popconfirm, Radio, Select, Space, Spin, Tag, Typography,
 } from 'antd'
@@ -18,7 +18,12 @@ import { formatDateTime, formatPaperLabel } from '../../utils/format'
 
 const { Paragraph, Text, Title } = Typography
 
-function ReviewAudio({ path }: { path: string }) {
+type AudioRefreshReason = 'batch_changed' | 'not_found'
+
+function ReviewAudio({ path, onStale }: {
+  path: string
+  onStale: (reason: AudioRefreshReason) => void
+}) {
   const [requested, setRequested] = useState(false)
   const [url, setUrl] = useState<string>()
   const [error, setError] = useState(false)
@@ -37,17 +42,20 @@ function ReviewAudio({ path }: { path: string }) {
         source = loaded
         setUrl(loaded.objectUrl)
       })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setError(true)
-          setRequested(false)
+      .catch((failure: unknown) => {
+        if (controller.signal.aborted) return
+        if (failure instanceof ApiError && (failure.status === 404 || failure.status === 409)) {
+          onStale(failure.status === 409 ? 'batch_changed' : 'not_found')
+          return
         }
+        setError(true)
+        setRequested(false)
       })
     return () => {
       controller.abort()
       source?.release()
     }
-  }, [path, requested])
+  }, [onStale, path, requested])
 
   if (url) return <audio controls src={url} aria-label="听力音频" />
 
@@ -67,11 +75,10 @@ const learningStatusLabels: Record<WrongAnswerLearningStatus, string> = {
   mastered: '已掌握',
 }
 
-function RestrictedEvidence({ present }: { present: boolean }) {
-  return present ? <Paragraph type="secondary">存在受限证据，暂不可查看</Paragraph> : null
-}
-
-function ReviewContent({ detail }: { detail: WrongAnswerDetail }) {
+function ReviewContent({ detail, onStale }: {
+  detail: WrongAnswerDetail
+  onStale: (reason: AudioRefreshReason) => void
+}) {
   return (
     <>
       <Space wrap>
@@ -88,21 +95,32 @@ function ReviewContent({ detail }: { detail: WrongAnswerDetail }) {
       ))}
       <Paragraph>我的作答：{detail.selected_option ?? '未作答'}　正确答案：{detail.correct_option}</Paragraph>
       <Title level={5}>解析</Title>
-      <Paragraph>{detail.explanation_text || '暂无解析'}</Paragraph>
+      <Paragraph>
+        {detail.explanation_status === 'restricted' ? '历史解析暂不可查看' : detail.explanation_text ?? '暂无解析'}
+      </Paragraph>
       <Title level={5}>听力音频</Title>
-      {detail.audio_url
-        ? <ReviewAudio key={detail.audio_url} path={detail.audio_url} />
-        : <Paragraph>暂无音频</Paragraph>}
+      {detail.audio.status === 'available' ? (
+        <>
+          <Paragraph type="secondary">当前卷音频（同交卷来源批次）</Paragraph>
+          <ReviewAudio key={detail.audio.url} path={detail.audio.url} onStale={onStale} />
+        </>
+      ) : (
+        <Paragraph>
+          {detail.audio.status === 'batch_mismatch' ? '当前音频与交卷批次无法对应' : '暂无音频'}
+        </Paragraph>
+      )}
       <Title level={5}>关联技能</Title>
+      <Paragraph type="secondary">{detail.annotation_source_note}</Paragraph>
       {detail.skills.length === 0 && <Paragraph>暂无技能标注</Paragraph>}
       {detail.skills.map((skill, index) => (
         <div key={`${skill.code}-${index}`}>
           <Text strong>{skill.name}（{skill.code}）</Text>{' '}
           {skill.role && <Tag>{skillRoleLabels[skill.role] ?? skill.role}</Tag>}
-          <RestrictedEvidence present={skill.has_restricted_evidence} />
+          {skill.definition && <Paragraph>{skill.definition}</Paragraph>}
         </div>
       ))}
       <Title level={5}>候选错因</Title>
+      <Paragraph type="secondary">{detail.annotation_note}</Paragraph>
       {detail.candidate_causes.length === 0 && (
         <Paragraph>{detail.selected_option ? '当次所选答案暂无可展示的候选错因' : '本题当次未作答'}</Paragraph>
       )}
@@ -110,9 +128,12 @@ function ReviewContent({ detail }: { detail: WrongAnswerDetail }) {
         <div key={`${cause.code}-${index}`}>
           <Text strong>{cause.name}（{cause.code}）</Text>{' '}
           <Tag>选项 {cause.option_letter}</Tag>
-          <RestrictedEvidence present={cause.has_restricted_evidence} />
+          {cause.basis_summary && <Paragraph>{cause.basis_summary}</Paragraph>}
         </div>
       ))}
+      {detail.evidence_access === 'restricted' && (
+        <Paragraph type="secondary">存在受限证据，暂不可查看</Paragraph>
+      )}
       <Title level={5}>个人错因</Title>
       <Paragraph>未确认</Paragraph>
     </>
@@ -133,6 +154,13 @@ function EntryDrawer({ item, onClose, onUnavailable }: {
 }) {
   const [state, setState] = useState<DetailState>({ kind: 'loading' })
   const [retry, setRetry] = useState(0)
+  const [audioRefresh, setAudioRefresh] = useState<AudioRefreshReason>()
+
+  const refreshAfterAudioFailure = useCallback((reason: AudioRefreshReason) => {
+    setState({ kind: 'loading' })
+    setAudioRefresh(reason)
+    setRetry((value) => value + 1)
+  }, [])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -157,7 +185,14 @@ function EntryDrawer({ item, onClose, onUnavailable }: {
   return (
     <Drawer title={`第 ${item.question_no} 题 · 错题详情`} size="large" open onClose={onClose}>
       {state.kind === 'loading' && <Spin aria-label="加载错题详情" />}
-      {state.kind === 'ready' && <ReviewContent detail={state.detail} />}
+      {state.kind === 'ready' && (
+        <>
+          {audioRefresh === 'not_found' && (
+            <Alert showIcon type="info" title="音频暂不可用，已重新核验错题详情" />
+          )}
+          <ReviewContent detail={state.detail} onStale={refreshAfterAudioFailure} />
+        </>
+      )}
       {state.kind === 'closed' && <Alert showIcon type="info" title="错题详情暂未开放" />}
       {state.kind === 'unavailable' && (
         <Alert
@@ -194,6 +229,7 @@ function WrongAnswerCard({ item, saving, writesEnabled, onView, onUpdate }: {
           {item.selected_option ? `选了 ${item.selected_option}` : '未作答'}
         </Tag>
         <Tag color={mastered ? 'green' : 'default'}>{learningStatusLabels[item.learning_status]}</Tag>
+        {item.is_hidden && <Tag>已隐藏</Tag>}
         {!item.is_hidden && <Button type="primary" onClick={onView}>查看详情</Button>}
         {writesEnabled && (item.is_hidden ? (
           <Button disabled={saving} onClick={() => void onUpdate({ is_hidden: false })}>恢复</Button>
@@ -325,6 +361,7 @@ export default function WrongAnswersPage() {
             options={[
               { label: '错题', value: 'visible' },
               { label: '已隐藏', value: 'hidden' },
+              { label: '全部', value: 'all' },
             ]}
             onChange={(event) => changeFilters({ visibility: event.target.value })}
           />

@@ -1,10 +1,11 @@
 """Notebook projection over immutable grades and their original content batch."""
 
 import logging
+from datetime import datetime
 from typing import NamedTuple
 from uuid import UUID
 
-from sqlalchemy import and_, case, false, func, select
+from sqlalchemy import and_, case, false, func, or_, select, true
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, aliased
 
@@ -80,9 +81,9 @@ def list_entries(
     learning_status: LearningStatus | None,
     visibility: NotebookVisibility,
 ) -> tuple[list[NotebookEntry], int]:
-    query = _owned_wrong_answers(student_id).where(
-        _is_hidden().is_(visibility == "hidden")
-    )
+    query = _owned_wrong_answers(student_id)
+    if visibility != "all":
+        query = query.where(_is_hidden().is_(visibility == "hidden"))
     if exam_paper_id is not None:
         query = query.where(Attempt.exam_paper_id == exam_paper_id)
     if answer_type == "incorrect":
@@ -94,19 +95,34 @@ def list_entries(
             func.coalesce(WrongAnswerState.learning_status, "pending")
             == learning_status
         )
-    total = db.scalar(
-        select(func.count()).select_from(
-            query.with_only_columns(AttemptAnswer.id).subquery()
-        )
+    totals = (
+        select(func.count().label("total"))
+        .select_from(query.with_only_columns(AttemptAnswer.id).subquery())
+        .subquery()
     )
-    rows = db.execute(
+    page_rows = (
         query.order_by(
             Attempt.submitted_at.desc(), Attempt.id.desc(), AttemptAnswer.question_no
         )
         .offset((page - 1) * limit)
         .limit(limit)
+        .subquery()
     )
-    return [NotebookEntry(*row) for row in rows], total
+    answer = aliased(AttemptAnswer, page_rows)
+    attempt = aliased(Attempt, page_rows)
+    paper = aliased(ExamPaper, page_rows)
+    batch = aliased(ImportBatch, page_rows)
+    state = aliased(WrongAnswerState, page_rows)
+    # One statement gives the count and page the same MVCC snapshot. The left
+    # join still returns the count when the requested page has no rows.
+    rows = db.execute(
+        select(answer, attempt, paper, batch, state, totals.c.total)
+        .select_from(totals.outerjoin(page_rows, true()))
+        .order_by(attempt.submitted_at.desc(), attempt.id.desc(), answer.question_no)
+    ).all()
+    return [NotebookEntry(*row[:5]) for row in rows if row[0] is not None], rows[
+        0
+    ].total
 
 
 def find_entry(
@@ -127,19 +143,35 @@ def find_entry(
     return NotebookEntry(*row) if row is not None else None
 
 
-def update_state(db: Session, answer_id: int, changes: dict) -> WrongAnswerState:
-    # Update only supplied fields, so review and visibility changes can run
-    # concurrently without overwriting one another.
+def update_state(
+    db: Session, answer_id: int, submitted_at: datetime, changes: dict
+) -> WrongAnswerState:
+    # ON CONFLICT merges only requested fields into the latest locked row.
+    now = func.clock_timestamp()
     patch = dict(changes)
     initial = dict(changes)
+    mastery_changed = initial.get("learning_status") == "mastered"
+    initial["updated_at"] = (
+        now if mastery_changed or initial.get("is_hidden") else submitted_at
+    )
+    changed = or_(
+        *(
+            getattr(WrongAnswerState, field).is_distinct_from(value)
+            for field, value in changes.items()
+        )
+    )
+    patch["updated_at"] = case((changed, now), else_=WrongAnswerState.updated_at)
     if "learning_status" in patch:
         status = patch["learning_status"]
         patch["reviewed_at"] = case(
-            (WrongAnswerState.learning_status != status, func.now()),
+            (
+                WrongAnswerState.learning_status != status,
+                now if mastery_changed else None,
+            ),
             else_=WrongAnswerState.reviewed_at,
         )
-        if status != "pending":
-            initial["reviewed_at"] = func.now()
+        if mastery_changed:
+            initial["reviewed_at"] = now
     return db.scalars(
         insert(WrongAnswerState)
         .values(answer_id=answer_id, **initial)
@@ -204,7 +236,7 @@ def _approved_annotation(db, question, batch):
     ).one_or_none()
 
 
-def _has_restricted_evidence(relation, kind: str, *, candidate: bool = False):
+def _has_valid_evidence(relation, kind: str, *, candidate: bool = False):
     evidence_relation = aliased(relation)
     query = (
         select(evidence_relation.id)
@@ -239,7 +271,7 @@ def _skills(db, question, batch, dictionary_id):
             Skill.display_code,
             Skill.skill_name,
             relation.role,
-            _has_restricted_evidence(relation, "SKILL_EVIDENCE"),
+            Skill.definition,
         )
         .select_from(relation)
         .join(Skill, Skill.id == relation.skill_id)
@@ -253,12 +285,15 @@ def _skills(db, question, batch, dictionary_id):
             Skill.snapshot_id == dictionary_id,
             Skill.skill_level == 3,
             Skill.status == "启用",
+            _has_valid_evidence(relation, "SKILL_EVIDENCE"),
         )
         .order_by(relation.id)
     )
     return [
-        ReviewSkill(code=code, name=name, role=role, has_restricted_evidence=evidence)
-        for code, name, role, evidence in rows
+        ReviewSkill(
+            code=code, name=name, role=role, definition=definition.strip() or None
+        )
+        for code, name, role, definition in rows
     ]
 
 
@@ -275,7 +310,7 @@ def _candidate_causes(db, answer, question, batch, presentation, dictionary_id):
         select(
             ErrorCause.display_code,
             ErrorCause.cause_name,
-            _has_restricted_evidence(relation, "CANDIDATE_EVIDENCE", candidate=True),
+            ErrorCause.definition,
         )
         .select_from(relation)
         .join(ErrorCause, ErrorCause.id == relation.error_cause_id)
@@ -301,6 +336,7 @@ def _candidate_causes(db, answer, question, batch, presentation, dictionary_id):
             ErrorCause.snapshot_id == dictionary_id,
             ErrorCause.cause_level == 3,
             ErrorCause.status == "启用",
+            _has_valid_evidence(relation, "CANDIDATE_EVIDENCE", candidate=True),
         )
         .order_by(relation.id)
     )
@@ -309,9 +345,9 @@ def _candidate_causes(db, answer, question, batch, presentation, dictionary_id):
             code=code,
             name=name,
             option_letter=answer.selected_option,
-            has_restricted_evidence=evidence,
+            basis_summary=definition.strip() or None,
         )
-        for code, name, evidence in rows
+        for code, name, definition in rows
     ]
 
 

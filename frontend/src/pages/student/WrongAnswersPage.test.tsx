@@ -3,17 +3,22 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../../api/api-error'
+import { loadAuthenticatedAudio } from '../../api/audio'
 import { getListeningPapers } from '../../api/listening'
 import {
   getWrongAnswer,
   listWrongAnswers,
   updateWrongAnswer,
 } from '../../api/wrong-answers'
-import type { WrongAnswerItem } from '../../api/wrong-answers'
+import type { WrongAnswerDetail, WrongAnswerItem } from '../../api/wrong-answers'
 import WrongAnswersPage from './WrongAnswersPage'
 
 vi.mock('../../api/listening', () => ({
   getListeningPapers: vi.fn(),
+}))
+
+vi.mock('../../api/audio', () => ({
+  loadAuthenticatedAudio: vi.fn(),
 }))
 
 vi.mock('../../api/wrong-answers', async (importOriginal) => ({
@@ -33,7 +38,37 @@ const pendingAnswer: WrongAnswerItem = {
   selected_option: 'A',
   learning_status: 'pending',
   is_hidden: false,
+  updated_at: '2026-11-21T09:00:00Z',
   reviewed_at: null,
+}
+
+const notebookDetail: WrongAnswerDetail = {
+  ...pendingAnswer,
+  options: { A: 'At a library', B: 'At a station' },
+  correct_option: 'B',
+  explanation_text: null,
+  explanation_status: 'missing',
+  has_explanation: false,
+  snapshot_note: '交卷时内容快照',
+  audio: { status: 'missing', url: null },
+  skills: [{
+    code: 'LISTEN-1',
+    name: '辨识场景',
+    role: 'PRIMARY',
+    definition: '从对话线索辨识场景',
+    evidence_status: 'restricted',
+  }],
+  candidate_causes: [{
+    code: 'OPTION-2',
+    name: '混淆地点',
+    option_letter: 'A',
+    basis_summary: '混淆相近的场景线索',
+    evidence_status: 'restricted',
+  }],
+  evidence_access: 'restricted',
+  personal_cause_status: 'unconfirmed',
+  annotation_note: '候选错因不代表个人已确认的错因',
+  annotation_source_note: '关联标注来自交卷来源批次的当前有效审核结果，可能与交卷时不同。',
 }
 
 function renderNotebook() {
@@ -136,27 +171,7 @@ describe('学生错题本', () => {
 
   it('显示获准查看的交卷快照及受限证据提示', async () => {
     const user = userEvent.setup()
-    vi.mocked(getWrongAnswer).mockResolvedValue({
-      ...pendingAnswer,
-      options: { A: 'At a library', B: 'At a station' },
-      correct_option: 'B',
-      explanation_text: '',
-      snapshot_note: '交卷时内容快照',
-      audio_url: null,
-      skills: [{
-        code: 'LISTEN-1',
-        name: '辨识场景',
-        role: 'PRIMARY',
-        has_restricted_evidence: true,
-      }],
-      candidate_causes: [{
-        code: 'OPTION-2',
-        name: '混淆地点',
-        option_letter: 'A',
-        has_restricted_evidence: false,
-      }],
-      personal_cause_status: 'unconfirmed',
-    })
+    vi.mocked(getWrongAnswer).mockResolvedValue(notebookDetail)
 
     renderNotebook()
 
@@ -164,9 +179,47 @@ describe('学生错题本', () => {
     const detail = await screen.findByRole('dialog')
     expect(await within(detail).findByText(/交卷时内容快照/)).toBeVisible()
     expect(within(detail).getByText('暂无解析')).toBeVisible()
-    expect(within(detail).getByText(/辨识场景/)).toBeVisible()
+    expect(within(detail).getByText('辨识场景（LISTEN-1）')).toBeVisible()
+    expect(within(detail).getByText('从对话线索辨识场景')).toBeVisible()
     expect(within(detail).getByText(/混淆地点/)).toBeVisible()
+    expect(within(detail).getByText(notebookDetail.annotation_source_note)).toBeVisible()
+    expect(within(detail).getByText(notebookDetail.annotation_note)).toBeVisible()
+    expect(within(detail).getByText('暂无音频')).toBeVisible()
     expect(within(detail).getByText('存在受限证据，暂不可查看')).toBeVisible()
+  })
+
+  it.each([409, 404])('音频返回 %d 时清除详情并重新校验权限', async (status) => {
+    const user = userEvent.setup()
+    const audioUrl = '/api/v1/listening-papers/42/audio?expected_batch_id=12'
+    vi.mocked(getWrongAnswer).mockResolvedValueOnce({
+      ...notebookDetail,
+      explanation_status: 'restricted',
+      audio: { status: 'available', url: audioUrl },
+    })
+    let finishRefresh: (value: WrongAnswerDetail) => void = () => undefined
+    let rejectRefresh: (reason: ApiError) => void = () => undefined
+    vi.mocked(getWrongAnswer).mockReturnValueOnce(new Promise((resolve, reject) => {
+      finishRefresh = resolve
+      rejectRefresh = reject
+    }))
+    vi.mocked(loadAuthenticatedAudio).mockRejectedValue(new ApiError('音频不可用', status, status))
+
+    renderNotebook()
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    const detail = await screen.findByRole('dialog')
+    expect(await within(detail).findByText('历史解析暂不可查看')).toBeVisible()
+    await user.click(within(detail).getByRole('button', { name: '加载音频' }))
+    await waitFor(() => expect(getWrongAnswer).toHaveBeenCalledTimes(2))
+    expect(within(detail).queryByText('At a station', { exact: false })).not.toBeInTheDocument()
+
+    if (status === 409) {
+      finishRefresh({ ...notebookDetail, audio: { status: 'batch_mismatch', url: null } })
+      expect(await within(detail).findByText('当前音频与交卷批次无法对应')).toBeVisible()
+    } else {
+      rejectRefresh(new ApiError('记录不可查看', 404, 404))
+      expect(await within(detail).findByText('该错题记录已不可查看')).toBeVisible()
+    }
+    expect(loadAuthenticatedAudio).toHaveBeenCalledExactlyOnceWith(audioUrl, expect.any(AbortSignal))
   })
 
   it('切换列表页时请求下一页', async () => {
@@ -186,6 +239,10 @@ describe('学生错题本', () => {
     expect(listWrongAnswers).toHaveBeenLastCalledWith(
       expect.objectContaining({ visibility: 'visible' }), 2, expect.any(AbortSignal),
     )
+    await user.click(screen.getByRole('radio', { name: '全部' }))
+    await waitFor(() => expect(listWrongAnswers).toHaveBeenLastCalledWith(
+      expect.objectContaining({ visibility: 'all' }), 1, expect.any(AbortSignal),
+    ))
   })
 
   it('筛选未作答记录，区分筛选为空与没有错题', async () => {

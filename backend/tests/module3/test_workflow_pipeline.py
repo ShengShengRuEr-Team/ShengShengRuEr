@@ -568,17 +568,26 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline, monkeyp
     assert review["selected_option"] == "A" and review["correct_option"] == "D"
     (review_skill,) = review["skills"]
     assert review_skill["role"] == "PRIMARY"
-    assert set(review_skill) == {"code", "name", "role", "has_restricted_evidence"}
+    assert set(review_skill) == {
+        "code",
+        "name",
+        "role",
+        "definition",
+        "evidence_status",
+    }
+    assert review_skill["evidence_status"] == "restricted"
     assert review["personal_cause_status"] == "unconfirmed"
     (candidate,) = review["candidate_causes"]
     assert candidate["option_letter"] == "A"
-    assert candidate["has_restricted_evidence"] is True
+    assert candidate["evidence_status"] == "restricted"
     assert set(candidate) == {
         "code",
         "name",
         "option_letter",
-        "has_restricted_evidence",
+        "basis_summary",
+        "evidence_status",
     }
+    assert review["evidence_access"] == "restricted"
     assert "transcript" not in review
     assert "Synthetic distractor mechanism for Beta" not in notebook.text
     assert "The answer is Alpha." not in notebook.text

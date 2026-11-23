@@ -1,7 +1,7 @@
 import { request } from './client'
 
 export type WrongAnswerLearningStatus = 'pending' | 'mastered'
-export type WrongAnswerVisibility = 'visible' | 'hidden'
+export type WrongAnswerVisibility = 'visible' | 'hidden' | 'all'
 
 export interface WrongAnswerFilters {
   exam_paper_id?: number
@@ -20,23 +20,33 @@ export interface WrongAnswerItem {
   selected_option: string | null
   learning_status: WrongAnswerLearningStatus
   is_hidden: boolean
+  updated_at: string
   reviewed_at: string | null
 }
 
 interface Annotation {
   code: string
   name: string
-  has_restricted_evidence: boolean
+  evidence_status: 'restricted'
 }
+
+type AudioStatus =
+  | { status: 'available'; url: string }
+  | { status: 'missing' | 'batch_mismatch'; url: null }
 
 export interface WrongAnswerDetail extends WrongAnswerItem {
   snapshot_note: string
   options: Record<string, string>
   correct_option: string
-  explanation_text: string
-  audio_url: string | null
-  skills: (Annotation & { role: string | null })[]
-  candidate_causes: (Annotation & { option_letter: string })[]
+  explanation_text: string | null
+  explanation_status: 'available' | 'missing' | 'restricted'
+  has_explanation: boolean
+  audio: AudioStatus
+  skills: (Annotation & { role: string; definition: string | null })[]
+  candidate_causes: (Annotation & { option_letter: string; basis_summary: string | null })[]
+  evidence_access: 'none' | 'restricted'
+  annotation_note: string
+  annotation_source_note: string
   personal_cause_status: 'unconfirmed'
 }
 

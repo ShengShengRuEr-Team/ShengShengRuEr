@@ -3,22 +3,20 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, require_student
 from app.core.config import Settings, get_settings
-from app.core.errors import ok
+from app.core.errors import AppError, ok
 from app.db.base import get_db
 from app.schemas import ApiResponse
 from app.schemas_wrong_answers import (
-    LearningStatus,
-    NotebookVisibility,
     WrongAnswerDetail,
     WrongAnswerItem,
     WrongAnswerPage,
     WrongAnswerPatch,
-    WrongAnswerType,
+    WrongAnswerQuery,
 )
 from app.services import wrong_answers
 
@@ -34,29 +32,15 @@ def is_notebook_path(path: str) -> bool:
 
 @router.get("", response_model=ApiResponse[WrongAnswerPage])
 def list_entries(
-    page: int = Query(default=1, ge=1, le=2**31 - 1),
-    limit: int = Query(default=20, ge=1, le=100),
-    exam_paper_id: int | None = Query(default=None, gt=0, le=2**63 - 1),
-    answer_type: WrongAnswerType | None = None,
-    learning_status: LearningStatus | None = None,
-    visibility: NotebookVisibility = "visible",
+    request: Request,
+    filters: Annotated[WrongAnswerQuery, Query()],
     user: CurrentUser = Depends(require_student),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
-    return ok(
-        wrong_answers.list_entries(
-            db,
-            user.id,
-            settings,
-            page=page,
-            limit=limit,
-            exam_paper_id=exam_paper_id,
-            answer_type=answer_type,
-            learning_status=learning_status,
-            visibility=visibility,
-        )
-    )
+    if len(request.query_params.multi_items()) != len(request.query_params):
+        raise AppError(422, "错题筛选参数不能重复")
+    return ok(wrong_answers.list_entries(db, user.id, settings, **filters.model_dump()))
 
 
 @router.get(
