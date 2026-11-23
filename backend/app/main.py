@@ -20,6 +20,7 @@ from app.api import (
     attempts,
     auth,
     listening_papers,
+    skill_error_query,
 )
 from app.core.errors import AppError
 from app.module3.contracts import ProcessingError
@@ -122,6 +123,7 @@ app.include_router(attempts.router, prefix="/api/v1")
 app.include_router(attempt_status.router, prefix="/api/v1")
 app.include_router(admin_processing.router, prefix="/api/v1")
 app.include_router(admin_processing_workflows.router, prefix="/api/v1")
+app.include_router(skill_error_query.router, prefix="/api/v1")
 
 
 @app.exception_handler(ProcessingError)

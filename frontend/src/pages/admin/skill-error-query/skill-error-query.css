@@ -1,0 +1,90 @@
+.skill-query-tree-card .ant-card-body {
+  max-height: calc(100vh - 330px);
+  overflow: auto;
+}
+
+.skill-query-tree {
+  font-size: 13px;
+}
+
+.skill-query-tree-title {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.skill-query-code {
+  margin-left: 6px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+}
+
+.skill-query-entry-card .ant-card-head-title {
+  white-space: normal;
+}
+
+.skill-query-path {
+  margin-bottom: 12px;
+}
+
+.skill-query-boundary {
+  margin-top: 12px;
+  margin-bottom: 0;
+  font-size: 12px;
+}
+
+.skill-query-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+}
+
+.skill-query-option.is-correct {
+  border-color: #b7eb8f;
+  background: #f6ffed;
+}
+
+.skill-query-segment,
+.skill-query-evidence {
+  padding: 8px 10px;
+  border-left: 3px solid #d9d9d9;
+  background: #fafafa;
+  border-radius: 0 4px 4px 0;
+}
+
+.skill-query-evidence-count {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+.skill-query-error-option {
+  padding: 6px 8px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+}
+
+.skill-query-pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.skill-query-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 120px;
+}
+
+.skill-query-audio {
+  padding: 8px 0;
+  border-top: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
+}
