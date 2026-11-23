@@ -38,7 +38,7 @@ import QuestionDetailDrawer from './QuestionDetailDrawer'
 import QuestionTable from './QuestionTable'
 import './skill-error-query.css'
 
-const PAGE_SIZE = 20
+const DEFAULT_PAGE_SIZE = 20
 
 function firstLeaf(nodes: DictionaryNode[]): DictionaryNode | undefined {
   const leaves = nodes
@@ -62,6 +62,7 @@ export default function SkillErrorQueryPage() {
   const [categoryMode, setCategoryMode] = useState<'by-leaf' | 'all'>('by-leaf')
   const [listData, setListData] = useState<QuestionListData | null>(null)
   const [cursor, setCursor] = useState(0)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [drawerQuestionId, setDrawerQuestionId] = useState<number | null>(null)
@@ -74,7 +75,13 @@ export default function SkillErrorQueryPage() {
   const scopeVersion = listData?.scope_version ?? dictionary?.scope_version ?? ''
 
   const loadList = useCallback(
-    async (node: DictionaryNode, nextCursor: number, type: QueryType, role: RoleFilter) => {
+    async (
+      node: DictionaryNode,
+      nextCursor: number,
+      type: QueryType,
+      role: RoleFilter,
+      limit: number,
+    ) => {
       if (!dictionary) return
       setLoading(true)
       setError('')
@@ -90,7 +97,7 @@ export default function SkillErrorQueryPage() {
           subject_code: node.code,
           role: type === 'skill' ? role : 'all',
           cursor: nextCursor,
-          limit: PAGE_SIZE,
+          limit,
           expected_scope_version:
             nextCursor > 0 ? dictionary.scope_version : undefined,
         })
@@ -135,7 +142,7 @@ export default function SkillErrorQueryPage() {
 
   useEffect(() => {
     if (dictionary && selectedNode) {
-      void loadList(selectedNode, 0, queryType, roleFilter)
+      void loadList(selectedNode, 0, queryType, roleFilter, pageSize)
     }
     // Only a node or role change starts a new first page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -153,13 +160,22 @@ export default function SkillErrorQueryPage() {
 
   const handleSelectNode = (node: DictionaryNode) => {
     setSelectedNode(node)
+    setListData(null)
     setCursor(0)
     setCategoryMode('by-leaf')
   }
 
   const handlePageChange = (page: number) => {
     if (!selectedNode) return
-    void loadList(selectedNode, (page - 1) * PAGE_SIZE, queryType, roleFilter)
+    void loadList(selectedNode, (page - 1) * pageSize, queryType, roleFilter, pageSize)
+  }
+
+  const handlePageSizeChange = (_page: number, size: number) => {
+    setPageSize(size)
+    setCursor(0)
+    if (selectedNode) {
+      void loadList(selectedNode, 0, queryType, roleFilter, size)
+    }
   }
 
   const handleScopeRefresh = useCallback(() => {
@@ -202,7 +218,14 @@ export default function SkillErrorQueryPage() {
               icon={<ReloadOutlined />}
               onClick={() => {
                 if (!dictionary) void loadDictionary()
-                else if (selectedNode) void loadList(selectedNode, cursor, queryType, roleFilter)
+                else if (selectedNode)
+                  void loadList(
+                    selectedNode,
+                    cursor,
+                    queryType,
+                    roleFilter,
+                    pageSize,
+                  )
               }}
             >
               重试
@@ -273,6 +296,7 @@ export default function SkillErrorQueryPage() {
                 selectedCode={selectedNode?.code}
                 search={search}
                 onSelect={handleSelectNode}
+                onClearSearch={() => setSearch('')}
               />
             ) : (
               <Typography.Text type="secondary">正在加载词典…</Typography.Text>
@@ -285,10 +309,19 @@ export default function SkillErrorQueryPage() {
             {selectedNode ? (
               <EntryDetailCard
                 node={selectedNode}
+                categoryStats={
+                  isCategory && listData
+                    ? {
+                        leafCount: listData.matched_leaves.length,
+                        questionCount: listData.question_count,
+                        optionRelationCount: listData.option_relation_count,
+                      }
+                    : undefined
+                }
                 onOpenQuestions={() => {
                   if (!selectedNode) return
                   setCategoryMode('all')
-                  void loadList(selectedNode, 0, queryType, roleFilter)
+                  void loadList(selectedNode, 0, queryType, roleFilter, pageSize)
                 }}
               />
             ) : (
@@ -300,14 +333,20 @@ export default function SkillErrorQueryPage() {
             {selectedNode ? (
               isCategory ? (
                 <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                  <Segmented
-                    value={categoryMode}
-                    onChange={(value) => setCategoryMode(value as 'by-leaf' | 'all')}
-                    options={[
-                      { label: '按条目分组', value: 'by-leaf' },
-                      { label: '全部题目', value: 'all' },
-                    ]}
-                  />
+                  {listData && listData.question_count === 0 ? (
+                    <Typography.Text type="secondary">
+                      该分类暂无正式题目，无需切换“按条目分组 / 全部题目”。
+                    </Typography.Text>
+                  ) : (
+                    <Segmented
+                      value={categoryMode}
+                      onChange={(value) => setCategoryMode(value as 'by-leaf' | 'all')}
+                      options={[
+                        { label: '按条目分组', value: 'by-leaf' },
+                        { label: '全部题目', value: 'all' },
+                      ]}
+                    />
+                  )}
                   {listData ? (
                     <CategorySummary
                       data={listData}
@@ -379,10 +418,12 @@ export default function SkillErrorQueryPage() {
                   )}
                   <div className="skill-query-pagination">
                     <Pagination
-                      current={cursor / PAGE_SIZE + 1}
-                      pageSize={PAGE_SIZE}
+                      current={Math.floor(cursor / pageSize) + 1}
+                      pageSize={pageSize}
                       total={listData?.question_count ?? 0}
-                      showSizeChanger={false}
+                      showSizeChanger
+                      pageSizeOptions={[20, 50, 100]}
+                      onShowSizeChange={handlePageSizeChange}
                       onChange={handlePageChange}
                     />
                   </div>

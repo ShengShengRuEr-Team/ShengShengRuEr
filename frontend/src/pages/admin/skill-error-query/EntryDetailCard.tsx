@@ -1,17 +1,45 @@
 import { ArrowRightOutlined, TagOutlined } from '@ant-design/icons'
-import { Button, Card, Descriptions, Space, Tag, Typography } from 'antd'
+import { Alert, Button, Card, Descriptions, Space, Tag, Typography } from 'antd'
 import type { DictionaryNode } from '../../../api/skill-error-query'
+
+interface CategoryStats {
+  leafCount: number
+  questionCount: number
+  optionRelationCount?: number | null
+}
 
 interface EntryDetailCardProps {
   node: DictionaryNode
+  categoryStats?: CategoryStats
   onOpenQuestions: () => void
 }
 
-export default function EntryDetailCard({ node, onOpenQuestions }: EntryDetailCardProps) {
+export default function EntryDetailCard({
+  node,
+  categoryStats,
+  onOpenQuestions,
+}: EntryDetailCardProps) {
   const isSkill = node.kind === 'skill'
-  const countText = isSkill
-    ? `关联题目 ${node.question_count ?? 0}（主要 ${node.primary_question_count ?? 0} / 辅助 ${node.auxiliary_question_count ?? 0}）`
-    : `关联题目 ${node.question_count ?? 0} · 选项—错因关系 ${node.option_relation_count ?? 0}`
+  const isCategory = node.level < 3
+  const countText = isCategory
+    ? categoryStats
+      ? `分类汇总：${categoryStats.leafCount} 个三级条目 / ${categoryStats.questionCount} 道正式题目${
+          categoryStats.optionRelationCount != null
+            ? ` / ${categoryStats.optionRelationCount} 条选项—错因关系`
+            : ''
+        }`
+      : '分类汇总：加载中…'
+    : isSkill
+      ? `关联题目 ${node.question_count ?? 0}（主要 ${node.primary_question_count ?? 0} / 辅助 ${node.auxiliary_question_count ?? 0}）`
+      : `关联题目 ${node.question_count ?? 0} · 选项—错因关系 ${node.option_relation_count ?? 0}`
+  const specialDiagnosis = isSkill && node.usage_scope.includes('专项诊断')
+  const questionsUnavailable =
+    isCategory && categoryStats !== undefined && categoryStats.questionCount === 0
+  const pendingTrial =
+    node.review_status.includes('待试标') ||
+    (node.notes ?? '').includes('待试标') ||
+    (!isSkill &&
+      ['设计已确认待试标', '候选细类'].includes(node.maturity))
 
   return (
     <Card
@@ -26,7 +54,7 @@ export default function EntryDetailCard({ node, onOpenQuestions }: EntryDetailCa
         </Space>
       }
       extra={
-        <Button type="primary" onClick={onOpenQuestions}>
+        <Button type="primary" disabled={questionsUnavailable} onClick={onOpenQuestions}>
           查看相关题目 <ArrowRightOutlined />
         </Button>
       }
@@ -34,6 +62,24 @@ export default function EntryDetailCard({ node, onOpenQuestions }: EntryDetailCa
       <Typography.Paragraph type="secondary" className="skill-query-path">
         {node.path.map((part) => part.name).join(' / ')}
       </Typography.Paragraph>
+      {specialDiagnosis ? (
+        <Alert
+          type="info"
+          showIcon
+          message="专项诊断说明"
+          description="该技能用于专项诊断，不因单题对错直接判定。"
+          style={{ marginBottom: 12 }}
+        />
+      ) : null}
+      {pendingTrial ? (
+        <Alert
+          type="warning"
+          showIcon
+          message="待试标条目说明"
+          description="该条目为教学与标注参考口径，尚未完成测量验证，不构成对学生个人的诊断结论。"
+          style={{ marginBottom: 12 }}
+        />
+      ) : null}
       <Descriptions column={1} size="small" bordered>
         <Descriptions.Item label="稳定代码">
           <Typography.Text code>{node.code}</Typography.Text>
@@ -44,17 +90,17 @@ export default function EntryDetailCard({ node, onOpenQuestions }: EntryDetailCa
             <Descriptions.Item label="适用范围">{node.usage_scope}</Descriptions.Item>
             <Descriptions.Item label="考试级别">{node.exam_level_scope}</Descriptions.Item>
             <Descriptions.Item label="可观察行为">
-              {node.observable_behavior || '—'}
+              {node.observable_behavior || '暂无'}
             </Descriptions.Item>
-            <Descriptions.Item label="反例">{node.counter_example || '—'}</Descriptions.Item>
+            <Descriptions.Item label="反例">{node.counter_example || '暂无'}</Descriptions.Item>
           </>
         ) : (
           <>
             <Descriptions.Item label="确认规则">
-              {node.confirmation_rule || '—'}
+              {node.confirmation_rule || '暂无'}
             </Descriptions.Item>
             <Descriptions.Item label="边界规则">
-              {node.boundary_rule || '—'}
+              {node.boundary_rule || '暂无'}
             </Descriptions.Item>
             <Descriptions.Item label="成熟度">{node.maturity}</Descriptions.Item>
           </>
@@ -62,8 +108,8 @@ export default function EntryDetailCard({ node, onOpenQuestions }: EntryDetailCa
         <Descriptions.Item label="审核状态">
           <Tag icon={<TagOutlined />}>{node.review_status}</Tag>
         </Descriptions.Item>
-        <Descriptions.Item label="历史编码">{node.legacy_codes || '—'}</Descriptions.Item>
-        <Descriptions.Item label="备注">{node.notes || '—'}</Descriptions.Item>
+        <Descriptions.Item label="历史编码">{node.legacy_codes || '暂无'}</Descriptions.Item>
+        <Descriptions.Item label="备注">{node.notes || '暂无'}</Descriptions.Item>
         <Descriptions.Item label="查询统计">
           <Typography.Text strong>{countText}</Typography.Text>
         </Descriptions.Item>

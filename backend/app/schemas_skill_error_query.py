@@ -96,6 +96,7 @@ class ErrorOptionSummary(BaseModel):
     base_option_letter: str
     display_option_letter: str | None = None
     option_mapping_state: str
+    option_mapping_reordered: bool = False
     option_text: str
     matched_error_codes: list[str] = []
     candidate_causes: list[CandidateCauseSummary] = []
@@ -125,6 +126,10 @@ class MatchedLeaf(BaseModel):
     code: str
     name: str
     display_code: str
+    question_count: int = 0
+    primary_question_count: int | None = None
+    auxiliary_question_count: int | None = None
+    option_relation_count: int | None = None
 
 
 class SubjectRef(BaseModel):
@@ -166,6 +171,7 @@ class PaperDetail(BaseModel):
     question_no: int
     question_index: int | None = None
     option_mapping_state: str
+    option_mapping_reordered: bool = False
     mapping_source: str
     audio_url: str | None = None
     audio_batch_id: int | None = None
@@ -178,6 +184,7 @@ class PaperOptionRef(BaseModel):
     exam_paper_code: str
     question_no: int
     option_mapping_state: str
+    option_mapping_reordered: bool = False
     is_default: bool
 
 

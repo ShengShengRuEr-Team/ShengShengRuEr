@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Tag, Tree, Typography } from 'antd'
+import { Button, Empty, Tag, Tree, Typography } from 'antd'
 import type { TreeDataNode } from 'antd'
 import type { DictionaryNode } from '../../../api/skill-error-query'
 
@@ -8,6 +8,7 @@ interface DictionaryTreeProps {
   selectedCode?: string
   search: string
   onSelect: (node: DictionaryNode) => void
+  onClearSearch: () => void
 }
 
 function sortNodes(nodes: DictionaryNode[]): DictionaryNode[] {
@@ -31,6 +32,13 @@ function buildTree(nodes: DictionaryNode[], search: string): TreeDataNode[] {
     node.code.toLowerCase().includes(keyword) ||
     node.display_code.toLowerCase().includes(keyword)
 
+  const leafCount = (parentId: number): number =>
+    (children.get(parentId) ?? []).reduce(
+      (total, child) =>
+        total + (child.level === 3 ? 1 : leafCount(child.id)),
+      0,
+    )
+
   const visit = (parentId: number | null): TreeDataNode[] =>
     sortNodes(children.get(parentId) ?? []).flatMap((node) => {
       const childNodes = visit(node.id)
@@ -39,6 +47,9 @@ function buildTree(nodes: DictionaryNode[], search: string): TreeDataNode[] {
       }
       const isLeaf = node.level === 3
       const count = node.question_count
+      const leafTotal = isLeaf ? 0 : leafCount(node.id)
+      const groupTotal =
+        node.level === 1 ? (children.get(node.id) ?? []).length : 0
       return [
         {
           key: node.code,
@@ -49,6 +60,13 @@ function buildTree(nodes: DictionaryNode[], search: string): TreeDataNode[] {
                 <Typography.Text type="secondary" className="skill-query-code">
                   {node.display_code}
                 </Typography.Text>
+                {!isLeaf ? (
+                  <Typography.Text type="secondary" className="skill-query-code">
+                    {node.level === 1
+                      ? `二级 ${groupTotal} 组 / 三级 ${leafTotal} 叶`
+                      : `三级 ${leafTotal} 叶`}
+                  </Typography.Text>
+                ) : null}
               </span>
               {isLeaf && count !== null ? (
                 <Tag bordered={false} color="default">
@@ -70,6 +88,7 @@ export default function DictionaryTree({
   selectedCode,
   search,
   onSelect,
+  onClearSearch,
 }: DictionaryTreeProps) {
   const byCode = useMemo(
     () => new Map(nodes.map((node) => [node.code, node])),
@@ -80,6 +99,25 @@ export default function DictionaryTree({
     if (!search.trim()) return undefined
     return nodes.map((node) => node.code)
   }, [nodes, search])
+
+  if (!treeData.length) {
+    return (
+      <Empty
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description={
+          <span>
+            未找到匹配条目
+            <br />
+            <Typography.Text type="secondary">可清除搜索后重新选择</Typography.Text>
+          </span>
+        }
+      >
+        <Button size="small" onClick={onClearSearch}>
+          清除搜索
+        </Button>
+      </Empty>
+    )
+  }
 
   return (
     <Tree

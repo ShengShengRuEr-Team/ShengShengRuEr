@@ -167,7 +167,17 @@ const page: QuestionListData = {
     name: '跨句指代对象识别',
     display_code: '3.1.2',
   },
-  matched_leaves: [{ code: 'S26', name: '跨句指代对象识别', display_code: '3.1.2' }],
+  matched_leaves: [
+    {
+      code: 'S26',
+      name: '跨句指代对象识别',
+      display_code: '3.1.2',
+      question_count: 1,
+      primary_question_count: 1,
+      auxiliary_question_count: 0,
+      option_relation_count: null,
+    },
+  ],
   question_count: 1,
   primary_question_count: 1,
   auxiliary_question_count: 0,
@@ -197,6 +207,7 @@ const detail: QuestionDetailData = {
     question_no: 3,
     question_index: 3,
     option_mapping_state: '已知',
+    option_mapping_reordered: false,
     mapping_source: 'fixture',
     audio_url: '/api/v1/listening-papers/5/audio',
     audio_batch_id: 9,
@@ -209,6 +220,7 @@ const detail: QuestionDetailData = {
       exam_paper_code: 'CET4-2025-06-1',
       question_no: 3,
       option_mapping_state: '已知',
+      option_mapping_reordered: false,
       is_default: true,
     },
   ],
@@ -265,6 +277,7 @@ const errorItem: QuestionListItem = {
       base_option_letter: 'D',
       display_option_letter: 'D',
       option_mapping_state: '已知',
+      option_mapping_reordered: false,
       option_text: 'It is unrelated to the deadline.',
       matched_error_codes: ['E4.3'],
       candidate_causes: [
@@ -295,6 +308,19 @@ describe('skill/error query page', () => {
       expectedScopeVersion: 'scope-1',
       examPaperId: 5,
     })
+  })
+
+  it('shows a reorder warning when the selected paper mapping is non-identity', async () => {
+    api.getQuestionDetail.mockResolvedValue({
+      ...detail,
+      paper: { ...detail.paper, option_mapping_reordered: true },
+    })
+    const user = userEvent.setup()
+    render(<SkillErrorQueryPage />)
+    await waitFor(() => expect(api.listQuestions).toHaveBeenCalled())
+    await screen.findByText('What does the speaker imply?')
+    await user.click(screen.getByRole('button', { name: /详情/ }))
+    expect(await screen.findByText('该套试卷存在选项重排')).toBeInTheDocument()
   })
 
   it('loads candidate evidence when an error row expands', async () => {

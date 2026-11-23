@@ -52,6 +52,33 @@ def _published(client, c):
     return c["detail"]()
 
 
+def test_role_normalization():
+    from app.services.skill_error_query.questions import _normalize_role
+
+    assert _normalize_role("all") == "all"
+    assert _normalize_role("primary") == "PRIMARY"
+    assert _normalize_role("auxiliary") == "AUXILIARY"
+
+
+def test_mapping_reordered_detection():
+    from app.services.skill_error_query.questions import _mapping_state
+
+    class PresentationStub:
+        option_letter_mapping = {"A": "B", "B": "A", "C": "C", "D": "D"}
+
+    state, mapping, reordered = _mapping_state(PresentationStub())
+    assert state == "已知"
+    assert mapping is not None
+    assert reordered is True
+
+    class IdentityStub:
+        option_letter_mapping = {"A": "A", "B": "B", "C": "C", "D": "D"}
+
+    state, _, reordered = _mapping_state(IdentityStub())
+    assert state == "已知"
+    assert reordered is False
+
+
 def test_dictionary_and_questions_contract(
     client, admin_token, student_token, pipeline
 ):
@@ -84,6 +111,24 @@ def test_dictionary_and_questions_contract(
     assert item["annotation_status_label"] == "正式审核通过"
     assert item["paper"]["exam_paper_code"]
 
+    response = client.get(
+        f"{BASE}/questions",
+        params={
+            "subject_type": "skill",
+            "subject_code": skill_code,
+            "role": "primary",
+            "limit": 20,
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    primary_page = response.json()["data"]
+    assert primary_page["question_count"] >= 1
+    assert all(
+        any(skill["role"] == "PRIMARY" for skill in row["matched_skills"])
+        for row in primary_page["items"]
+    )
+
     question_id = item["question_id"]
     response = client.get(
         f"{BASE}/questions/{question_id}",
@@ -115,7 +160,10 @@ def test_dictionary_and_questions_contract(
         headers=headers,
     )
     assert response.status_code == 200, response.text
-    assert response.json()["data"]["matched_leaves"]
+    category = response.json()["data"]
+    assert category["matched_leaves"]
+    assert all("question_count" in leaf for leaf in category["matched_leaves"])
+    assert any(leaf["question_count"] >= 1 for leaf in category["matched_leaves"])
 
     # A stale scope token must not be silently accepted.
     response = client.get(

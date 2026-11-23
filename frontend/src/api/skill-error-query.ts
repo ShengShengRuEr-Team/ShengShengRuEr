@@ -97,6 +97,7 @@ export interface ErrorOptionSummary {
   base_option_letter: string
   display_option_letter: string | null
   option_mapping_state: string
+  option_mapping_reordered: boolean
   option_text: string
   matched_error_codes: string[]
   candidate_causes: CandidateCauseSummary[]
@@ -126,6 +127,10 @@ export interface MatchedLeaf {
   code: string
   name: string
   display_code: string
+  question_count: number
+  primary_question_count: number | null
+  auxiliary_question_count: number | null
+  option_relation_count: number | null
 }
 
 export interface SubjectRef {
@@ -167,6 +172,7 @@ export interface PaperDetail {
   question_no: number
   question_index: number | null
   option_mapping_state: string
+  option_mapping_reordered: boolean
   mapping_source: string
   audio_url: string | null
   audio_batch_id: number | null
@@ -179,6 +185,7 @@ export interface PaperOptionRef {
   exam_paper_code: string
   question_no: number
   option_mapping_state: string
+  option_mapping_reordered: boolean
   is_default: boolean
 }
 

@@ -50,15 +50,18 @@ export default function QuestionTable({
       width: 210,
       render: (_, item) => (
         <Space size={[4, 4]} wrap>
-          {item.skills.map((skill) => (
-            <Tag
-              key={`${skill.code}-${skill.role}`}
-              color={skill.role === 'PRIMARY' ? 'blue' : 'default'}
-            >
-              {skill.code} · {skill.role === 'PRIMARY' ? '主要' : '辅助'}
-            </Tag>
-          ))}
-          {item.skills.length === 0 ? <Typography.Text type="secondary">—</Typography.Text> : null}
+          {item.skills.length === 0 ? (
+            <Tag color="red">标注缺失</Tag>
+          ) : (
+            item.skills.map((skill) => (
+              <Tag
+                key={`${skill.code}-${skill.role}`}
+                color={skill.role === 'PRIMARY' ? 'blue' : 'default'}
+              >
+                {skill.code} · {skill.role === 'PRIMARY' ? '主要' : '辅助'}
+              </Tag>
+            ))
+          )}
         </Space>
       ),
     },

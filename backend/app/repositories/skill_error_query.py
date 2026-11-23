@@ -154,16 +154,27 @@ def load_questions(db: Session, question_ids: Iterable[int]) -> dict[int, Questi
 
 
 def load_presentations(
-    db: Session, question_ids: Iterable[int]
+    db: Session, question_ids: Iterable[int], batch_ids: Iterable[int] | None = None
 ) -> dict[int, list[tuple[Presentation, ExamPaper]]]:
     ids = tuple(question_ids)
     if not ids:
         return {}
-    rows = db.execute(
+    query = (
         select(Presentation, ExamPaper)
         .join(ExamPaper, ExamPaper.id == Presentation.exam_paper_id)
         .where(Presentation.question_id.in_(ids))
-        .order_by(Presentation.question_id, Presentation.question_no, Presentation.id)
+    )
+    if batch_ids is not None:
+        bids = tuple(batch_ids)
+        if not bids:
+            return {}
+        query = query.where(Presentation.batch_id.in_(bids))
+    rows = db.execute(
+        query.order_by(
+            Presentation.question_id,
+            Presentation.question_no,
+            Presentation.id,
+        )
     ).all()
     result: dict[int, list[tuple[Presentation, ExamPaper]]] = defaultdict(list)
     for presentation, paper in rows:

@@ -158,6 +158,9 @@ export default function ErrorQuestionList({
                     : ''}
                 </Tag>
                 <Typography.Text>{option.option_text}</Typography.Text>
+                {option.option_mapping_reordered ? (
+                  <Tag color="orange">选项重排</Tag>
+                ) : null}
                 {option.candidate_causes.map((cause) => (
                   <Tag key={cause.code} color={cause.is_match ? 'orange' : 'default'}>
                     {cause.code} {cause.name}

@@ -151,7 +151,9 @@ export default function QuestionDetailDrawer({
                 style={{ minWidth: 220 }}
                 options={data.papers.map((paper) => ({
                   value: paper.exam_paper_id,
-                  label: `${paper.exam_paper_code}（第 ${paper.question_no} 题）`,
+                  label: `${paper.exam_paper_code}（第 ${paper.question_no} 题）${
+                    paper.option_mapping_reordered ? ' · 选项重排' : ''
+                  }`,
                 }))}
                 onChange={(value) => setPaperId(value)}
               />
@@ -163,6 +165,14 @@ export default function QuestionDetailDrawer({
 
           {data.answer_state === 'unavailable' ? (
             <Alert type="warning" showIcon message="答案待补齐，无法确认错误选项" />
+          ) : null}
+          {data.paper.option_mapping_reordered ? (
+            <Alert
+              type="warning"
+              showIcon
+              message="该套试卷存在选项重排"
+              description="展示字母与题库基准字母不同；选项原文和基准字母不变，候选错因身份以基准字母为准。"
+            />
           ) : null}
           {data.warnings.map((warning) => (
             <Alert key={warning.code} type="warning" showIcon message={warning.message} />
@@ -209,6 +219,11 @@ export default function QuestionDetailDrawer({
             </Descriptions.Item>
             <Descriptions.Item label="选项映射">
               {data.paper.option_mapping_state}
+              {data.paper.option_mapping_reordered ? (
+                <Tag color="orange" style={{ marginLeft: 6 }}>
+                  选项重排
+                </Tag>
+              ) : null}
             </Descriptions.Item>
             <Descriptions.Item label="解析来源">{data.question.explanation_source}</Descriptions.Item>
             <Descriptions.Item label="内容状态">
@@ -231,6 +246,7 @@ export default function QuestionDetailDrawer({
                 {data.passage.segments.map((segment) => (
                   <div key={segment.segment_id} className="skill-query-segment">
                     <Typography.Text type="secondary">
+                      {segment.segment_type === 'body' ? '正文' : '录音问题'} ·{' '}
                       {segment.start_ms}–{segment.end_ms} ms
                       {segment.speaker_code ? ` · ${segment.speaker_code}` : ''}
                     </Typography.Text>
@@ -250,27 +266,36 @@ export default function QuestionDetailDrawer({
 
           <div>
             <Typography.Title level={5}>技能标注</Typography.Title>
-            <Collapse
-              items={data.skills.map((skill) => ({
-                key: skill.code,
-                label: (
-                  <Space wrap>
-                    <Tag color={skill.role === 'PRIMARY' ? 'blue' : 'default'}>
-                      {skill.role === 'PRIMARY' ? '主要' : '辅助'}
-                    </Tag>
-                    <Typography.Text code>{skill.code}</Typography.Text>
-                    <Typography.Text>{skill.name}</Typography.Text>
-                    <Tag>{skill.evidence.length} 条证据</Tag>
-                  </Space>
-                ),
-                children: (
-                  <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                    <Typography.Paragraph>{skill.definition}</Typography.Paragraph>
-                    <EvidenceBlock evidence={skill.evidence} />
-                  </Space>
-                ),
-              }))}
-            />
+            {data.skills.length === 0 ? (
+              <Alert
+                type="warning"
+                showIcon
+                message="标注缺失"
+                description="该题在当前正式题库中没有技能标注；每题应有主要技能，请按数据异常处理。"
+              />
+            ) : (
+              <Collapse
+                items={data.skills.map((skill) => ({
+                  key: skill.code,
+                  label: (
+                    <Space wrap>
+                      <Tag color={skill.role === 'PRIMARY' ? 'blue' : 'default'}>
+                        {skill.role === 'PRIMARY' ? '主要' : '辅助'}
+                      </Tag>
+                      <Typography.Text code>{skill.code}</Typography.Text>
+                      <Typography.Text>{skill.name}</Typography.Text>
+                      <Tag>{skill.evidence.length} 条证据</Tag>
+                    </Space>
+                  ),
+                  children: (
+                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                      <Typography.Paragraph>{skill.definition}</Typography.Paragraph>
+                      <EvidenceBlock evidence={skill.evidence} />
+                    </Space>
+                  ),
+                }))}
+              />
+            )}
           </div>
 
           <div>

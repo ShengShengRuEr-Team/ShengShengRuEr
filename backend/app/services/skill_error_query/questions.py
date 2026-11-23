@@ -11,6 +11,7 @@ from app.db.models_annotations import (
     SkillQuestionRelation,
 )
 from app.db.models_listening import ImportBatch, Presentation, Question
+from app.repositories import listening
 from app.repositories import skill_error_query as repo
 from app.schemas_skill_error_query import (
     CandidateCauseDetail,
@@ -58,18 +59,51 @@ def _warning(code: str, message: str) -> WarningItem:
     return WarningItem(code=code, message=message)
 
 
-def _mapping_state(presentation: Presentation | None) -> tuple[str, dict | None]:
+def _mapping_state(
+    presentation: Presentation | None,
+) -> tuple[str, dict | None, bool]:
     mapping = presentation.option_letter_mapping if presentation else None
     if not isinstance(mapping, dict):
-        return "未知", None
+        return "未知", None, False
     if set(mapping) != set(BASE_OPTIONS):
-        return "invalid", None
+        return "invalid", None, False
     values = [mapping[letter] for letter in BASE_OPTIONS]
     if any(not isinstance(value, str) for value in values):
-        return "invalid", None
+        return "invalid", None, False
     if sorted(values) != list(BASE_OPTIONS):
-        return "invalid", None
-    return "已知", mapping
+        return "invalid", None, False
+    reordered = any(mapping[letter] != letter for letter in BASE_OPTIONS)
+    return "已知", mapping, reordered
+
+
+def _normalize_role(role: str) -> str:
+    """Map the API's lower-case role to the database enum value."""
+
+    return "all" if role == "all" else role.upper()
+
+
+def _matched_leaf(node: SkillNode | ErrorCauseNode) -> MatchedLeaf:
+    return MatchedLeaf(
+        code=node.code,
+        name=node.name,
+        display_code=node.display_code,
+        question_count=int(node.question_count or 0),
+        primary_question_count=(
+            int(node.primary_question_count or 0)
+            if node.kind == "skill"
+            else None
+        ),
+        auxiliary_question_count=(
+            int(node.auxiliary_question_count or 0)
+            if node.kind == "skill"
+            else None
+        ),
+        option_relation_count=(
+            int(node.option_relation_count or 0)
+            if node.kind == "error_cause"
+            else None
+        ),
+    )
 
 
 def _inverse(mapping: dict) -> dict[str, str]:
@@ -129,9 +163,7 @@ def _resolve_subject(
                 display_code=target.display_code,
             ),
             [
-                MatchedLeaf(
-                    code=node.code, name=node.name, display_code=node.display_code
-                )
+                _matched_leaf(node)
                 for node in leaves
             ],
             [node.id for node in leaves],
@@ -164,9 +196,7 @@ def _resolve_subject(
                 display_code=target.display_code,
             ),
             [
-                MatchedLeaf(
-                    code=node.code, name=node.name, display_code=node.display_code
-                )
+                _matched_leaf(node)
                 for node in leaves
             ],
             [node.id for node in leaves],
@@ -179,7 +209,7 @@ def _resolve_subject(
 def _paper_contexts(
     db: Session, scope: QueryScope, questions: dict[int, Question]
 ) -> dict[int, tuple[Presentation, object, int, bool]]:
-    presentations = repo.load_presentations(db, questions)
+    presentations = repo.load_presentations(db, questions, scope.batch_ids)
     audio_ids = []
     for rows in presentations.values():
         for _presentation, paper in rows:
@@ -293,7 +323,7 @@ def _error_items(
         if question is None or qid not in contexts:
             continue
         presentation, paper, paper_count, has_audio = contexts[qid]
-        mapping_state, mapping = _mapping_state(presentation)
+        mapping_state, mapping, mapping_reordered = _mapping_state(presentation)
         answer_state = _answer_state(question)
         warnings: list[WarningItem] = []
         if answer_state == "unavailable":
@@ -338,6 +368,7 @@ def _error_items(
                     base_option_letter=base_letter,
                     display_option_letter=display,
                     option_mapping_state=mapping_state,
+                    option_mapping_reordered=mapping_reordered,
                     option_text=_option_text(question, base_letter),
                 )
                 option_groups[base_letter] = group
@@ -541,11 +572,14 @@ def list_questions(
         raise _invalid("错因查询不支持角色筛选")
     if role not in {"all", "primary", "auxiliary"}:
         raise _invalid("角色筛选值不合法")
+    db_role = _normalize_role(role)
 
     if kind == "skill":
-        qids, total = _skill_question_ids(db, scope, leaf_ids, role, cursor, limit)
-        items = _skill_items(db, scope, dictionary, qids, set(leaf_ids), role)
-        total_all, primary, auxiliary = _skill_count(db, scope, leaf_ids, role)
+        qids, total = _skill_question_ids(
+            db, scope, leaf_ids, db_role, cursor, limit
+        )
+        items = _skill_items(db, scope, dictionary, qids, set(leaf_ids), db_role)
+        total_all, primary, auxiliary = _skill_count(db, scope, leaf_ids, db_role)
         # If a role filter is active, question_count is the filtered count;
         # the role buckets remain absolute counts for the UI.
         return QuestionListData(
@@ -581,6 +615,7 @@ def _paper_detail(
     audio,
     batch_id: int,
 ) -> PaperDetail:
+    mapping_state, _, mapping_reordered = _mapping_state(presentation)
     return PaperDetail(
         exam_paper_id=paper.id,
         exam_paper_code=paper.exam_paper_code,
@@ -590,7 +625,8 @@ def _paper_detail(
         paper_set=paper.paper_set,
         question_no=presentation.question_no,
         question_index=question.question_index,
-        option_mapping_state=_mapping_state(presentation)[0],
+        option_mapping_state=mapping_state,
+        option_mapping_reordered=mapping_reordered,
         mapping_source=presentation.mapping_source or "",
         audio_url=(
             f"/api/v1/listening-papers/{paper.id}/audio" if audio is not None else None
@@ -611,7 +647,9 @@ def get_question_detail(
     if question is None or question.batch_id not in scope.batch_ids:
         raise _not_found("题目不存在或不在当前正式范围", "QUESTION_NOT_FOUND")
 
-    rows = repo.load_presentations(db, [question_id]).get(question_id, [])
+    rows = repo.load_presentations(db, [question_id], scope.batch_ids).get(
+        question_id, []
+    )
     if not rows:
         raise _not_found("题目没有可用试卷映射", "QUESTION_NOT_FOUND")
     if exam_paper_id is not None:
@@ -626,7 +664,7 @@ def get_question_detail(
             )
         selected = selected or rows[0]
     presentation, paper = selected
-    mapping_state, mapping = _mapping_state(presentation)
+    mapping_state, mapping, _mapping_reordered = _mapping_state(presentation)
     if mapping_state != "已知" or mapping is None:
         raise AppError(
             422,
@@ -674,7 +712,11 @@ def get_question_detail(
         )
 
     batch = db.get(ImportBatch, question.batch_id)
-    audio_id = paper.playback_audio_id or (batch.audio_id if batch else None)
+    paper_batch = listening.get_current_batch(db, paper.id)
+    audio_allowed = paper_batch is not None and paper_batch.id == question.batch_id
+    audio_id = (
+        paper.playback_audio_id or (batch.audio_id if batch else None)
+    ) if audio_allowed else None
     audio = repo.load_audio_rows(db, [audio_id]).get(audio_id) if audio_id else None
     paper_detail = _paper_detail(
         question, presentation, paper, len(rows), audio, question.batch_id
@@ -848,6 +890,7 @@ def get_question_detail(
                 exam_paper_code=row_paper.exam_paper_code,
                 question_no=row_presentation.question_no,
                 option_mapping_state=_mapping_state(row_presentation)[0],
+                option_mapping_reordered=_mapping_state(row_presentation)[2],
                 is_default=(
                     row_presentation.id == presentation.id and row_paper.id == paper.id
                 ),
