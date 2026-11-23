@@ -176,7 +176,7 @@ return _data_from_result(result, attempt)
 ### 4.3 稳定的筛选与分页
 
 - 只在后端过滤本人及其当前允许访问的试卷。过滤顺序逻辑上先判身份与可见性，再分页，**不得先拿全量 ID 分页后在浏览器过滤**。
-- 排序建议 `attempts.submitted_at DESC, attempt_answers.question_no ASC, wrong_book_entries.id DESC`；如需稳定游标分页，最后使用 `id` 确保并列唯一。本方案采用 `page`/`page_size`，默认 1/20，`1<=page_size<=50`、`page>=1`，最大窗口/请求限制由评审确定。
+- 排序使用 `attempts.submitted_at DESC, attempts.id DESC, attempt_answers.question_no ASC`。接口采用 `page` 和 `limit`，默认分别为 1 和 20，页码至少为 1，每页 1–50 条。
 - 关联 `exam_papers` 可取得级别/年月/套别；**题干关键词暂不搜索**，避免在权限未放行时全文搜历史内容。
 - `visibility` 的三个模式见 API-WB01。本人、当前卷准入、可见性及其他筛选条件共同构成计数和查询的同一过滤集合，先过滤、后排序分页。单次响应的 `total` 与 `items` 从同一个数据库读快照计算，避免并发隐藏或恢复使同一响应的总数与行不一致。不同页请求分别读取当时状态。
 - 不可见旧卷记录不会被删；默认列表不返回受限行，恢复可见后可重新查询到。
@@ -185,11 +185,11 @@ return _data_from_result(result, attempt)
 
 详情读过程必须满足：
 
-1. 认证成功 `student` → 按错题 ID 查 `WrongBookEntry → AttemptAnswer → Attempt`，**同时限定 `Attempt.student_id = current_user.id`**，不符合则 404。
+1. 认证成功 `student` 后按 `attempt_code` 和原卷 `question_no` 查找错误作答，**同时限定 `Attempt.student_id = current_user.id`**。已隐藏的记录需先恢复，不可直接读取详情。不符合任一条件时返回 404。
 2. 检查 `Attempt` 属于成功提交（表本身保证），且原试卷查询时依旧满足学生可访问；否则 404。
 3. **检查 WB-D05**：结果读取例外与内容治理门禁已书面/仓库同步确认，部署标志由服务端配置或版本化策略控制（默认关）。若未放行，**不返回受保护字段**；保持列表/管理可用，详情接口统一返回“暂未开放”而非部分答案。
 4. 题目与判分取原卷作答快照，按 §4.5 校验受保护输出范围。使用原卷字母和原始答案，解析正文只读取获准的 `AttemptAnswer.explanation_text`。
-5. 解析空白或受限时，`has_explanation=false` 且 `explanation=null`；用 `explanation_status` 区分缺失与受限。解析受限而其他字段已获授权时允许部分展示。其余保护字段未获准时走详情门禁。
+5. 解析空白或受限时，`has_explanation=false` 且 `explanation_text=null`。用 `explanation_status` 区分缺失与受限。解析受限而其他字段已获授权时允许部分展示。其余保护字段未获准时走详情门禁。
 6. 仅在 §5 的音频准入和来源条件满足时返回模块二受控入口。禁止返回磁盘路径、存储 key、长期签名链接和原文。
 7. 设 `Cache-Control: no-store`，禁止浏览器持久缓存保护内容；页面离开时清除敏感详细状态，日志不记录题干/选项/答案/解析正文。
 
@@ -204,89 +204,92 @@ return _data_from_result(result, attempt)
 - 原值为空或仅有空白时返回 `missing`，其余解析缺少匹配审批、审批失效或核验失败时返回 `restricted` 且正文为 `null`。其他受保护字段没有获准时，整个详情按 API-WB02 关闭。保持原始快照与判分，禁止替换成新解析或把内容写进日志。
 - 反例：历史解析 H 含受限原文，当前解析 N 已删去该内容并通过审核。N 的审核范围或哈希不能匹配 H，详情省略 H 正文并显示受限；H 原值仍留在作答快照。该反例对应 WB-AC04/05 和 WB-SEC02。
 
-## 5. API 契约提案（冻结后实施，不等同于当前已有接口）
+## 5. API 契约与放行条件
 
-**统一约定：** 前缀 `/api/v1`；返回 `{ "code": 200, "msg": "...", "data": ... }`，HTTP 状态与 code 对齐；字段 `snake_case`；JWT Bearer；错误体 `data=null`；401→403→404→校验错误；响应禁止泄露 SQL 原文/业务内部键。**下面所有 URL 都是新接口建议，当前仓库尚不存在。**
+本节与实现侧接口说明采用同一协议。实现侧文件位于 `docs/development/wrong-answers/api.md`，随 PR #21 的功能分支交付。发布仍按 WB-D02、WB-D05 等决定执行。 [PR #25 实现侧改动](https://github.com/ShengShengRuEr-Team/ShengShengRuEr/pull/25/files)
+
+统一使用 `/api/v1`、JWT Bearer 和 `snake_case` 字段。响应形如 `{ "code": 200, "msg": "...", "data": ... }`，HTTP 状态与 code 对齐，错误体的 `data` 为 `null`。鉴权失败、角色错误和记录不可访问分别返回 401、403、404。
 
 ### API-WB01：查询本人的错题列表
 
-`GET /api/v1/wrong-book?page=1&page_size=20&exam_paper_id=...&mistake_type=wrong&learning_status=pending&visibility=visible`
+`GET /api/v1/wrong-answers?page=1&limit=20&exam_paper_id=12&answer_type=incorrect&learning_status=pending&visibility=visible`
 
 - 权限：student；未登录 401，管理员 403。
-- `exam_paper_id` 可省略；可选 `mistake_type=wrong|unanswered`、`learning_status=pending|mastered`。可选 `visibility=visible|hidden|all`，省略等价于 `visible`。重复、未知、非法或超长参数返回 422。
-- 成功返回**无答案/解析/原文的安全 DTO**：
+- `limit` 默认为 20，最大 50。可按 `exam_paper_id`、`answer_type=incorrect|unanswered`、`learning_status=pending|mastered` 和 `visibility=visible|hidden|all` 筛选。省略 `visibility` 时按 `visible` 查询。重复、未知或非法参数返回 422。
+- 列表和状态更新仅返回记录元数据、作答类型及个人状态。题干、选项、学生所选字母、答案和解析由获准的详情返回。
 
 ```json
 {
   "code": 200,
-  "msg": "查询成功",
+  "msg": "获取成功",
   "data": {
     "items": [{
-      "wrong_book_id": 101,
+      "attempt_code": "550e8400-e29b-41d4-a716-446655440000",
       "exam_paper_id": 12,
-      "paper": {"level": "CET4", "year": 2025, "month": 6, "paper_set": 1},
+      "paper_title": "CET4 2025年6月第1套",
       "question_no": 5,
-      "mistake_type": "wrong",
+      "answer_type": "incorrect",
       "submitted_at": "2026-11-20T08:30:00Z",
       "learning_status": "pending",
-      "is_hidden": false
+      "is_hidden": false,
+      "updated_at": "2026-11-20T08:30:00Z",
+      "reviewed_at": null
     }],
-    "page": 1,
-    "page_size": 20,
+    "state_writes_enabled": false,
     "total": 1
   }
 }
 ```
 
-`visible` 只返回未隐藏，`hidden` 只返回已隐藏，`all` 同时返回两类。假设本人当前可访问记录按排序依次为 105（可见）、104（隐藏）、103（可见）、102（隐藏）、101（可见），且无其他筛选：
+`visible` 只返回未隐藏，`hidden` 只返回已隐藏，`all` 同时返回两类。以下用 105（可见）、104（隐藏）、103（可见）、102（隐藏）、101（可见）表示已排序的记录，数字仅用于辨识示例。
 
-| 请求（省略公共前缀 `/api/v1`） | `items` 中的 ID | `total` |
+| 请求（省略公共前缀 `/api/v1`） | `items` 对应的示例记录 | `total` |
 |---|---|---|
-| `GET /wrong-book?page=1&page_size=2` | 105、103 | 3 |
-| `GET /wrong-book?page=2&page_size=2&visibility=visible` | 101 | 3 |
-| `GET /wrong-book?page=1&page_size=2&visibility=hidden` | 104、102 | 2 |
-| `GET /wrong-book?page=1&page_size=1&visibility=hidden` | 104 | 2 |
-| `GET /wrong-book?page=2&page_size=1&visibility=hidden` | 102 | 2 |
-| `GET /wrong-book?page=2&page_size=2&visibility=all` | 103、102 | 5 |
+| `GET /wrong-answers?page=1&limit=2` | 105、103 | 3 |
+| `GET /wrong-answers?page=2&limit=2&visibility=visible` | 101 | 3 |
+| `GET /wrong-answers?page=1&limit=2&visibility=hidden` | 104、102 | 2 |
+| `GET /wrong-answers?page=1&limit=1&visibility=hidden` | 104 | 2 |
+| `GET /wrong-answers?page=2&limit=1&visibility=hidden` | 102 | 2 |
+| `GET /wrong-answers?page=2&limit=2&visibility=all` | 103、102 | 5 |
 
-恢复 104 后，`hidden` 的 `total=1`（仅 102）；使用 `page_size=1` 请求第 2 页仍返回 200，`items=[]`，页面据总数返回第 1 页。此时 `visible` 的 `total=4`，`all` 的 `total=5`。恢复保留 104 的复习状态；`total` 计入所有符合筛选的记录，与当前页长度无关。日志仅记录路由、学生 ID、结果数量和错误类型。
+恢复 104 后，`hidden` 的 `total=1`（仅 102）。使用 `limit=1` 请求第 2 页仍返回 200 和 `items=[]`，页面据总数返回第 1 页。此时 `visible` 的 `total=4`，`all` 的 `total=5`。恢复保留 104 的复习状态。`total` 计入所有符合筛选的记录，当前页长度由 `limit` 确定。日志仅记录路由、学生 ID、结果数量和错误类型。
 
 ### API-WB02：读取本人单条错题详情（受保护，默认禁用）
 
-`GET /api/v1/wrong-book/{wrong_book_id}`
+`GET /api/v1/wrong-answers/{attempt_code}/{question_no}`
 
-- 仅本人且查询时原试卷学生可访问；WB-D05 未审批：**API 保持关闭并返回 `503` / `msg="错题详情暂未开放"`**（可用统一 feature gate；**最终错误状态需与项目负责人确认**）；不可通过其它接口代取答案。
+- 仅本人未隐藏且查询时原试卷学生可访问。已隐藏返回 404，恢复后按权限访问。WB-D05 未审批时，详情开关保持关闭，返回 503 和「错题详情暂未开放」。
 - 放行后示例（展示选项/标签为说明数据，**非真实卷内容**）：
 
 ```json
 {
   "code": 200,
-  "msg": "查询成功",
+  "msg": "获取成功",
   "data": {
-    "wrong_book_id": 101,
     "attempt_code": "550e8400-e29b-41d4-a716-446655440000",
-    "paper": {"exam_paper_id": 12, "level": "CET4", "year": 2025, "month": 6, "paper_set": 1},
+    "exam_paper_id": 12,
+    "paper_title": "CET4 2025年6月第1套",
     "question_no": 5,
     "submitted_at": "2026-11-20T08:30:00Z",
-    "question": {
-      "text": "[示意题干]",
-      "options": {"A": "[选项A]", "B": "[选项B]", "C": "[选项C]", "D": "[选项D]"},
-      "selected_option": "B",
-      "correct_option": "D",
-      "explanation": null,
-      "has_explanation": false,
-      "explanation_status": "missing",
-      "snapshot_note": "交卷时题目和判分快照"
-    },
-    "mistake_type": "wrong",
+    "question_text": "[示意题干]",
+    "options": {"A": "[选项A]", "B": "[选项B]", "C": "[选项C]", "D": "[选项D]"},
+    "selected_option": "B",
+    "correct_option": "D",
+    "explanation_text": null,
+    "has_explanation": false,
+    "explanation_status": "missing",
+    "snapshot_note": "交卷时内容快照",
+    "answer_type": "incorrect",
     "learning_status": "pending",
     "is_hidden": false,
+    "updated_at": "2026-11-20T08:30:00Z",
+    "reviewed_at": null,
     "skills": [],
-    "candidate_error_causes": [],
-    "personal_error_causes": [],
-    "personal_error_confirmation": "unconfirmed",
-    "annotation_note": "候选错因不代表个人已确认",
-    "annotation_source_note": "关联标注来自该次作答来源批次的当前有效审核结果",
+    "candidate_causes": [],
+    "personal_cause_status": "unconfirmed",
+    "annotation_note": "候选错因不代表个人已确认的错因",
+    "annotation_source_note": "关联标注来自交卷来源批次的当前有效审核结果，可能与交卷时不同。",
+    "annotation_reviewed_at": null,
     "evidence_access": "none",
     "audio": {
       "status": "available",
@@ -296,25 +299,26 @@ return _data_from_result(result, attempt)
 }
 ```
 
-- `personal_error_causes=[]` 不表示学生无错因，仅表示**当前无可核实的个人确认记录**。
+- `personal_cause_status=unconfirmed` 表示当前无可核实的个人确认记录。
 - `skills[]` 元素为 `{ code, name, role, definition, evidence_status }`，候选元素为 `{ code, name, option_letter, basis_summary, evidence_status }`。证据投影必须满足 §6.3 的学生白名单。
-- `annotation_note` 和 `annotation_source_note` 分别表达个人确认边界和标注时间来源。详情字段、前端文案和 WB-AC07 使用同一口径。
+- `annotation_note` 和 `annotation_source_note` 分别表达个人确认边界和标注来源。页面使用 `annotation_reviewed_at` 展示实际审核时间。详情字段、前端文案和 WB-AC07 使用同一口径。
 - `option_letter` 对外一律**原卷字母**；从题库基准选项关联时必须通过该批次 `presentations` 的完整映射做**逆向投影**，不能把基准 B 当成原卷 B。若映射损坏/不唯一，跳过标注并记录安全异常，**但不得重新判分旧 attempt**。
 
 #### 详情字段类型与空值
 
 | 字段 | 类型及允许值 | 对外语义 |
 |---|---|---|
-| `question.selected_option` | A–D 字符串或 `null` | 原卷作答字母；`null` 为未作答 |
-| `question.correct_option` | A–D 字符串 | 获准的原卷正确选项 |
-| `question.explanation` | 非空字符串或 `null` | 获准的原解析逐字返回；缺失或受限时为 `null` |
-| `question.explanation_status` | `available`、`missing`、`restricted` | 已放行有正文、源快照缺失/空白、有内容但未获准 |
-| `question.has_explanation` | 布尔值 | 当且仅当响应携带解析正文时为 `true` |
+| `selected_option` | A–D 字符串或 `null` | 原卷作答字母；`null` 为未作答 |
+| `correct_option` | A–D 字符串 | 获准的原卷正确选项 |
+| `explanation_text` | 非空字符串或 `null` | 获准的原解析逐字返回；缺失或受限时为 `null` |
+| `explanation_status` | `available`、`missing`、`restricted` | 已放行有正文、源快照缺失/空白、有内容但未获准 |
+| `has_explanation` | 布尔值 | 当且仅当响应携带解析正文时为 `true` |
 | `skills[].definition` | 字符串或 `null` | 可公开的技能词典定义；无可用定义时为 `null` |
-| `candidate_error_causes[].basis_summary` | 字符串或 `null` | 可公开的一般性误选机制说明；没有合规说明时为 `null`；具体原卷证据不写入该字段 |
+| `candidate_causes[].basis_summary` | 字符串或 `null` | 可公开的一般性误选机制说明；没有合规说明时为 `null`；具体原卷证据不写入该字段 |
 | `evidence_status`（每个已展示标注） | `restricted` | 该关联有符合规则的证据，但具体证据不随本契约公开。证据无效时不投影对应关联 |
 | `evidence_access`（详情） | `none`、`restricted` | 返回的标注数组都为空时为 `none`；至少一条关联已展示且具体证据受限时为 `restricted` |
 | `annotation_note`、`annotation_source_note` | 字符串 | 分别说明候选归因边界、标注适用的来源和时间 |
+| `annotation_reviewed_at` | 带时区的 ISO 8601 字符串或 `null` | 已展示标注对应审核会话的提交时间。无可展示标注或无可靠审核时间时为 `null`。学生端不返回审核人和内部会话 ID |
 | `audio.status` | `available`、`missing`、`batch_mismatch` | 可以尝试播放、同批次无可用音频、批次不同或无法确认对应 |
 | `audio.url` | 站内相对 URL 或 `null` | 仅 `available` 提供 URL，其他状态均为 `null` |
 
@@ -338,7 +342,7 @@ return _data_from_result(result, attempt)
 
 ### API-WB03：修改本人复习状态（业务签认后开放）
 
-`PATCH /api/v1/wrong-book/{wrong_book_id}`
+`PATCH /api/v1/wrong-answers/{attempt_code}/{question_no}`
 
 请求至少包含一个可修改字段；仅允许 `learning_status`, `is_hidden`：
 
@@ -350,7 +354,7 @@ return _data_from_result(result, attempt)
 - 先限定当前学生所有权及查询时试卷准入，后更新，不可对他人记录返回存在性信息。
 - 请求体必须是 JSON 对象，包含至少一个合法字段；字段若显式传 `null` 则返回 422。按记录行加锁后读取最新状态，只合并已提供的字段；多字段一次操作必须全成功或全失败，后一个并发事务基于锁释放后的最新状态写入，避免覆盖对方的另一个字段。
 - 仅实际改变任一状态字段时更新 `updated_at`；`pending → mastered` 写入服务端当前 UTC 时间到 `reviewed_at`，`mastered → pending` 清空。隐藏与恢复单独更新时保留 `reviewed_at`；重复设置同值返回当前状态，两个时间均不刷新。
-- 返回 `{wrong_book_id, learning_status, is_hidden, updated_at, reviewed_at}`，不返回答案/原文。`updated_at` 为非空 UTC ISO 8601 字符串，`reviewed_at` 为同格式字符串或 `null`。
+- `data` 返回与 API-WB01 列表项同结构的安全结果。`updated_at` 为带时区的 ISO 8601 字符串，`reviewed_at` 为同格式字符串或 `null`。
 - 恢复隐藏仅通过 `is_hidden=false`；不提供硬删接口。
 
 ### 5.4 统一状态与典型错误
@@ -419,7 +423,7 @@ frontend/src/
 
 - 进入时用 `visibility=visible` 请求本人分页列表，待复习与已掌握均可显示。切换“未隐藏 / 已隐藏 / 全部”或其他筛选项时重置到第 1 页，重新请求服务端。
 - 数据为空区分“没有错题”与“筛选无结果”；加载失败提供重试，不能把错误伪装成“暂无错题”。
-- 记录卡片仅展示安全字段。WB-D02 签认并开启管理能力后显示状态操作；“已隐藏”筛选提供恢复入口。操作后按当前筛选重新取数据和计数；如当前页超出结果页数，回到最后有效页。
+- 记录卡片按卷名、原卷题号、作答类型和时间展示。已隐藏记录在「已隐藏」及「全部」筛选中都提示「恢复后可查看详情」。WB-D02 签认并开启管理能力后显示恢复等状态操作。操作后按当前筛选重新取数据和计数，超出结果页数时回到最后有效页。
 - 服务端确认成功前不展示永久成功提示；更新失败保留原状态，并提供重试。
 - 点击详情时由服务端再次判断本人/试卷可见性；页面不自行用本地缓存拼出答案。
 
@@ -428,7 +432,7 @@ frontend/src/
 - 受保护接口未开放时，显示“此功能尚未开放”，而不是使用整卷详情/API-3 推断答案。
 - `selected_option=null` 明确“未作答”；错选时以原卷 A–D 选项高亮，但不得把题库基准字母直接画为原卷选项。
 - `explanation_status=missing` 显示“暂无解析”，`restricted` 显示“历史解析暂不可查看”；候选无有效标注显示“暂无候选错因”，个人错因显示“未确认”。
-- 题目区显示“交卷时题目和判分快照”。在技能与候选错因区使用 `annotation_source_note` 说明它们来自该次作答来源批次的当前有效审核结果；候选区域同时显示 `annotation_note`，学生无需选择错因。
+- 题目区显示「交卷时内容快照」。关联标注区使用 `annotation_source_note` 说明标注来源，`annotation_reviewed_at` 有值时显示审核时间。候选区域显示 `annotation_note`，学生无需选择错因。
 - 按 API-WB02 的音频状态显示播放器或空态；播放请求失败后按已定义流程停播、刷新和清理，题目仍使用获准的历史快照。
 - 切换上一条/下一条、返回列表时保持列表筛选参数；路由切换/退出不持久化敏感详情正文。
 - 使用 1280×720、1440×900 核验无遮挡、可滚动、可键盘操作和清晰加载/错误状态；[1024,1280) 做基础降级；不扩张为手机端交付。
@@ -577,9 +581,9 @@ backend/tests/test_wrong_book_permissions.py
 ```text
 docs/requirements/wrong-book/requirements.md
 docs/development/wrong-book/development.md
-docs/development/wrong-book/api.md      # 开发时从本文 §5 提取冻结契约
-docs/acceptance/wrong-book/report.md
-docs/acceptance/wrong-book/evidence/   # 文本/JSON/截图、脱敏
+docs/development/wrong-answers/api.md
+docs/acceptance/wrong-answers/report.md
+docs/acceptance/wrong-answers/screenshots/
 ```
 
 **提交内容**：代码、锁定后的接口契约、Alembic 迁移、完整测试及运行说明、PR 描述、真实结果与原始错误日志、前端截图、独立验收结论。**禁止提交**：`.env`、JWT 密钥、生产库转储、真实用户作答、无授权真题原件、音频/模型大文件、含个人数据的请求日志、测试库密码。
