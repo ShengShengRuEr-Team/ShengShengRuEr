@@ -28,13 +28,12 @@ def _item(entry: repo.NotebookEntry) -> WrongAnswerItem:
         attempt_code=attempt.attempt_code,
         exam_paper_id=paper.id,
         question_no=answer.question_no,
-        question_text=answer.question_text,
         paper_title=(
             f"{paper.exam_level} {paper.exam_year}年{paper.exam_month}月"
             f"第{paper.paper_set}套"
         ),
         submitted_at=attempt.submitted_at,
-        selected_option=answer.selected_option,
+        answer_type="unanswered" if answer.selected_option is None else "incorrect",
         learning_status=state.learning_status if state else "pending",
         is_hidden=state.is_hidden if state else False,
         updated_at=state.updated_at if state else attempt.submitted_at,
@@ -85,16 +84,20 @@ def get_entry(
         raise AppError(503, "错题详情暂未开放")
 
     answer, attempt = entry.answer, entry.attempt
-    skills, candidates = repo.review_annotations(db, answer, attempt)
+    skills, candidates, annotation_reviewed_at = repo.review_annotations(
+        db, answer, attempt
+    )
     explanation, explanation_status = _explanation(entry, settings)
     return WrongAnswerDetail(
         **_item(entry).model_dump(),
+        question_text=answer.question_text,
         options={
             "A": answer.option_a,
             "B": answer.option_b,
             "C": answer.option_c,
             "D": answer.option_d,
         },
+        selected_option=answer.selected_option,
         correct_option=answer.correct_option,
         explanation_text=explanation,
         explanation_status=explanation_status,
@@ -102,6 +105,7 @@ def get_entry(
         audio=_audio(db, entry, settings),
         skills=skills,
         candidate_causes=candidates,
+        annotation_reviewed_at=annotation_reviewed_at,
         evidence_access="restricted" if skills or candidates else "none",
     )
 

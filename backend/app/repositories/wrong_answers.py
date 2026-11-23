@@ -208,7 +208,7 @@ def _approved_annotation(db, question, batch):
     revision = ProcessingWorkflowRevision
     review = ProcessingReviewSession
     return db.execute(
-        select(DictionarySnapshot.id, state.generation_state)
+        select(DictionarySnapshot.id, state.generation_state, review.submitted_at)
         .select_from(state)
         .join(revision, revision.id == state.revision_id)
         .join(review, review.id == state.review_session_id)
@@ -378,18 +378,19 @@ def _mapped_option(answer, question, batch, presentation):
 
 def review_annotations(
     db: Session, answer: AttemptAnswer, attempt: Attempt
-) -> tuple[list[ReviewSkill], list[ReviewCandidate]]:
+) -> tuple[list[ReviewSkill], list[ReviewCandidate], datetime | None]:
     source = _source(db, answer, attempt)
     if source is None:
-        return [], []
+        return [], [], None
     question, batch, presentation = source
     annotation = _approved_annotation(db, question, batch)
     if annotation is None:
-        return [], []
-    dictionary_id, generation = annotation
+        return [], [], None
+    dictionary_id, generation, reviewed_at = annotation
     skills = _skills(db, question, batch, dictionary_id)
-    if generation != "generated_nonempty":
-        return skills, []
-    return skills, _candidate_causes(
-        db, answer, question, batch, presentation, dictionary_id
+    candidates = (
+        _candidate_causes(db, answer, question, batch, presentation, dictionary_id)
+        if generation == "generated_nonempty"
+        else []
     )
+    return skills, candidates, reviewed_at if skills or candidates else None

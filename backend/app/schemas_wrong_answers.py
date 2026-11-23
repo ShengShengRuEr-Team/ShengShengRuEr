@@ -15,7 +15,7 @@ class WrongAnswerQuery(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     page: int = Field(default=1, ge=1, le=2**31 - 1)
-    limit: int = Field(default=20, ge=1, le=100)
+    limit: int = Field(default=20, ge=1, le=50)
     exam_paper_id: int | None = Field(default=None, gt=0, le=2**63 - 1)
     answer_type: WrongAnswerType | None = None
     learning_status: LearningStatus | None = None
@@ -26,10 +26,9 @@ class WrongAnswerItem(BaseModel):
     attempt_code: str
     exam_paper_id: int
     question_no: int
-    question_text: str
     paper_title: str
     submitted_at: datetime
-    selected_option: str | None
+    answer_type: WrongAnswerType
     learning_status: LearningStatus
     is_hidden: bool
     updated_at: datetime
@@ -78,7 +77,9 @@ class ReviewAudio(BaseModel):
 
 
 class WrongAnswerDetail(WrongAnswerItem):
+    question_text: str
     options: dict[str, str]
+    selected_option: str | None
     correct_option: str
     explanation_text: str | None
     explanation_status: ExplanationStatus
@@ -87,6 +88,7 @@ class WrongAnswerDetail(WrongAnswerItem):
     audio: ReviewAudio
     skills: list[ReviewSkill]
     candidate_causes: list[ReviewCandidate]
+    annotation_reviewed_at: datetime | None
     evidence_access: Literal["none", "restricted"]
     personal_cause_status: Literal["unconfirmed"] = "unconfirmed"
     annotation_note: str = "候选错因不代表个人已确认的错因"

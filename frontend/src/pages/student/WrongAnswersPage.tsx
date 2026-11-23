@@ -111,6 +111,11 @@ function ReviewContent({ detail, onStale }: {
       )}
       <Title level={5}>关联技能</Title>
       <Paragraph type="secondary">{detail.annotation_source_note}</Paragraph>
+      {detail.annotation_reviewed_at && (
+        <Paragraph type="secondary">
+          标注审核时间 <time dateTime={detail.annotation_reviewed_at}>{formatDateTime(detail.annotation_reviewed_at)}</time>
+        </Paragraph>
+      )}
       {detail.skills.length === 0 && <Paragraph>暂无技能标注</Paragraph>}
       {detail.skills.map((skill, index) => (
         <div key={`${skill.code}-${index}`}>
@@ -217,20 +222,22 @@ function WrongAnswerCard({ item, saving, writesEnabled, onView, onUpdate }: {
   onUpdate: (change: WrongAnswerChange) => Promise<void>
 }) {
   const mastered = item.learning_status === 'mastered'
+  const unanswered = item.answer_type === 'unanswered'
 
   return (
     <Card size="small">
       <Text type="secondary">
-        {item.paper_title} · 第 {item.question_no} 题 · {formatDateTime(item.submitted_at)}
+        {item.paper_title} · {formatDateTime(item.submitted_at)}
       </Text>
-      <Paragraph style={{ marginTop: 8 }}>{item.question_text || `第 ${item.question_no} 题`}</Paragraph>
+      <Paragraph style={{ marginTop: 8 }}>第 {item.question_no} 题</Paragraph>
       <Space wrap>
-        <Tag color={item.selected_option ? 'red' : 'default'}>
-          {item.selected_option ? `选了 ${item.selected_option}` : '未作答'}
+        <Tag color={unanswered ? 'default' : 'red'}>
+          {unanswered ? '未作答' : '答错'}
         </Tag>
         <Tag color={mastered ? 'green' : 'default'}>{learningStatusLabels[item.learning_status]}</Tag>
-        {item.is_hidden && <Tag>已隐藏</Tag>}
-        {!item.is_hidden && <Button type="primary" onClick={onView}>查看详情</Button>}
+        {item.is_hidden
+          ? <Tag>已隐藏，恢复后可查看详情</Tag>
+          : <Button type="primary" onClick={onView}>查看详情</Button>}
         {writesEnabled && (item.is_hidden ? (
           <Button disabled={saving} onClick={() => void onUpdate({ is_hidden: false })}>恢复</Button>
         ) : (
