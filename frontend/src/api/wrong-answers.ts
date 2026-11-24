@@ -1,11 +1,12 @@
 import { request } from './client'
 
 export type WrongAnswerLearningStatus = 'pending' | 'mastered'
-export type WrongAnswerVisibility = 'visible' | 'hidden'
+export type WrongAnswerVisibility = 'visible' | 'hidden' | 'all'
+type WrongAnswerType = 'incorrect' | 'unanswered'
 
 export interface WrongAnswerFilters {
   exam_paper_id?: number
-  answer_type?: 'incorrect' | 'unanswered'
+  answer_type?: WrongAnswerType
   learning_status?: WrongAnswerLearningStatus
   visibility: WrongAnswerVisibility
 }
@@ -13,30 +14,42 @@ export interface WrongAnswerFilters {
 export interface WrongAnswerItem {
   attempt_code: string
   question_no: number
-  question_text: string
   exam_paper_id: number
   paper_title: string
   submitted_at: string
-  selected_option: string | null
+  answer_type: WrongAnswerType
   learning_status: WrongAnswerLearningStatus
   is_hidden: boolean
+  updated_at: string
   reviewed_at: string | null
 }
 
 interface Annotation {
   code: string
   name: string
-  has_restricted_evidence: boolean
+  evidence_status: 'restricted'
 }
 
+type AudioStatus =
+  | { status: 'available'; url: string }
+  | { status: 'missing' | 'batch_mismatch'; url: null }
+
 export interface WrongAnswerDetail extends WrongAnswerItem {
+  question_text: string
   snapshot_note: string
   options: Record<string, string>
+  selected_option: string | null
   correct_option: string
-  explanation_text: string
-  audio_url: string | null
-  skills: (Annotation & { role: string | null })[]
-  candidate_causes: (Annotation & { option_letter: string })[]
+  explanation_text: string | null
+  explanation_status: 'available' | 'missing' | 'restricted'
+  has_explanation: boolean
+  audio: AudioStatus
+  skills: (Annotation & { role: string; definition: string | null })[]
+  candidate_causes: (Annotation & { option_letter: string; basis_summary: string | null })[]
+  evidence_access: 'none' | 'restricted'
+  annotation_note: string
+  annotation_source_note: string
+  annotation_reviewed_at: string | null
   personal_cause_status: 'unconfirmed'
 }
 

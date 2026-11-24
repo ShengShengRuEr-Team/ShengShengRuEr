@@ -186,6 +186,7 @@ def run_check(
     issues = evaluate(db, paper, batch, audio_dir)
     if batch.check_profile == "module3":
         from app.db.models_processing import ProcessingTask
+        from app.module3.contracts import result_hash
         from app.services.processing.tasks import get_draft, latest_reviews
         from app.services.processing.validation import validate_result
 
@@ -212,7 +213,30 @@ def run_check(
             if draft is None:
                 issues.append(_issue("module3_result_missing", "当前结果草稿不存在"))
             else:
-                issues.extend(validate_result(draft.payload, reviewed.request))
+                try:
+                    matches = (
+                        draft.result_hash == batch.result_hash
+                        and result_hash(draft.payload) == batch.result_hash
+                    )
+                except (KeyError, TypeError, ValueError):
+                    matches = False
+                if not matches:
+                    issues.append(
+                        _issue(
+                            "module3_result_hash_mismatch",
+                            "当前草稿与已审核批次结果不匹配",
+                        )
+                    )
+                else:
+                    issues.extend(
+                        validate_result(
+                            draft.payload,
+                            reviewed.request,
+                            allow_legacy_annotations=(
+                                batch.status == "active" and batch.is_current
+                            ),
+                        )
+                    )
     check = ContentCheck(
         exam_paper_id=paper.id,
         batch_id=batch.id,

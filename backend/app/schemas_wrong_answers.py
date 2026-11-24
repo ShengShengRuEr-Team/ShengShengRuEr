@@ -3,23 +3,35 @@
 from datetime import datetime
 from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, StrictBool, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 
 LearningStatus = Literal["pending", "mastered"]
-NotebookVisibility = Literal["visible", "hidden"]
+NotebookVisibility = Literal["visible", "hidden", "all"]
 WrongAnswerType = Literal["incorrect", "unanswered"]
+ExplanationStatus = Literal["available", "missing", "restricted"]
+
+
+class WrongAnswerQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    page: int = Field(default=1, ge=1, le=2**31 - 1)
+    limit: int = Field(default=20, ge=1, le=50)
+    exam_paper_id: int | None = Field(default=None, gt=0, le=2**63 - 1)
+    answer_type: WrongAnswerType | None = None
+    learning_status: LearningStatus | None = None
+    visibility: NotebookVisibility = "visible"
 
 
 class WrongAnswerItem(BaseModel):
     attempt_code: str
     exam_paper_id: int
     question_no: int
-    question_text: str
     paper_title: str
     submitted_at: datetime
-    selected_option: str | None
+    answer_type: WrongAnswerType
     learning_status: LearningStatus
     is_hidden: bool
+    updated_at: datetime
     reviewed_at: datetime | None
 
 
@@ -46,23 +58,40 @@ class WrongAnswerPatch(BaseModel):
 class ReviewAnnotation(BaseModel):
     code: str
     name: str
-    has_restricted_evidence: bool
+    evidence_status: Literal["restricted"] = "restricted"
 
 
 class ReviewSkill(ReviewAnnotation):
     role: Literal["PRIMARY", "AUXILIARY"]
+    definition: str | None
 
 
 class ReviewCandidate(ReviewAnnotation):
     option_letter: str
+    basis_summary: str | None
+
+
+class ReviewAudio(BaseModel):
+    status: Literal["available", "missing", "batch_mismatch"]
+    url: str | None = None
 
 
 class WrongAnswerDetail(WrongAnswerItem):
+    question_text: str
     options: dict[str, str]
+    selected_option: str | None
     correct_option: str
-    explanation_text: str
+    explanation_text: str | None
+    explanation_status: ExplanationStatus
+    has_explanation: bool
     snapshot_note: Literal["交卷时内容快照"] = "交卷时内容快照"
-    audio_url: str | None
+    audio: ReviewAudio
     skills: list[ReviewSkill]
     candidate_causes: list[ReviewCandidate]
+    annotation_reviewed_at: datetime | None
+    evidence_access: Literal["none", "restricted"]
     personal_cause_status: Literal["unconfirmed"] = "unconfirmed"
+    annotation_note: str = "候选错因不代表个人已确认的错因"
+    annotation_source_note: str = (
+        "关联标注来自交卷来源批次的当前有效审核结果，可能与交卷时不同。"
+    )

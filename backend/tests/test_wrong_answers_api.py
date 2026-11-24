@@ -1,5 +1,10 @@
 """Notebook coverage through the student submission and review APIs."""
 
+import json
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
+from hashlib import sha256
+from threading import Barrier
 from uuid import uuid4
 
 import pytest
@@ -8,6 +13,18 @@ from tests.attempt_support import create_student, create_visible_paper, set_visi
 from tests.conftest import auth_headers, login
 
 NOTEBOOK = "/api/v1/wrong-answers"
+SUMMARY_FIELDS = {
+    "attempt_code",
+    "exam_paper_id",
+    "question_no",
+    "paper_title",
+    "submitted_at",
+    "answer_type",
+    "learning_status",
+    "is_hidden",
+    "updated_at",
+    "reviewed_at",
+}
 
 
 def _student_headers(client):
@@ -65,17 +82,17 @@ def test_notebook_list_filters_and_private_gates(client, admin_token, submitted_
     assert page["state_writes_enabled"] is False
     (unanswered,) = page["items"]
     assert unanswered["exam_paper_id"] == paper.paper_id
-    assert unanswered["question_no"] == 3 and unanswered["selected_option"] is None
+    assert unanswered["question_no"] == 3 and unanswered["answer_type"] == "unanswered"
     assert unanswered["learning_status"] == "pending"
     assert unanswered["is_hidden"] is False
     assert unanswered["reviewed_at"] is None
-    assert {
-        "correct_option",
-        "explanation_text",
-        "audio_url",
-        "transcript",
-        "options",
-    }.isdisjoint(unanswered)
+    assert set(unanswered) == SUMMARY_FIELDS
+    beyond_last = client.get(NOTEBOOK, headers=student, params={"limit": 1, "page": 3})
+    assert beyond_last.json()["data"]["total"] == 2
+    assert beyond_last.json()["data"]["items"] == []
+    _assert_no_store(client.get(NOTEBOOK, headers=student, params={"limit": 50}), 200)
+    for query in ("visibility=bogus", "unknown=1", "limit=1&limit=2", "limit=51"):
+        _assert_no_store(client.get(f"{NOTEBOOK}?{query}", headers=student), 422)
 
     filtered = client.get(
         NOTEBOOK,
@@ -87,6 +104,8 @@ def test_notebook_list_filters_and_private_gates(client, admin_token, submitted_
         },
     ).json()["data"]
     assert filtered["total"] == 1 and filtered["items"][0]["question_no"] == 1
+    assert filtered["items"][0]["answer_type"] == "incorrect"
+    assert set(filtered["items"][0]) == SUMMARY_FIELDS
     only_unanswered = client.get(
         NOTEBOOK, headers=student, params={"answer_type": "unanswered"}
     ).json()["data"]
@@ -143,6 +162,8 @@ def test_review_status_hide_and_restore_preserve_submission(
     )
     _assert_no_store(mastered, 200)
     mastered_item = mastered.json()["data"]
+    assert set(mastered_item) == SUMMARY_FIELDS
+    assert mastered_item["answer_type"] == "incorrect"
     assert mastered_item["learning_status"] == "mastered"
     assert mastered_item["reviewed_at"] is not None
     repeated = client.patch(
@@ -164,7 +185,11 @@ def test_review_status_hide_and_restore_preserve_submission(
     assert client.get(
         NOTEBOOK, headers=student, params={"visibility": "hidden"}
     ).json()["data"]["items"] == [hidden_item]
-    _assert_no_store(client.get(entry_url, headers=student), 404)
+    with monkeypatch.context() as detail_gate:
+        detail_gate.setattr(
+            get_settings(), "wrong_answers_protected_details_enabled", True
+        )
+        _assert_no_store(client.get(entry_url, headers=student), 404)
 
     set_visibility(paper.paper_id, False)
     assert (
@@ -180,7 +205,14 @@ def test_review_status_hide_and_restore_preserve_submission(
 
     restored = client.patch(entry_url, headers=student, json={"is_hidden": False})
     _assert_no_store(restored, 200)
-    assert restored.json()["data"] == mastered_item
+    restored_item = restored.json()["data"]
+    assert restored_item == {**mastered_item, "updated_at": restored_item["updated_at"]}
+    assert restored_item["updated_at"] > hidden_item["updated_at"]
+    with monkeypatch.context() as detail_gate:
+        detail_gate.setattr(
+            get_settings(), "wrong_answers_protected_details_enabled", True
+        )
+        _assert_no_store(client.get(entry_url, headers=student), 200)
     assert (
         client.get(NOTEBOOK, headers=student, params={"visibility": "hidden"}).json()[
             "data"
@@ -193,6 +225,7 @@ def test_review_status_hide_and_restore_preserve_submission(
     )
     _assert_no_store(pending, 200)
     assert pending.json()["data"]["learning_status"] == "pending"
+    assert pending.json()["data"]["reviewed_at"] is None
     assert client.get(NOTEBOOK, headers=student).json()["data"]["total"] == 2
 
     status = client.get(
@@ -201,8 +234,8 @@ def test_review_status_hide_and_restore_preserve_submission(
     assert status.json()["data"]["latest_attempt"] == summary
 
 
-def test_opted_in_detail_preserves_snapshot_and_reuses_current_audio(
-    client, monkeypatch, submitted_paper
+def test_opted_in_detail_preserves_snapshot_and_guards_audio_batch(
+    client, monkeypatch, submitted_paper, tmp_path
 ):
     from app.core.config import get_settings
     from app.db.base import SessionLocal
@@ -220,6 +253,20 @@ def test_opted_in_detail_preserves_snapshot_and_reuses_current_audio(
     question_no = 1
     entry_url = f"{NOTEBOOK}/{attempt_code}/{question_no}"
 
+    initial = client.get(entry_url, headers=student).json()["data"]
+    audio_url = (
+        f"/api/v1/listening-papers/{paper.paper_id}/audio"
+        f"?expected_batch_id={paper.batch_id}"
+    )
+    assert initial["audio"] == {"status": "available", "url": audio_url}
+    audio = client.get(audio_url, headers={**student, "Range": "bytes=0-3"})
+    assert audio.status_code == 206 and audio.content == b"ssre"
+
+    with monkeypatch.context() as patch:
+        patch.setattr(get_settings(), "audio_storage_dir", str(tmp_path))
+        missing = client.get(entry_url, headers=student).json()["data"]
+        assert missing["audio"] == {"status": "missing", "url": None}
+
     with SessionLocal() as db:
         question = db.get(Question, paper.question_ids[0])
         db.add(
@@ -234,9 +281,19 @@ def test_opted_in_detail_preserves_snapshot_and_reuses_current_audio(
             )
         )
         original_batch = db.get(ImportBatch, paper.batch_id)
+        original_audio_id = original_batch.audio_id
+        original_batch.audio_id = None
+        db.commit()
+
+    fallback = client.get(entry_url, headers=student).json()["data"]
+    assert fallback["audio"] == {"status": "batch_mismatch", "url": None}
+
+    with SessionLocal() as db:
+        original_batch = db.get(ImportBatch, paper.batch_id)
+        original_batch.audio_id = original_audio_id
         original_batch.is_current = False
         db.flush()
-        current_batch, new_questions = _add_batch(
+        _, new_questions = _add_batch(
             db,
             paper=db.get(ExamPaper, paper.paper_id),
             batch_code=f"NOTEBOOK_SWITCH_{uuid4().hex[:12]}",
@@ -247,27 +304,27 @@ def test_opted_in_detail_preserves_snapshot_and_reuses_current_audio(
         new_question.question_text = "Edited question"
         new_question.explanation_text = "Edited explanation"
         db.commit()
-        current_batch_id = current_batch.id
 
     response = client.get(entry_url, headers=student)
     _assert_no_store(response, 200)
     detail = response.json()["data"]
     assert detail["question_text"] == "Question 1?"
     assert detail["selected_option"] == "B" and detail["correct_option"] == "A"
-    assert detail["explanation_text"] == "测试解析"
+    assert detail["explanation_status"] == "restricted"
+    assert detail["explanation_text"] is None
     assert detail["snapshot_note"]
     assert detail["personal_cause_status"] == "unconfirmed"
     assert detail["skills"] == detail["candidate_causes"] == []
+    assert detail["annotation_reviewed_at"] is None
+    visible = client.get(NOTEBOOK, headers=student).json()["data"]["items"]
+    assert visible and all(set(item) == SUMMARY_FIELDS for item in visible)
     assert "transcript" not in detail
     assert "Protected transcript content." not in response.text
 
-    audio_url = detail["audio_url"]
-    assert audio_url == (
-        f"/api/v1/listening-papers/{paper.paper_id}/audio"
-        f"?expected_batch_id={current_batch_id}"
-    )
-    audio = client.get(audio_url, headers={**student, "Range": "bytes=0-3"})
-    assert audio.status_code == 206 and audio.content == b"ssre"
+    assert detail["audio"] == {"status": "batch_mismatch", "url": None}
+    stale = client.get(audio_url, headers=student)
+    assert stale.status_code == 409
+    assert stale.json()["error_code"] == "CURRENT_BATCH_CHANGED"
     _assert_no_store(
         client.patch(entry_url, headers=student, json={"is_hidden": True}), 503
     )
@@ -276,3 +333,162 @@ def test_opted_in_detail_preserves_snapshot_and_reuses_current_audio(
     _assert_no_store(client.get(entry_url, headers=student), 404)
     assert client.get(audio_url, headers=student).status_code == 404
     assert client.get(NOTEBOOK, headers=student).json()["data"]["total"] == 0
+
+
+def test_historical_explanation_requires_exact_live_approval(
+    client, monkeypatch, submitted_paper, tmp_path
+):
+    from sqlalchemy import select
+
+    from app.core.config import get_settings
+    from app.db.base import SessionLocal
+    from app.db.models_attempt import Attempt, AttemptAnswer
+    from app.db.models_listening import Question
+
+    paper, student, summary = submitted_paper
+    settings = get_settings()
+    approvals = tmp_path / "approvals.json"
+    monkeypatch.setattr(settings, "wrong_answers_protected_details_enabled", True)
+    monkeypatch.setattr(settings, "wrong_answers_explanation_approvals_file", approvals)
+    with SessionLocal() as db:
+        snapshot = db.scalar(
+            select(AttemptAnswer)
+            .join(Attempt)
+            .where(
+                Attempt.attempt_code == summary["attempt_code"],
+                AttemptAnswer.question_no == 1,
+            )
+        )
+        answer_id, historical = snapshot.id, snapshot.explanation_text
+        question = db.get(Question, paper.question_ids[0])
+        question.explanation_text = current = "当前题库合规解析"
+        db.commit()
+
+    record = {
+        "purpose": "student_wrong_answer_detail",
+        "field": "explanation_text",
+        "import_batch_id": paper.batch_id,
+        "attempt_answer_id": answer_id,
+        "sha256": sha256(historical.encode("utf-8")).hexdigest(),
+        "decision": "approved",
+        "reviewer": "合成样本审查人",
+        "decision_ref": "synthetic-approval",
+        "decided_at": (datetime.now(UTC) - timedelta(days=2)).isoformat(),
+    }
+    entry_url = f"{NOTEBOOK}/{summary['attempt_code']}/1"
+    incomplete = [
+        [],
+        [{**record, "sha256": sha256(current.encode("utf-8")).hexdigest()}],
+        [{**record, "import_batch_id": paper.batch_id + 1}],
+        [{**record, "attempt_answer_id": answer_id + 1}],
+        [{**record, "expires_at": (datetime.now(UTC) - timedelta(days=1)).isoformat()}],
+        [{**record, "decision": "revoked"}],
+        [record, {**record, "decision": "denied"}],
+    ]
+    for raw in [None, "invalid JSON", *(json.dumps(records) for records in incomplete)]:
+        if raw is not None:
+            approvals.write_text(raw, encoding="utf-8")
+        response = client.get(entry_url, headers=student)
+        _assert_no_store(response, 200)
+        detail = response.json()["data"]
+        assert detail["explanation_status"] == "restricted"
+        assert detail["explanation_text"] is None and detail["has_explanation"] is False
+        assert historical not in response.text and current not in response.text
+
+    approvals.write_text(json.dumps([record]), encoding="utf-8")
+    response = client.get(entry_url, headers=student)
+    _assert_no_store(response, 200)
+    detail = response.json()["data"]
+    assert detail["explanation_status"] == "available"
+    assert (
+        detail["explanation_text"] == historical and detail["has_explanation"] is True
+    )
+    assert (
+        record["sha256"] not in response.text
+        and record["decision_ref"] not in response.text
+    )
+
+
+def test_concurrent_state_updates_preserve_both_fields_and_timestamps(
+    client, monkeypatch, submitted_paper
+):
+    from fastapi.testclient import TestClient
+    from sqlalchemy import event
+
+    from app.core.config import get_settings
+    from app.db.base import engine
+
+    monkeypatch.setattr(get_settings(), "wrong_answers_state_writes_enabled", True)
+    paper, student, summary = submitted_paper
+    entry_url = f"{NOTEBOOK}/{summary['attempt_code']}/1"
+    barrier = Barrier(2)
+
+    def patch(change):
+        with TestClient(client.app) as other_client:
+            barrier.wait(timeout=10)
+            response = other_client.patch(entry_url, headers=student, json=change)
+            _assert_no_store(response, 200)
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        mastering = workers.submit(patch, {"learning_status": "mastered"})
+        hiding = workers.submit(patch, {"is_hidden": True})
+        mastering.result()
+        hiding.result()
+
+    def list_page(visibility, page=1):
+        response = client.get(
+            NOTEBOOK,
+            headers=student,
+            params={
+                "visibility": visibility,
+                "limit": 1,
+                "page": page,
+                "exam_paper_id": paper.paper_id,
+            },
+        )
+        _assert_no_store(response, 200)
+        return response.json()["data"]
+
+    (saved,) = list_page("hidden")["items"]
+    assert saved["learning_status"] == "mastered" and saved["is_hidden"]
+    assert saved["updated_at"] and saved["reviewed_at"]
+    assert list_page("all")["total"] == 2
+    assert list_page("all")["items"] == [saved]
+    assert list_page("all", 2)["items"][0]["question_no"] == 3
+    assert list_page("visible")["items"][0]["question_no"] == 3
+
+    repeated = client.patch(
+        entry_url,
+        headers=student,
+        json={"learning_status": "mastered", "is_hidden": True},
+    ).json()["data"]
+    assert repeated == saved
+    restored = None
+
+    def restore_during_list(_conn, _cursor, statement, *_):
+        nonlocal restored
+        if (
+            restored is None
+            and "count(" in statement.lower()
+            and "wrong_answer_states" in statement
+        ):
+            with TestClient(client.app) as other_client:
+                response = other_client.patch(
+                    entry_url, headers=student, json={"is_hidden": False}
+                )
+                _assert_no_store(response, 200)
+                restored = response.json()["data"]
+
+    event.listen(engine, "after_cursor_execute", restore_during_list)
+    try:
+        page = list_page("hidden")
+    finally:
+        event.remove(engine, "after_cursor_execute", restore_during_list)
+
+    assert page["total"] == 1 and page["items"] == [saved]
+    assert restored is not None
+    assert restored["reviewed_at"] == saved["reviewed_at"]
+    assert restored["updated_at"] > saved["updated_at"]
+    assert list_page("hidden")["total"] == 0
+    assert list_page("visible")["total"] == 2
+    assert list_page("visible")["items"] == [restored]

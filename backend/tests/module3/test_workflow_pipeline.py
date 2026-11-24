@@ -2,7 +2,7 @@
 
 import copy
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -489,6 +489,7 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline, monkeyp
 
     from app.core.config import get_settings
     from app.db.base import SessionLocal
+    from app.db.models_processing_workflows import ProcessingReviewSession
     from app.services.processing.validation import load_dictionary
     from tests.attempt_support import create_student
     from tests.conftest import login
@@ -528,6 +529,7 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline, monkeyp
         zip("ABCD", "BCDA", strict=True)
     )
     complete_to_review(c)
+    review_session_id = UUID(c["detail"]()["review_session_id"])
     synthetic_review_publish(client, c)
     detail = c["detail"]()
     batch = detail["current_batch_id"]
@@ -566,19 +568,33 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline, monkeyp
     assert notebook.status_code == 200, notebook.text
     review = notebook.json()["data"]
     assert review["selected_option"] == "A" and review["correct_option"] == "D"
+    with SessionLocal() as db:
+        submitted_at = db.get(ProcessingReviewSession, review_session_id).submitted_at
+    assert submitted_at is not None
+    assert datetime.fromisoformat(review["annotation_reviewed_at"]) == submitted_at
+    assert {"review_session_id", "submitted_by", "reviewer"}.isdisjoint(review)
     (review_skill,) = review["skills"]
     assert review_skill["role"] == "PRIMARY"
-    assert set(review_skill) == {"code", "name", "role", "has_restricted_evidence"}
+    assert set(review_skill) == {
+        "code",
+        "name",
+        "role",
+        "definition",
+        "evidence_status",
+    }
+    assert review_skill["evidence_status"] == "restricted"
     assert review["personal_cause_status"] == "unconfirmed"
     (candidate,) = review["candidate_causes"]
     assert candidate["option_letter"] == "A"
-    assert candidate["has_restricted_evidence"] is True
+    assert candidate["evidence_status"] == "restricted"
     assert set(candidate) == {
         "code",
         "name",
         "option_letter",
-        "has_restricted_evidence",
+        "basis_summary",
+        "evidence_status",
     }
+    assert review["evidence_access"] == "restricted"
     assert "transcript" not in review
     assert "Synthetic distractor mechanism for Beta" not in notebook.text
     assert "The answer is Alpha." not in notebook.text
