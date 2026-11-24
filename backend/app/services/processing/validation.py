@@ -77,9 +77,17 @@ def evidence_details(evidence: dict, segments: dict, passage: dict) -> dict:
 
 
 def validate_result(
-    payload: dict, request: dict, dictionary: dict | None = None
+    payload: dict,
+    request: dict,
+    dictionary: dict | None = None,
+    *,
+    allow_legacy_annotations: bool = False,
 ) -> list[dict]:
-    """Collect failures; absence of failures says nothing about semantic correctness."""
+    """Collect failures; absence of failures says nothing about semantic correctness.
+
+    Only visibility rechecks of an active, hash-bound reviewed batch may use the
+    historical V2 option contract. Generation, review and publication stay strict.
+    """
     issues = []
 
     def issue(code: str, message: str, src_id=None):
@@ -375,17 +383,27 @@ def validate_result(
         ):
             issue("ANSWER_EVIDENCE_MISSING", "每题必须有答案证据", qid)
     if payload.get("schema_version") in {"m3.v2", "m3.v3"}:
-        from app.module3.distractor_annotations import validate_option_relations
-
         try:
-            validate_option_relations(payload, allow_incomplete=True)
-            for assessment in payload.get("distractor_assessments", []):
-                if assessment["status"] == "INSUFFICIENT_EVIDENCE":
-                    issue(
-                        "CANDIDATE_UNRESOLVED",
-                        "依据不足待核，不能批准",
-                        assessment["_src_id"],
-                    )
+            if (
+                allow_legacy_annotations
+                and payload.get("schema_version") == "m3.v2"
+                and payload.get("rules_manifest", {}).get("error_rule_version")
+                == "m3.option-errors.v1"
+            ):
+                from app.module3.option_annotations import validate_option_relations
+
+                validate_option_relations(payload)
+            else:
+                from app.module3.distractor_annotations import validate_option_relations
+
+                validate_option_relations(payload, allow_incomplete=True)
+                for assessment in payload.get("distractor_assessments", []):
+                    if assessment["status"] == "INSUFFICIENT_EVIDENCE":
+                        issue(
+                            "CANDIDATE_UNRESOLVED",
+                            "依据不足待核，不能批准",
+                            assessment["_src_id"],
+                        )
         except ProcessingError as error:
             issue(error.code, str(error))
     return issues
