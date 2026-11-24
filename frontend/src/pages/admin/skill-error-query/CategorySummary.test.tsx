@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import CategorySummary from './CategorySummary'
 import DictionaryTree from './DictionaryTree'
+import EntryDetailCard from './EntryDetailCard'
 import type {
   DictionaryData,
   QuestionListData,
@@ -117,7 +118,10 @@ const dictionary: DictionaryData = {
       level: 3,
       parent_id: 1,
       parent_code: 'K5',
-      path: [],
+      path: [
+        { code: 'K5', display_code: '1', name: '词汇与表达理解' },
+        { code: 'S08', display_code: '1.1.2', name: '具体语境中的词义理解' },
+      ],
       definition: '',
       observable_behavior: null,
       counter_example: null,
@@ -141,6 +145,11 @@ describe('category and tree empty states', () => {
       <CategorySummary
         data={emptyCategory}
         mode="by-leaf"
+        cursor={0}
+        pageSize={20}
+        onModeChange={vi.fn()}
+        onPageChange={vi.fn()}
+        onPageSizeChange={vi.fn()}
         onOpenLeaf={vi.fn()}
         onOpenDetail={vi.fn()}
         onScopeRefresh={vi.fn()}
@@ -158,6 +167,11 @@ describe('category and tree empty states', () => {
       <CategorySummary
         data={nonEmptyCategory}
         mode="by-leaf"
+        cursor={0}
+        pageSize={20}
+        onModeChange={vi.fn()}
+        onPageChange={vi.fn()}
+        onPageSizeChange={vi.fn()}
         onOpenLeaf={onOpenLeaf}
         onOpenDetail={vi.fn()}
         onScopeRefresh={vi.fn()}
@@ -169,6 +183,56 @@ describe('category and tree empty states', () => {
     expect(screen.getAllByText('暂无题目')).toHaveLength(1)
   })
 
+  it('shows pagination for the category all-questions view', () => {
+    const onPageChange = vi.fn()
+    render(
+      <CategorySummary
+        data={{ ...nonEmptyCategory, question_count: 110 }}
+        mode="all"
+        cursor={20}
+        pageSize={20}
+        onModeChange={vi.fn()}
+        onPageChange={onPageChange}
+        onPageSizeChange={vi.fn()}
+        onOpenLeaf={vi.fn()}
+        onOpenDetail={vi.fn()}
+        onScopeRefresh={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('全部题目（按题目去重）')).toBeInTheDocument()
+    expect(screen.getByTitle('2')).toBeInTheDocument()
+    expect(screen.getByText('6')).toBeInTheDocument()
+  })
+
+  it('shows stable code and path in searched tree rows', () => {
+    render(
+      <DictionaryTree
+        nodes={dictionary.skills}
+        search="S08"
+        expandedKeys={['K5']}
+        onExpand={vi.fn()}
+        onSelect={vi.fn()}
+        onClearSearch={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('S08')).toBeInTheDocument()
+    expect(screen.getByText('词汇与表达理解 / 具体语境中的词义理解')).toBeInTheDocument()
+  })
+
+  it('shows directory children and status without leaf annotation sections', () => {
+    render(
+      <EntryDetailCard
+        node={dictionary.skills[0]}
+        allNodes={dictionary.skills}
+        categoryStats={{ leafCount: 1, questionCount: 1 }}
+        onOpenQuestions={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('分类关系')).toBeInTheDocument()
+    expect(screen.getByText('启用')).toBeInTheDocument()
+    expect(screen.queryByText('可观察行为')).not.toBeInTheDocument()
+  })
+
   it('shows no-result message and clears the tree search', async () => {
     const user = userEvent.setup()
     const onClearSearch = vi.fn()
@@ -176,6 +240,8 @@ describe('category and tree empty states', () => {
       <DictionaryTree
         nodes={dictionary.skills}
         search="不存在的技能"
+        expandedKeys={[]}
+        onExpand={vi.fn()}
         onSelect={vi.fn()}
         onClearSearch={onClearSearch}
       />,

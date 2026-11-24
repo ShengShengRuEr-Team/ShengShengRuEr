@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ApiError } from '../../../api/api-error'
 import ErrorQuestionList from './ErrorQuestionList'
 import SkillErrorQueryPage from './SkillErrorQueryPage'
 import type {
@@ -264,7 +265,12 @@ const detail: QuestionDetailData = {
       ],
     },
   ],
-  personal_error: { state: 'not_in_scope', message: '未确认个人错因（本查询不涉及个人）' },
+  personal_error: {
+    state: 'not_in_scope',
+    message: '未确认个人错因（本查询不涉及个人）',
+    explanation:
+      '题目候选错因只描述错误选项的可能机制；学生答错某题不等于确认其个人错因；不得根据作答结果自动生成个人错因；个人错因需在错题本（需求二）按本人作答确认后查看。',
+  },
   warnings: [],
 }
 
@@ -321,6 +327,34 @@ describe('skill/error query page', () => {
     await screen.findByText('What does the speaker imply?')
     await user.click(screen.getByRole('button', { name: /详情/ }))
     expect(await screen.findByText('该套试卷存在选项重排')).toBeInTheDocument()
+  })
+
+  it('uses the new page size in a single first-page request', async () => {
+    const user = userEvent.setup()
+    render(<SkillErrorQueryPage />)
+    await waitFor(() => expect(api.listQuestions).toHaveBeenCalled())
+    await screen.findByText('What does the speaker imply?', {}, { timeout: 5000 })
+    await user.click(screen.getByRole('combobox'))
+    await user.click(await screen.findByText('50 条/页'))
+    await waitFor(() => {
+      const calls = api.listQuestions.mock.calls
+      expect(calls.some(([params]) => params.limit === 50 && params.cursor === 0)).toBe(true)
+    })
+    const last = api.listQuestions.mock.calls.at(-1)?.[0]
+    expect(last.limit).toBe(50)
+    expect(last.cursor).toBe(0)
+  })
+
+  it('reloads the dictionary and first page after a scope conflict', async () => {
+    api.listQuestions
+      .mockRejectedValueOnce(
+        new ApiError('scope changed', 409, 409, 'SCOPE_CHANGED'),
+      )
+      .mockResolvedValue(page)
+    render(<SkillErrorQueryPage />)
+    await waitFor(() => expect(api.getDictionary).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(api.listQuestions).toHaveBeenCalled())
+    await screen.findByText('What does the speaker imply?', {}, { timeout: 5000 })
   })
 
   it('loads candidate evidence when an error row expands', async () => {

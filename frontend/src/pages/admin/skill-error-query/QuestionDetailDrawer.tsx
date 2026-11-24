@@ -29,9 +29,15 @@ interface QuestionDetailDrawerProps {
   onScopeRefresh: () => void
 }
 
-function EvidenceBlock({ evidence }: { evidence: EvidenceView[] }) {
+function EvidenceBlock({
+  evidence,
+  emptyText = '暂无证据记录',
+}: {
+  evidence: EvidenceView[]
+  emptyText?: string
+}) {
   if (evidence.length === 0) {
-    return <Typography.Text type="secondary">无证据记录</Typography.Text>
+    return <Typography.Text type="secondary">{emptyText}</Typography.Text>
   }
   return (
     <Space direction="vertical" size={8} style={{ width: '100%' }}>
@@ -210,6 +216,12 @@ export default function QuestionDetailDrawer({
           </Space>
 
           <Descriptions column={2} size="small" bordered>
+            <Descriptions.Item label="试卷编码">{data.paper.exam_paper_code}</Descriptions.Item>
+            <Descriptions.Item label="考试级别">{data.paper.exam_level}</Descriptions.Item>
+            <Descriptions.Item label="年份">{data.paper.exam_year}</Descriptions.Item>
+            <Descriptions.Item label="月份">{data.paper.exam_month}</Descriptions.Item>
+            <Descriptions.Item label="套别">第 {data.paper.paper_set} 套</Descriptions.Item>
+            <Descriptions.Item label="该卷题号">第 {data.paper.question_no} 题</Descriptions.Item>
             <Descriptions.Item label="题目代码">{data.question.code}</Descriptions.Item>
             <Descriptions.Item label="标注状态">
               <Tag color="green">正式审核通过</Tag>
@@ -261,11 +273,20 @@ export default function QuestionDetailDrawer({
             )}
             <Divider />
             <Typography.Title level={5}>答案证据</Typography.Title>
-            <EvidenceBlock evidence={data.answer_evidence} />
+            <EvidenceBlock evidence={data.answer_evidence} emptyText="暂无答案证据" />
           </div>
 
           <div>
             <Typography.Title level={5}>技能标注</Typography.Title>
+            {data.skills.filter((skill) => skill.role === 'PRIMARY').length > 1 ? (
+              <Alert
+                type="info"
+                showIcon
+                message="共同主要技能"
+                description="该题有多个主要技能，必须结合各技能证据判断共同主要，不能只取第一个主要技能。"
+                style={{ marginBottom: 12 }}
+              />
+            ) : null}
             {data.skills.length === 0 ? (
               <Alert
                 type="warning"
@@ -304,7 +325,7 @@ export default function QuestionDetailDrawer({
               以下是题目层面的错误选项候选原因，不是学生已确认的个人错因。
             </Typography.Paragraph>
             {data.error_options.length === 0 ? (
-              <Typography.Text type="secondary">暂无可展示的错误选项候选错因</Typography.Text>
+              <Typography.Text type="secondary">本题暂无有依据的候选错因</Typography.Text>
             ) : (
               <Collapse
                 defaultActiveKey={data.error_options.map((option) => option.base_letter)}
@@ -327,6 +348,7 @@ export default function QuestionDetailDrawer({
                       {option.candidate_causes.map((cause) => (
                         <div key={cause.code}>
                           <Space wrap>
+                            <Tag color="orange">题目候选错因</Tag>
                             <Tag color="orange">{cause.code}</Tag>
                             <Typography.Text strong>{cause.name}</Typography.Text>
                             <Typography.Text type="secondary">
@@ -347,7 +369,12 @@ export default function QuestionDetailDrawer({
             type="info"
             showIcon
             message="个人错因"
-            description={data.personal_error.message}
+            description={
+              <Space direction="vertical" size={4}>
+                <Typography.Text strong>{data.personal_error.message}</Typography.Text>
+                <Typography.Text>{data.personal_error.explanation}</Typography.Text>
+              </Space>
+            }
           />
         </Space>
       )}

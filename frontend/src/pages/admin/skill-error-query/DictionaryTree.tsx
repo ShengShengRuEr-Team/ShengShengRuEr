@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { Button, Empty, Tag, Tree, Typography } from 'antd'
 import type { TreeDataNode } from 'antd'
 import type { DictionaryNode } from '../../../api/skill-error-query'
@@ -7,6 +6,8 @@ interface DictionaryTreeProps {
   nodes: DictionaryNode[]
   selectedCode?: string
   search: string
+  expandedKeys: string[]
+  onExpand: (keys: string[]) => void
   onSelect: (node: DictionaryNode) => void
   onClearSearch: () => void
 }
@@ -17,7 +18,10 @@ function sortNodes(nodes: DictionaryNode[]): DictionaryNode[] {
   )
 }
 
-function buildTree(nodes: DictionaryNode[], search: string): TreeDataNode[] {
+function buildTree(
+  nodes: DictionaryNode[],
+  search: string,
+): TreeDataNode[] {
   const children = new Map<number | null, DictionaryNode[]>()
   for (const node of nodes) {
     const bucket = children.get(node.parent_id) ?? []
@@ -55,22 +59,35 @@ function buildTree(nodes: DictionaryNode[], search: string): TreeDataNode[] {
           key: node.code,
           title: (
             <span className="skill-query-tree-title">
-              <span>
-                <Typography.Text strong={node.level === 3}>{node.name}</Typography.Text>
-                <Typography.Text type="secondary" className="skill-query-code">
-                  {node.display_code}
-                </Typography.Text>
-                {!isLeaf ? (
+              <span className="skill-query-tree-label">
+                <span>
+                  <Typography.Text strong={isLeaf}>{node.name}</Typography.Text>
                   <Typography.Text type="secondary" className="skill-query-code">
-                    {node.level === 1
-                      ? `二级 ${groupTotal} 组 / 三级 ${leafTotal} 叶`
-                      : `三级 ${leafTotal} 叶`}
+                    {node.display_code}
+                  </Typography.Text>
+                  {keyword ? (
+                    <Tag bordered={false} color="blue">
+                      {node.code}
+                    </Tag>
+                  ) : null}
+                  {keyword && isLeaf ? <Tag>三级条目</Tag> : null}
+                  {!isLeaf ? (
+                    <Typography.Text type="secondary" className="skill-query-tree-meta">
+                      {node.level === 1
+                        ? `二级 ${groupTotal} 组 / 三级 ${leafTotal} 叶`
+                        : `三级 ${leafTotal} 叶`}
+                    </Typography.Text>
+                  ) : null}
+                </span>
+                {keyword ? (
+                  <Typography.Text type="secondary" className="skill-query-tree-path">
+                    {node.path.map((part) => part.name).join(' / ')}
                   </Typography.Text>
                 ) : null}
               </span>
               {isLeaf && count !== null ? (
                 <Tag bordered={false} color="default">
-                  {count}
+                  {count} 题
                 </Tag>
               ) : null}
             </span>
@@ -87,18 +104,13 @@ export default function DictionaryTree({
   nodes,
   selectedCode,
   search,
+  expandedKeys,
+  onExpand,
   onSelect,
   onClearSearch,
 }: DictionaryTreeProps) {
-  const byCode = useMemo(
-    () => new Map(nodes.map((node) => [node.code, node])),
-    [nodes],
-  )
-  const treeData = useMemo(() => buildTree(nodes, search), [nodes, search])
-  const expandedKeys = useMemo(() => {
-    if (!search.trim()) return undefined
-    return nodes.map((node) => node.code)
-  }, [nodes, search])
+  const byCode = new Map(nodes.map((node) => [node.code, node]))
+  const treeData = buildTree(nodes, search)
 
   if (!treeData.length) {
     return (
@@ -108,7 +120,9 @@ export default function DictionaryTree({
           <span>
             未找到匹配条目
             <br />
-            <Typography.Text type="secondary">可清除搜索后重新选择</Typography.Text>
+            <Typography.Text type="secondary">
+              请调整名称/代码，或清除分类筛选后重试
+            </Typography.Text>
           </span>
         }
       >
@@ -126,6 +140,7 @@ export default function DictionaryTree({
       treeData={treeData}
       selectedKeys={selectedCode ? [selectedCode] : []}
       expandedKeys={expandedKeys}
+      onExpand={(keys) => onExpand(keys.map((key) => String(key)))}
       onSelect={(keys) => {
         const code = String(keys[0] ?? '')
         const node = byCode.get(code)

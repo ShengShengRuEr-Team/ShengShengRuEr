@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Space, Table, Tag, Typography } from 'antd'
+import { Alert, Button, Card, Pagination, Segmented, Select, Space, Table, Tag, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import type { MatchedLeaf, QuestionListData } from '../../../api/skill-error-query'
 import ErrorQuestionList from './ErrorQuestionList'
@@ -7,6 +7,11 @@ import QuestionTable from './QuestionTable'
 interface CategorySummaryProps {
   data: QuestionListData
   mode: 'by-leaf' | 'all'
+  cursor: number
+  pageSize: number
+  onModeChange: (mode: 'by-leaf' | 'all') => void
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
   onOpenLeaf: (code: string) => void
   onOpenDetail: (questionId: number) => void
   onScopeRefresh: () => void
@@ -15,6 +20,11 @@ interface CategorySummaryProps {
 export default function CategorySummary({
   data,
   mode,
+  cursor,
+  pageSize,
+  onModeChange,
+  onPageChange,
+  onPageSizeChange,
   onOpenLeaf,
   onOpenDetail,
   onScopeRefresh,
@@ -61,7 +71,7 @@ export default function CategorySummary({
           {
             title: '主要 / 辅助',
             key: 'roles',
-            width: 140,
+            width: 150,
             render: (_: unknown, leaf: MatchedLeaf) => (
               <Space>
                 <Tag>主要 {leaf.primary_question_count ?? 0}</Tag>
@@ -83,7 +93,7 @@ export default function CategorySummary({
     {
       title: '操作',
       key: 'action',
-      width: 90,
+      width: 100,
       render: (_: unknown, leaf: MatchedLeaf) =>
         leaf.question_count > 0 ? (
           <Button type="link" size="small" onClick={() => onOpenLeaf(leaf.code)}>
@@ -98,14 +108,27 @@ export default function CategorySummary({
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Card
-        title={`${data.subject.name} · ${data.subject.display_code}`}
-        extra={
-          <Space>
-            <Tag color="blue">分类汇总</Tag>
+        title={
+          <Space wrap>
+            <span>{data.subject.name}</span>
+            <Tag color="blue">{data.subject.display_code}</Tag>
             <Tag>{data.matched_leaves.length} 个三级条目</Tag>
             <Tag>{data.question_count} 道正式题目</Tag>
-            {!isSkill ? <Tag>关系 {data.option_relation_count ?? 0}</Tag> : null}
           </Space>
+        }
+        extra={
+          hasQuestions ? (
+            <Segmented
+              value={mode}
+              onChange={(value) => onModeChange(value as 'by-leaf' | 'all')}
+              options={[
+                { label: '按条目分组', value: 'by-leaf' },
+                { label: '全部题目', value: 'all' },
+              ]}
+            />
+          ) : (
+            <Tag>无可分组内容</Tag>
+          )
         }
       >
         <Typography.Paragraph type="secondary">
@@ -157,6 +180,22 @@ export default function CategorySummary({
               onScopeRefresh={onScopeRefresh}
             />
           )}
+          <div className="skill-query-pagination">
+            <Pagination
+              current={Math.floor(cursor / pageSize) + 1}
+              pageSize={pageSize}
+              total={data.question_count}
+              showSizeChanger={false}
+              onChange={onPageChange}
+            />
+            <Select
+              size="small"
+              value={pageSize}
+              style={{ width: 100 }}
+              options={[20, 50, 100].map((value) => ({ value, label: `${value} 条/页` }))}
+              onChange={onPageSizeChange}
+            />
+          </div>
         </Card>
       ) : null}
     </Space>
