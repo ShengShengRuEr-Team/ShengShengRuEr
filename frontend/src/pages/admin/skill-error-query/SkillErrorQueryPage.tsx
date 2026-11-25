@@ -187,6 +187,7 @@ export default function SkillErrorQueryPage() {
         }
         setListData(data)
         setCursor(nextCursor)
+        setPageSize(limit)
       } catch (reason) {
         if (seq !== listRequestSeq.current) return
         if (reason instanceof ApiError && reason.status === 409) {
@@ -214,8 +215,6 @@ export default function SkillErrorQueryPage() {
 
   const changePage = (page: number, size = pageSize) => {
     if (!selectedNode) return
-    setPageSize(size)
-    setCursor((page - 1) * size)
     void loadList(selectedNode, (page - 1) * size, queryType, roleFilter, size)
   }
 

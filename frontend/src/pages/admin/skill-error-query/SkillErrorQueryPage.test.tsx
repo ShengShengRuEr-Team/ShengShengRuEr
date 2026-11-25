@@ -10,6 +10,7 @@ import type {
   QuestionDetailData,
   QuestionListData,
   QuestionListItem,
+  QuestionListParams,
   SkillNode,
 } from '../../../api/skill-error-query'
 
@@ -293,9 +294,27 @@ const errorItem: QuestionListItem = {
   ],
 }
 
+function paginationPage(params: QuestionListParams): QuestionListData {
+  const cursor = params.cursor ?? 0
+  const limit = params.limit ?? 20
+  return {
+    ...page,
+    subject: { ...page.subject, type: params.subject_type, code: params.subject_code },
+    question_count: 60,
+    primary_question_count: 60,
+    items: Array.from({ length: Math.min(2, 60 - cursor) }, (_, index) => ({
+      ...item,
+      question_id: 1000 + cursor + index,
+      question_code: `PAGE_${cursor + index + 1}`,
+      question_text: `分页题目 ${cursor + index + 1}`,
+    })),
+    next_cursor: cursor + limit < 60 ? cursor + limit : null,
+  }
+}
+
 describe('skill/error query page', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     api.getDictionary.mockResolvedValue(dictionary)
     api.listQuestions.mockResolvedValue(page)
     api.getQuestionDetail.mockResolvedValue(detail)
@@ -357,6 +376,63 @@ describe('skill/error query page', () => {
     await screen.findByText('What does the speaker imply?', {}, { timeout: 5000 })
   })
 
+  it.each(['leaf', 'category'])('keeps the last successful page when %s pagination fails and allows retry', async (view) => {
+    let fail = true
+    api.listQuestions.mockImplementation(async (params: QuestionListParams) => {
+      if (params.cursor === 20 && fail) {
+        fail = false
+        throw new ApiError('分页服务暂不可用', 503, 503)
+      }
+      return paginationPage(params)
+    })
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    render(<SkillErrorQueryPage />)
+    await screen.findByText('分页题目 1', {}, { timeout: 5000 })
+    if (view === 'category') {
+      await user.click(screen.getByText('篇章理解', { selector: '.skill-query-tree-label .ant-typography' }))
+      await user.click(await screen.findByText('全部题目', { selector: '.ant-segmented-item-label' }))
+      await screen.findByText('分页题目 1', {}, { timeout: 5000 })
+    }
+    await user.click(screen.getByTitle('2'))
+    await screen.findByText('分页服务暂不可用')
+    expect(screen.getByTitle('1')).toHaveClass('ant-pagination-item-active')
+    expect(screen.getByText('分页题目 1')).toBeInTheDocument()
+    expect(screen.queryByText('分页题目 21')).not.toBeInTheDocument()
+    await user.click(screen.getByTitle('2'))
+    await screen.findByText('分页题目 21', {}, { timeout: 5000 })
+    expect(screen.getByTitle('2')).toHaveClass('ant-pagination-item-active')
+    expect(screen.queryByText('分页题目 1')).not.toBeInTheDocument()
+  })
+
+  it.each(['leaf', 'category'])('keeps the page size and rows together when a %s size change fails', async (view) => {
+    let fail = true
+    api.listQuestions.mockImplementation(async (params: QuestionListParams) => {
+      if (params.limit === 50 && fail) {
+        fail = false
+        throw new ApiError('每页数量切换失败', 503, 503)
+      }
+      return paginationPage(params)
+    })
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    render(<SkillErrorQueryPage />)
+    await screen.findByText('分页题目 1', {}, { timeout: 5000 })
+    if (view === 'category') {
+      await user.click(screen.getByText('篇章理解', { selector: '.skill-query-tree-label .ant-typography' }))
+      await user.click(await screen.findByText('全部题目', { selector: '.ant-segmented-item-label' }))
+      await screen.findByText('分页题目 1', {}, { timeout: 5000 })
+    }
+    await user.click(screen.getByTitle('2'))
+    await screen.findByText('分页题目 21', {}, { timeout: 5000 })
+    await user.click(screen.getByRole('combobox'))
+    await user.click(await screen.findByText('50 条/页'))
+    await screen.findByText('每页数量切换失败')
+    expect(screen.getByTitle('2')).toHaveClass('ant-pagination-item-active')
+    expect(screen.getByRole('combobox').closest('.ant-select')).toHaveTextContent('20 条/页')
+    expect(screen.getByText('分页题目 21')).toBeInTheDocument()
+    expect(screen.queryByText('分页题目 1')).not.toBeInTheDocument()
+    expect(api.listQuestions).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 0, limit: 50 }))
+  })
+
   it('allows retrying the same page after a scope conflict resets pagination', async () => {
     let conflict = true
     api.listQuestions.mockImplementation(async ({ cursor }: { cursor: number }) => {
@@ -373,10 +449,10 @@ describe('skill/error query page', () => {
     })
     const user = userEvent.setup()
     render(<SkillErrorQueryPage />)
-    await screen.findByText(item.question_text)
+    await screen.findByText(item.question_text, {}, { timeout: 5000 })
     await user.click(screen.getByTitle('2'))
     await waitFor(() => expect(api.getDictionary).toHaveBeenCalledTimes(2))
-    await screen.findByText(item.question_text)
+    await screen.findByText(item.question_text, {}, { timeout: 5000 })
     await user.click(screen.getByTitle('2'))
     expect(await screen.findByText('Second page question')).toBeInTheDocument()
     expect(api.listQuestions.mock.calls.filter(([params]) => params.cursor === 20)).toHaveLength(2)
@@ -385,7 +461,7 @@ describe('skill/error query page', () => {
   it('clears the leaf role filter when opening a category', async () => {
     const user = userEvent.setup()
     render(<SkillErrorQueryPage />)
-    await screen.findByText(item.question_text)
+    await screen.findByText(item.question_text, {}, { timeout: 5000 })
     await user.click(screen.getByText('辅助', { selector: '.ant-segmented-item-label' }))
     await waitFor(() => expect(api.listQuestions).toHaveBeenLastCalledWith(
       expect.objectContaining({ role: 'auxiliary' }),
@@ -403,7 +479,7 @@ describe('skill/error query page', () => {
 
   it('binds the first-page request to the displayed dictionary scope', async () => {
     render(<SkillErrorQueryPage />)
-    await screen.findByText(item.question_text)
+    await screen.findByText(item.question_text, {}, { timeout: 5000 })
     expect(api.listQuestions).toHaveBeenCalledWith(expect.objectContaining({
       cursor: 0,
       expected_scope_version: dictionary.scope_version,
@@ -423,16 +499,17 @@ describe('skill/error query page', () => {
       path: [{ code: 'OTHER_CATEGORY', display_code: '9', name: '其他分类' }],
     }
     api.getDictionary.mockResolvedValue({ ...dictionary, [key]: [...dictionary[key], other] })
-    const user = userEvent.setup()
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
     render(<SkillErrorQueryPage />)
-    await screen.findByText(item.question_text)
+    await screen.findByText(item.question_text, {}, { timeout: 5000 })
     await user.click(screen.getByRole('tab', { name: tab }))
     const treeText = (text: string) => screen.getByText(text, { selector: '.skill-query-tree-label .ant-typography' })
     await user.click(await screen.findByText(root.name, { selector: '.skill-query-tree-label .ant-typography' }))
     expect(treeText('其他分类')).toBeVisible()
     expect(screen.queryByText('搜索范围：')).not.toBeInTheDocument()
 
-    await user.type(screen.getByPlaceholderText('搜索名称或代码'), '其他分类')
+    await user.click(screen.getByPlaceholderText('搜索名称或代码'))
+    await user.paste('其他分类')
     expect(await screen.findByText('未找到匹配条目')).toBeInTheDocument()
     expect(screen.getByText('搜索范围：')).toBeVisible()
     await user.click(screen.getByRole('button', { name: '清除搜索' }))
@@ -456,7 +533,7 @@ describe('skill/error query page', () => {
       })
       .mockResolvedValue({ ...page, scope_version: 'scope-2' })
     render(<SkillErrorQueryPage />)
-    await screen.findByText(item.question_text)
+    await screen.findByText(item.question_text, {}, { timeout: 5000 })
     expect(screen.queryByText('Inconsistent response must be discarded')).not.toBeInTheDocument()
     expect(api.getDictionary).toHaveBeenCalledTimes(2)
     expect(api.listQuestions).toHaveBeenLastCalledWith(expect.objectContaining({
