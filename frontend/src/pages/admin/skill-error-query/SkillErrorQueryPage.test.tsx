@@ -410,6 +410,40 @@ describe('skill/error query page', () => {
     }))
   })
 
+  it.each([
+    { key: 'skills' as const, tab: /技能表/, root: dictionary.skills[0] },
+    { key: 'error_causes' as const, tab: /错因表/, root: dictionary.error_causes[0] },
+  ])('keeps other $key categories visible while browsing and restores them after search', async ({ key, tab, root }) => {
+    const other = {
+      ...root,
+      id: 99,
+      code: 'OTHER_CATEGORY',
+      display_code: '9',
+      name: '其他分类',
+      path: [{ code: 'OTHER_CATEGORY', display_code: '9', name: '其他分类' }],
+    }
+    api.getDictionary.mockResolvedValue({ ...dictionary, [key]: [...dictionary[key], other] })
+    const user = userEvent.setup()
+    render(<SkillErrorQueryPage />)
+    await screen.findByText(item.question_text)
+    await user.click(screen.getByRole('tab', { name: tab }))
+    const treeText = (text: string) => screen.getByText(text, { selector: '.skill-query-tree-label .ant-typography' })
+    await user.click(await screen.findByText(root.name, { selector: '.skill-query-tree-label .ant-typography' }))
+    expect(treeText('其他分类')).toBeVisible()
+    expect(screen.queryByText('搜索范围：')).not.toBeInTheDocument()
+
+    await user.type(screen.getByPlaceholderText('搜索名称或代码'), '其他分类')
+    expect(await screen.findByText('未找到匹配条目')).toBeInTheDocument()
+    expect(screen.getByText('搜索范围：')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: '清除搜索' }))
+    expect(treeText('其他分类')).toBeVisible()
+    await user.click(treeText('其他分类'))
+    await waitFor(() => expect(api.listQuestions).toHaveBeenLastCalledWith(expect.objectContaining({
+      subject_code: 'OTHER_CATEGORY',
+      subject_type: key === 'skills' ? 'skill_category' : 'error_category',
+    })))
+  })
+
   it('discards a mismatched first-page response and reloads a consistent scope', async () => {
     api.getDictionary
       .mockResolvedValueOnce(dictionary)

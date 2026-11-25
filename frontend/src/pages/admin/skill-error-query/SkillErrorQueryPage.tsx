@@ -95,8 +95,8 @@ export default function SkillErrorQueryPage() {
   }, [dictionary, queryType])
 
   const visibleNodes = useMemo(
-    () => nodesInCategory(nodes, categoryFilter),
-    [nodes, categoryFilter],
+    () => (search.trim() ? nodesInCategory(nodes, categoryFilter) : nodes),
+    [nodes, categoryFilter, search],
   )
 
   const selectedIsLeaf = selectedNode?.level === 3
@@ -425,9 +425,9 @@ export default function SkillErrorQueryPage() {
             <Typography.Paragraph type="secondary" className="skill-query-tree-help">
               一级分类 → 二级分组 → 三级条目（用于题目标注的具体技能）
             </Typography.Paragraph>
-            {categoryFilter ? (
+            {categoryFilter && search.trim() ? (
               <div className="skill-query-filter-row">
-                <Typography.Text type="secondary">所属分类：</Typography.Text>
+                <Typography.Text type="secondary">搜索范围：</Typography.Text>
                 <Tag closable color="blue" onClose={clearCategoryFilter}>
                   {categoryFilter.name}
                 </Tag>
