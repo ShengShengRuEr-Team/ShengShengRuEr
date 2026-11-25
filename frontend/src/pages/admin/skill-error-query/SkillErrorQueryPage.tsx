@@ -88,7 +88,6 @@ export default function SkillErrorQueryPage() {
   const [scopeReloadKey, setScopeReloadKey] = useState(0)
   const listRequestSeq = useRef(0)
   const dictionaryRequestSeq = useRef(0)
-  const pageRequestKey = useRef('')
 
   const nodes = useMemo<DictionaryNode[]>(() => {
     if (!dictionary) return []
@@ -111,6 +110,11 @@ export default function SkillErrorQueryPage() {
   const loadDictionary = useCallback(
     async (preferredCode?: string, reloadList = false) => {
       const seq = ++dictionaryRequestSeq.current
+      // A dictionary refresh supersedes every list request from the old scope.
+      listRequestSeq.current += 1
+      setListData(null)
+      setDrawerQuestionId(null)
+      setCursor(0)
       setLoading(true)
       setError('')
       try {
@@ -172,13 +176,15 @@ export default function SkillErrorQueryPage() {
         const data = await listQuestions({
           subject_type: subjectType,
           subject_code: node.code,
-          role: type === 'skill' ? role : 'all',
+          role: type === 'skill' && node.level === 3 ? role : 'all',
           cursor: nextCursor,
           limit,
-          expected_scope_version:
-            nextCursor > 0 ? dictionary.scope_version : undefined,
+          expected_scope_version: dictionary.scope_version,
         })
         if (seq !== listRequestSeq.current) return
+        if (data.scope_version !== dictionary.scope_version) {
+          throw new ApiError('查询范围已变化，请整体刷新', 409, 409, 'SCOPE_CHANGED')
+        }
         setListData(data)
         setCursor(nextCursor)
       } catch (reason) {
@@ -208,9 +214,6 @@ export default function SkillErrorQueryPage() {
 
   const changePage = (page: number, size = pageSize) => {
     if (!selectedNode) return
-    const key = `${selectedNode.code}|${roleFilter}|${page}|${size}`
-    if (pageRequestKey.current === key) return
-    pageRequestKey.current = key
     setPageSize(size)
     setCursor((page - 1) * size)
     void loadList(selectedNode, (page - 1) * size, queryType, roleFilter, size)
@@ -220,11 +223,11 @@ export default function SkillErrorQueryPage() {
     setSelectedNode(node)
     setListData(null)
     setCursor(0)
-    pageRequestKey.current = ''
     setExpandedKeys((current) =>
       uniqueKeys([...current, ...node.path.map((part) => part.code)]),
     )
     if (node.level < 3) {
+      setRoleFilter('all')
       setCategoryFilter(node)
       setCategoryMode('by-leaf')
     }
@@ -238,7 +241,6 @@ export default function SkillErrorQueryPage() {
     setListData(null)
     setDrawerQuestionId(null)
     setError('')
-    pageRequestKey.current = ''
     void loadDictionary(selectedNode?.code, true)
   }, [loadDictionary, selectedNode?.code])
 
@@ -290,7 +292,6 @@ export default function SkillErrorQueryPage() {
                     size="small"
                     value={roleFilter}
                     onChange={(value) => {
-                      pageRequestKey.current = ''
                       setRoleFilter(value as RoleFilter)
                     }}
                     options={[

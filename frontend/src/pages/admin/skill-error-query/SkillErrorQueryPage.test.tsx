@@ -357,6 +357,80 @@ describe('skill/error query page', () => {
     await screen.findByText('What does the speaker imply?', {}, { timeout: 5000 })
   })
 
+  it('allows retrying the same page after a scope conflict resets pagination', async () => {
+    let conflict = true
+    api.listQuestions.mockImplementation(async ({ cursor }: { cursor: number }) => {
+      if (cursor === 20 && conflict) {
+        conflict = false
+        throw new ApiError('scope changed', 409, 409, 'SCOPE_CHANGED')
+      }
+      return {
+        ...page,
+        question_count: 40,
+        next_cursor: cursor === 0 ? 20 : null,
+        items: [{ ...item, question_text: cursor === 20 ? 'Second page question' : item.question_text }],
+      }
+    })
+    const user = userEvent.setup()
+    render(<SkillErrorQueryPage />)
+    await screen.findByText(item.question_text)
+    await user.click(screen.getByTitle('2'))
+    await waitFor(() => expect(api.getDictionary).toHaveBeenCalledTimes(2))
+    await screen.findByText(item.question_text)
+    await user.click(screen.getByTitle('2'))
+    expect(await screen.findByText('Second page question')).toBeInTheDocument()
+    expect(api.listQuestions.mock.calls.filter(([params]) => params.cursor === 20)).toHaveLength(2)
+  })
+
+  it('clears the leaf role filter when opening a category', async () => {
+    const user = userEvent.setup()
+    render(<SkillErrorQueryPage />)
+    await screen.findByText(item.question_text)
+    await user.click(screen.getByText('辅助', { selector: '.ant-segmented-item-label' }))
+    await waitFor(() => expect(api.listQuestions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ role: 'auxiliary' }),
+    ))
+    await user.click(screen.getByText('篇章理解', { selector: '.skill-query-tree-label .ant-typography' }))
+    await waitFor(() => expect(api.listQuestions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ subject_type: 'skill_category', subject_code: 'K5', role: 'all' }),
+    ))
+    await user.click(await screen.findByRole('button', { name: '查看条目' }))
+    await waitFor(() => expect(api.listQuestions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ subject_type: 'skill', subject_code: 'S26', role: 'all' }),
+    ))
+    expect(screen.getByRole('radio', { name: '全部' })).toBeChecked()
+  })
+
+  it('binds the first-page request to the displayed dictionary scope', async () => {
+    render(<SkillErrorQueryPage />)
+    await screen.findByText(item.question_text)
+    expect(api.listQuestions).toHaveBeenCalledWith(expect.objectContaining({
+      cursor: 0,
+      expected_scope_version: dictionary.scope_version,
+    }))
+  })
+
+  it('discards a mismatched first-page response and reloads a consistent scope', async () => {
+    api.getDictionary
+      .mockResolvedValueOnce(dictionary)
+      .mockResolvedValue({ ...dictionary, scope_version: 'scope-2' })
+    api.listQuestions
+      .mockResolvedValueOnce({
+        ...page,
+        scope_version: 'scope-2',
+        items: [{ ...item, question_text: 'Inconsistent response must be discarded' }],
+      })
+      .mockResolvedValue({ ...page, scope_version: 'scope-2' })
+    render(<SkillErrorQueryPage />)
+    await screen.findByText(item.question_text)
+    expect(screen.queryByText('Inconsistent response must be discarded')).not.toBeInTheDocument()
+    expect(api.getDictionary).toHaveBeenCalledTimes(2)
+    expect(api.listQuestions).toHaveBeenLastCalledWith(expect.objectContaining({
+      cursor: 0,
+      expected_scope_version: 'scope-2',
+    }))
+  })
+
   it('loads candidate evidence when an error row expands', async () => {
     const user = userEvent.setup()
     render(
