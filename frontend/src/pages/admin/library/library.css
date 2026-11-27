@@ -1,0 +1,7 @@
+.library-editor { width: 100%; }
+.library-fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
+.library-segment { width: 100%; display: grid; gap: 8px; padding-block: 12px; border-bottom: 1px solid var(--ant-color-border-secondary, #e5e7eb); }
+.library-preview { padding-block: 16px; border-top: 1px solid var(--ant-color-border-secondary, #e5e7eb); }
+.library-json { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow: auto; font-size: 13px; }
+.library-annotation-section { padding-block: 16px; border-bottom: 1px solid var(--ant-color-border-secondary, #e5e7eb); }
+.library-annotation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; }

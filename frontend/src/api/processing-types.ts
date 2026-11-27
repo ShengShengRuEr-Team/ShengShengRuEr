@@ -16,6 +16,7 @@ export interface WorkflowMaterial {
 }
 export interface Projection { task_id: string; artifact_id: number; artifact_hash: string; dependency_hash: string }
 export interface WorkflowDetail extends WorkflowSummary {
+  workflow_contract: 'legacy' | 'library.v1'
   sample_result_hash?: string | null
   reprocess_result_hash?: string | null
   error_generation_summary?: {assessed:number;expected:number;resolved:number;reviewed:number}
@@ -55,6 +56,6 @@ export interface ReviewItem {
   candidate_changes: Array<{reference:string;decision:string}>
   note: string; issues: Array<Record<string, unknown>>
 }
-export interface PendingOperation {action: string; url: string; method: 'POST' | 'PATCH'; key: string; body: Record<string, unknown>}
+export interface PendingOperation {action: string; url: string; method: 'POST' | 'PATCH' | 'PUT'; key: string; body: Record<string, unknown>}
 export interface Page<T> { items: T[]; next_cursor: string | null }
 export interface Capabilities { max_upload_bytes: number; processing_ready: boolean; blocked_reason: string | null }

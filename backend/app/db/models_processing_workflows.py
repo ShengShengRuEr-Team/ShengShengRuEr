@@ -35,6 +35,7 @@ class AuditTimes:
 class ProcessingWorkflow(AuditTimes, Base):
     __tablename__ = "processing_workflows"
     __table_args__ = (
+        UniqueConstraint("id", "exam_paper_id", name="uq_workflow_id_paper"),
         UniqueConstraint(
             "exam_level", "exam_year", "exam_month", "paper_set", "content_scope"
         ),
@@ -141,6 +142,11 @@ class ProcessingWorkflowRevision(AuditTimes, Base):
     final_frozen_at = Column(DateTime(timezone=True))
     batch_id = Column(BigInteger, ForeignKey("import_batches.id"))
     created_by = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    workflow_contract = Column(
+        String(32), nullable=False, default="legacy", server_default="legacy"
+    )
+    origin_manifest = Column(JSONB, nullable=False, default=dict, server_default="{}")
+    method_manifest_hash = Column(String(64))
 
 
 class ProcessingWorkflowMaterial(AuditTimes, Base):

@@ -32,6 +32,8 @@ def runtime_compatible(before, after):
         "app/module3/workflow_worker.py",
         "app/services/processing/reviewing.py",
         "app/services/processing/candidate_recovery.py",
+        "app/module3/distractor_annotations.py",
+        "app/module3/llm.py",
         "app/module3/annotation_identity.py",
     }
 
@@ -46,6 +48,10 @@ def saved_candidate(db, task, revision, payload, question, settings):
     source_task = db.get(p.ProcessingTask, UUID(recovery_id))
     if not source_task or not ancestor_revision(db, revision, source_task):
         raise ProcessingError("ARTIFACT_CHANGED", "恢复任务不属于当前工作流祖先")
+    if source_task.method.get("provider_manifest") != task.method.get(
+        "provider_manifest"
+    ):
+        return None
     if not runtime_compatible(
         source_task.method["rules_manifest"], revision.rules_manifest
     ):

@@ -13,6 +13,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import (
     admin,
+    admin_library,
     admin_listening_papers,
     admin_processing,
     admin_processing_workflows,
@@ -119,6 +120,7 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(listening_papers.router, prefix="/api/v1")
 app.include_router(admin_listening_papers.router, prefix="/api/v1")
+app.include_router(admin_library.router, prefix="/api/v1")
 app.include_router(attempts.router, prefix="/api/v1")
 app.include_router(attempt_status.router, prefix="/api/v1")
 app.include_router(admin_processing.router, prefix="/api/v1")

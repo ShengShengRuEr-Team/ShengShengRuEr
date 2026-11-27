@@ -139,6 +139,12 @@ class ExamPaper(Base):
 
     notes = mapped_column(Text, nullable=True)
     attributes_json = mapped_column(JSONB, nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    archived_by: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"))
+    archive_reason: Mapped[str | None] = mapped_column(Text)
+    library_row_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1"
+    )
 
 
 class ImportBatch(Base):

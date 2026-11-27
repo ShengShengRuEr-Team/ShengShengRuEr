@@ -10,6 +10,7 @@ from app.db import (  # noqa: F401
     models,
     models_annotations,
     models_attempt,
+    models_library,
     models_listening,
     models_processing,
     models_processing_workflows,

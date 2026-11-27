@@ -29,6 +29,14 @@ from app.services.processing.validation import validate_result
 
 
 def validate_final(db, payload, request, revision, settings, *, allow_incomplete=False):
+    if revision.workflow_contract == "library.v1" and payload.get("library_provenance"):
+        from app.services.processing.library_review import (
+            validate_final as validate_library,
+        )
+
+        return validate_library(
+            db, payload, request, revision, settings, allow_incomplete=allow_incomplete
+        )
     from app.module3.workflow_worker import generation_input, receipt_changes
     from app.services.processing.candidate_recovery import (
         response_task_matches,

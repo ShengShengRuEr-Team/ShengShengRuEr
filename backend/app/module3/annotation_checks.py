@@ -36,6 +36,39 @@ from app.services.processing.validation import load_dictionary
 PROMPT_VERSION = "m3.annotations.v5"
 
 
+def check_evidence(payload, question, evidence, evidence_path="evidence"):
+    """Shared source-span validation for complete candidates and P6 metric units."""
+    segments = {s["_src_id"]: s for s in payload["transcript_segments"]}
+    refs = evidence.evidence_segment_src_ids
+    if not refs or len(refs) != len(set(refs)) or any(r not in segments for r in refs):
+        raise ProcessingError(
+            "ANNOTATION_EVIDENCE_INVALID", evidence_path + ": 证据引用不存在或重复"
+        )
+    selected = [segments[r] for r in refs]
+    if any(
+        s["segment_type"] != "body"
+        or s["passage_src_id"] != question["passage_src_id"]
+        or s["alignment_status"] != "aligned"
+        or not 0 <= s["start_ms"] < s["end_ms"]
+        for s in selected
+    ):
+        raise ProcessingError(
+            "ANNOTATION_EVIDENCE_INVALID",
+            evidence_path + ": 证据跨篇/提问/无有效时间",
+        )
+    positions = [s["segment_index"] for s in selected]
+    if positions != list(range(positions[0], positions[0] + len(positions))):
+        raise ProcessingError(
+            "ANNOTATION_EVIDENCE_INVALID",
+            f"{evidence_path}: 证据必须为连续有序正文句；收到 {refs}",
+        )
+    quote = " ".join(s["text"] for s in selected)
+    if not (evidence.quote == quote or (len(refs) == 1 and evidence.quote in quote)):
+        raise ProcessingError(
+            "ANNOTATION_QUOTE_INVALID", evidence_path + ": 引文无法在正文定位"
+        )
+
+
 def check_candidate(payload, question, raw):
     candidate = AnnotationCandidate.model_validate(raw)
     if candidate.question_src_id != question["_src_id"]:
@@ -61,7 +94,6 @@ def check_candidate(payload, question, raw):
         raise ProcessingError("ANNOTATION_DICTIONARY_INVALID", "技能非法/重复/不适用")
     if any(e.error_cause_code not in errors for e in candidate.candidate_errors):
         raise ProcessingError("ANNOTATION_DICTIONARY_INVALID", "错因编号非法")
-    segments = {s["_src_id"]: s for s in payload["transcript_segments"]}
     for evidence_path, evidence in [
         *[(f"skills[{i}]", e) for i, e in enumerate(candidate.skills)],
         *[
@@ -73,40 +105,7 @@ def check_candidate(payload, question, raw):
             for i, e in enumerate(candidate.candidate_errors)
         ],
     ]:
-        refs = evidence.evidence_segment_src_ids
-        if (
-            not refs
-            or len(refs) != len(set(refs))
-            or any(r not in segments for r in refs)
-        ):
-            raise ProcessingError(
-                "ANNOTATION_EVIDENCE_INVALID", evidence_path + ": 证据引用不存在或重复"
-            )
-        selected = [segments[r] for r in refs]
-        if any(
-            s["segment_type"] != "body"
-            or s["passage_src_id"] != question["passage_src_id"]
-            or s["alignment_status"] != "aligned"
-            or not 0 <= s["start_ms"] < s["end_ms"]
-            for s in selected
-        ):
-            raise ProcessingError(
-                "ANNOTATION_EVIDENCE_INVALID",
-                evidence_path + ": 证据跨篇/提问/无有效时间",
-            )
-        positions = [s["segment_index"] for s in selected]
-        if positions != list(range(positions[0], positions[0] + len(positions))):
-            raise ProcessingError(
-                "ANNOTATION_EVIDENCE_INVALID",
-                f"{evidence_path}: 证据必须为连续有序正文句；收到 {refs}",
-            )
-        quote = " ".join(s["text"] for s in selected)
-        if not (
-            evidence.quote == quote or (len(refs) == 1 and evidence.quote in quote)
-        ):
-            raise ProcessingError(
-                "ANNOTATION_QUOTE_INVALID", evidence_path + ": 引文无法在正文定位"
-            )
+        check_evidence(payload, question, evidence, evidence_path)
     if any(not e.support_note for e in candidate.answer_evidence):
         raise ProcessingError("ANNOTATION_SUPPORT_MISSING", "答案证据须解释支持依据")
     return {

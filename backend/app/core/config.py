@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     ffmpeg_dll_dir: str = ""
     nltk_data: str = ""
     deepseek_api_key: SecretStr | None = None
+    dashscope_api_key: SecretStr | None = None
+    m3_qwen_region: str = "beijing"
+    m3_cny_usd_rate: float | None = Field(default=None, gt=0, le=1)
+    m3_cny_usd_rate_source: str = ""
+    m3_cny_usd_rate_effective_at: str = ""
     m3_lease_seconds: int = Field(default=120, ge=30)
     m3_heartbeat_seconds: int = Field(default=10, ge=1)
     m3_upload_max_bytes: int = Field(default=536870912, gt=0, le=536870912)
@@ -57,6 +62,8 @@ class Settings(BaseSettings):
     m3_sample_budget_usd: float = Field(default=0.50, gt=0, le=0.75)
     m3_run_budget_usd: float = Field(default=2.0, gt=0, le=2.0)
     m3_total_budget_usd: float = Field(default=5.0, gt=0, le=5.0)
+    m3_budget_enforced: bool = True
+    m3_budget_override_reference: str = ""
     m3_sentence_tolerance_ms: int = Field(default=300, ge=0, le=300)
 
     def m3_path(self, field: str) -> Path:
@@ -65,6 +72,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def finite_lease_intervals(self):
+        if (
+            not self.m3_budget_enforced
+            and not self.m3_budget_override_reference.strip()
+        ):
+            raise ValueError("关闭预算上限须记录明确授权依据")
         if self.m3_heartbeat_seconds * 2 >= self.m3_lease_seconds:
             raise ValueError("处理心跳须小于租约时长的一半")
         if self.m3_upload_heartbeat_seconds * 2 >= self.m3_upload_lease_seconds:

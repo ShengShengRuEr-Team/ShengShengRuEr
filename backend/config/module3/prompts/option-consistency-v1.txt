@@ -1,0 +1,87 @@
+CONSISTENCY ADDENDUM v1: apply the following decision procedure before finalizing
+each wrong option. This clarifies the existing candidate contract; keep its JSON
+schema, evidence rules, skill rules and dictionary definitions unchanged.
+Do not predict another annotator's labels and do not target an agreement score.
+
+1. SEPARATE QUESTION MECHANISM FROM PERSONAL DIAGNOSIS.
+The task asks whether the material supports a possible understanding shift, not
+whether any real student made it, how frequent it is, or which cause is primary
+for that student. Use conditional rationales: "if the listener changes X to Y,
+this could lead to option Z". Missing student answers, prevalence data, or proof
+of an individual's behavior MUST NOT justify NO_SUPPORTED_CANDIDATE or
+INSUFFICIENT_EVIDENCE. Put individual confirmation only in
+personal_verification_needed. This rule applies equally to all error codes.
+
+2. MATERIAL-TO-OPTION TEST, IN THIS ORDER.
+Identify the question's requested relation and the wrong option's proposition.
+Locate the smallest sufficient source proposition(s). Compare their participant,
+action, referent/source, condition/time/comparison, polarity/scope, predicate,
+degree and information role. A candidate is SUPPORTED when you can describe a
+specific changed relation, cite its source anchor, and explain how that change
+produces THIS option. A wrong answer alone, a shared topic, or the generic phrase
+"misunderstood the text" does not meet this test.
+NO_SUPPORTED_CANDIDATE means that after this comparison no enabled definition
+has a material-anchored transformation to the option. Explain the exact boundary,
+not lack of student evidence. INSUFFICIENT_EVIDENCE is reserved for missing,
+unreadable or genuinely ambiguous SOURCE needed to perform the comparison, such
+as an absent antecedent; it is not a measure of personal-diagnosis uncertainty.
+Do not turn unresolved quotation failures into an empty assessment.
+
+3. CHOOSE THE MOST SPECIFIC CHANGED RELATION; NO DUPLICATE GENERAL LABEL.
+Apply only the enabled dictionary definition; the following tests break overlaps.
+- E4.2: the SAME relevant information is attached to a different speaker,
+  entity, referent or research source, or necessary cross-sentence links change.
+  Do not also label that same attribution shift E4.3 or E5.1.
+- E3.3: condition->outcome, time order, or comparison correspondence changes.
+  Swapping outcomes between two conditions is E3.3; do not also call that same
+  swap E3.2/E4.3. A number or "first" by itself is not sufficient.
+- E3.2: an identified negation changes its operand/scope. Simply replacing
+  "less likely" with "more likely" is not automatically a negation-scope error;
+  if two explicit conditions and their outcomes are swapped, use E3.3.
+- E3.1: within a clause, subject/object, modifier attachment or grammatical
+  dependency changes. A different predicate or conflicting fact alone does not
+  establish a syntactic-role mistake.
+- E1.x/E2.x: require the particular enabled lexical/hearing distinction to be
+  anchored in the supplied material. Never infer unfamiliar vocabulary merely
+  because an option uses different words.
+- E5.2: the speaker's attitude or communicative intention itself changes,
+  after excluding lexical, negation and source-attribution changes.
+- E5.1: a conclusion is inferred BEYOND a correctly retained source proposition;
+  explicitly state the added unsupported inference. It is not a generic label
+  for an absent word, any false statement, or a direct meaning replacement.
+- E4.3: use as the remaining whole-meaning/proposition matching mechanism when
+  a cited source relation is REPLACED by the option's different relation and no
+  more specific test above explains that same change. This may include using a
+  real background/supporting fact as the answer to a different requested relation.
+  State both relations and the actual mapping; mere unrelated material is not
+  enough. Do not require exact word overlap or individual student proof.
+
+4. ONE TRANSFORMATION, ONE MOST SPECIFIC LABEL.
+Default to the single most specific evidenced mechanism. Retain multiple labels
+only for TWO independently described changes, EACH necessary to reconstruct a
+distinct path to this option, with its own evidence and verification question.
+Renaming the same condition swap, attribution error or proposition replacement
+in different words is not a second mechanism. Do not impose a label-count quota.
+
+5. FINAL AUDIT (DO NOT ADD OUTPUT FIELDS).
+For every nonempty candidate, verify "source X -> specific change -> this option",
+the code's definition, verbatim evidence, and conditional personal verification.
+For every empty assessment, verify that the reason compares the source and
+option, does not demand student data, and did not overlook an anchored shift.
+For INSUFFICIENT_EVIDENCE, name the missing SOURCE fact, not missing learner data.
+Keep all three option assessments and the status/candidate/unresolved contract.
+
+Synthetic boundary examples, not answers to any test question:
+- Source: "Rain stopped the match. Wind delayed the buses." Asked why the match
+  stopped; wrong option "wind": mapping the real bus-delay cause to the match is
+  an anchored meaning-matching candidate (E4.3), not an empty merely because no
+  student was observed. A completely unmentioned lottery is not automatically
+  a supported mechanism.
+- Source: "With plan A, demand falls; with plan B, demand rises." Mapping a rise
+  to A changes condition/outcome correspondence (E3.3), not three overlapping
+  general, negation and comparison labels.
+- Source: "The clerk did not approve ALL requests." Interpreting it as approving
+  NONE changes explicit negation scope (E3.2).
+- Source: "The room lacks usable sockets." Wrong option "the sockets are ignored"
+  replaces absence with non-use (E4.3); do not claim a subject/object reversal
+  without an actual grammatical-role transformation.

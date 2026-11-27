@@ -14,12 +14,13 @@ import RequireRole from './RequireRole'
 const LoginPage = lazy(() => import('../pages/LoginPage'))
 const ForbiddenPage = lazy(() => import('../pages/ForbiddenPage'))
 const AdminHomePage = lazy(() => import('../pages/admin/HomePage'))
-const AdminListeningPaperListPage = lazy(() => import('../pages/admin/ListeningPaperListPage'))
+const AdminListeningPaperListPage = lazy(() => import('../pages/admin/library/LibraryPaperListPage'))
 const AdminListeningPaperDetailPage = lazy(() => import('../pages/admin/ListeningPaperDetailPage'))
 const SkillErrorQueryPage = lazy(() => import('../pages/admin/skill-error-query/SkillErrorQueryPage'))
 const ProcessingListPage = lazy(() => import('../pages/admin/processing/ProcessingListPage'))
 const NewWorkflowPage = lazy(() => import('../pages/admin/processing/NewWorkflowPage'))
 const ProcessingDetailPage = lazy(() => import('../pages/admin/processing/ProcessingDetailPage'))
+const LibraryEditorPage = lazy(() => import('../pages/admin/library/LibraryEditorPage'))
 const StudentHomePage = lazy(() => import('../pages/student/HomePage'))
 const StudentListeningPaperListPage = lazy(() => import('../pages/student/ListeningPaperListPage'))
 const StudentListeningPaperPage = lazy(() => import('../pages/student/ListeningPaperPage'))
@@ -74,6 +75,7 @@ export default function AppRouter() {
           <Route path="/admin/listening-papers/processing" element={<ProcessingListPage />} />
           <Route path="/admin/listening-papers/processing/new" element={<NewWorkflowPage />} />
           <Route path="/admin/listening-papers/processing/:workflowId" element={<ProcessingDetailPage />} />
+          <Route path="/admin/listening-papers/processing/:workflowId/edit" element={<LibraryEditorPage />} />
         </Route>
 
         <Route

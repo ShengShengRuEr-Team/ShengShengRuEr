@@ -485,6 +485,12 @@ def stage(
         if stage == "align"
         else content.get("questions", [])
     )
+    if stage == "source" and revision.workflow_contract == "library.v1":
+        items = items + [
+            s
+            for s in content.get("transcript_segments", [])
+            if s["segment_type"] == "body"
+        ]
     if stage == "sample":
         items = content.get("questions", [])[:5] + [
             {

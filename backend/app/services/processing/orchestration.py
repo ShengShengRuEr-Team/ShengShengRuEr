@@ -57,7 +57,9 @@ def stage_payload(db, revision, stage, settings):
 
 
 def queue_task(db, workflow, revision, stage, user_id, settings):
-    if revision.rules_manifest["manifest_hash"] != rules_manifest()["manifest_hash"]:
+    from app.services.processing.candidate_recovery import runtime_compatible
+
+    if not runtime_compatible(revision.rules_manifest, rules_manifest()):
         raise w.conflict("ARTIFACT_CHANGED", "生成方法已更新，请创建新修订后处理")
     rows = [uploads.selected_upload(db, revision.id, kind) for kind in w.MATERIAL_KINDS]
     if any(row is None or row.state != "ready" for row in rows):
@@ -68,6 +70,8 @@ def queue_task(db, workflow, revision, stage, user_id, settings):
     paper = (
         db.get(ExamPaper, workflow.exam_paper_id) if workflow.exam_paper_id else None
     )
+    if paper and paper.archived_at:
+        raise w.conflict("PAPER_ARCHIVED", "归档试卷不能启动处理")
     code = paper.exam_paper_code if paper else materials[0].exam_paper_code
     pages = {
         material.id: revision.listening_pages.get(kind, [])
@@ -152,6 +156,11 @@ def queue_task(db, workflow, revision, stage, user_id, settings):
         "prompt_version": "m3.annotations.v7",
         "rule_version": "m3.checks.v3",
         "rules_manifest": revision.rules_manifest,
+        **(
+            {"provider_manifest": revision.origin_manifest["provider_method"]}
+            if revision.origin_manifest.get("provider_method")
+            else {}
+        ),
     }
     task.method_hash = fingerprint(task.method)
     task.request = {
@@ -183,9 +192,10 @@ def start(db, workflow_id, payload, user_id, key, settings):
     if old:
         return old
     workflow, revision = w.locked_current(db, workflow_id, payload)
-    if (
-        revision.materials_frozen_at
-        or workflow.processing_state != "awaiting_materials"
+    if revision.materials_frozen_at or workflow.processing_state not in (
+        {"awaiting_materials", "editing"}
+        if revision.workflow_contract == "library.v1"
+        else {"awaiting_materials"}
     ):
         raise w.conflict("VERSION_CONFLICT", "当前修订已开始，请查询已有操作")
     if not environment_ready(settings):
@@ -239,9 +249,26 @@ def approve_stage(db, workflow_id, payload, user_id, key, settings):
     if old:
         return old
     workflow, revision = w.locked_current(db, workflow_id, payload)
+    if revision.workflow_contract == "library.v1" and payload.stage != "source":
+        raise w.conflict("STAGE_NOT_SUPPORTED", "新流程仅保留合并来源与实际核听审核")
     if workflow.processing_state != WAITING[payload.stage]:
         raise w.conflict("VERSION_CONFLICT", "当前不在该阶段确认点")
     content, projection = stage_payload(db, revision, payload.stage, settings)
+    if revision.workflow_contract == "library.v1" and payload.decision == "approved":
+        required_listening = {
+            s["_src_id"]
+            for s in content["transcript_segments"]
+            if s["segment_type"] == "body"
+        }
+        if (
+            not required_listening
+            or len(payload.listening_items) != len(required_listening)
+            or {i.reference for i in payload.listening_items} != required_listening
+            or any(i.decision != "approved" for i in payload.listening_items)
+        ):
+            raise w.conflict(
+                "LISTENING_REVIEW_REQUIRED", "来源审核须逐项记录本次实际核听范围及依据"
+            )
     if payload.stage == "source" and payload.decision == "approved":
         from app.services.processing.validation import validate_result
 
@@ -314,6 +341,7 @@ def approve_stage(db, workflow_id, payload, user_id, key, settings):
             "review_basis": payload.review_basis,
             "approval_reference": payload.approval_reference,
             "reviewer_kind": payload.reviewer_kind,
+            "listening_items": [item.model_dump() for item in payload.listening_items],
         },
         operator_user_id=user_id,
     )
@@ -339,6 +367,8 @@ def continue_stage(db, workflow_id, payload, user_id, key, settings):
     if old:
         return old
     workflow, revision = w.locked_current(db, workflow_id, payload)
+    if revision.workflow_contract == "library.v1" and payload.stage != "source":
+        raise w.conflict("STAGE_NOT_SUPPORTED", "新流程不接受独立核听或五题试标批准")
     if workflow.processing_state != WAITING[payload.stage]:
         raise w.conflict("VERSION_CONFLICT", "当前不在该阶段确认点")
     _, projection = stage_payload(db, revision, payload.stage, settings)
@@ -360,7 +390,11 @@ def continue_stage(db, workflow_id, payload, user_id, key, settings):
     )
     if not approval or approval.decision != "approved":
         raise w.conflict("STAGE_APPROVAL_REQUIRED", "须先保存当前阶段的逐项确认")
-    target = NEXT_STAGE[payload.stage]
+    target = (
+        "annotate"
+        if revision.workflow_contract == "library.v1"
+        else NEXT_STAGE[payload.stage]
+    )
     if payload.stage == "source":
         previous = tasks.get_task(db, workflow.current_task_id)
         plan = previous.request.get("repair_plan")
@@ -391,7 +425,7 @@ def stop(db, workflow_id, payload, user_id, key):
     commands = db.scalars(
         select(m.ProcessingWorkflowCommand)
         .where(
-            m.ProcessingWorkflowCommand.revision_id == revision.id,
+            m.ProcessingWorkflowCommand.workflow_id == workflow.id,
             m.ProcessingWorkflowCommand.state.in_(["accepted", "running"]),
         )
         .with_for_update()
@@ -404,10 +438,8 @@ def stop(db, workflow_id, payload, user_id, key):
             None,
             None,
         )
-    if workflow.current_task_id and any(
-        command.result.get("task_id") for command in commands
-    ):
-        task = tasks.get_task(db, workflow.current_task_id, lock=True)
+    for task_id in {command.result.get("task_id") for command in commands} - {None}:
+        task = tasks.get_task(db, UUID(task_id), lock=True)
         task.state = "stopping" if had_running else "stopped"
         task.lease_token, task.expires_at = None, None
     workflow.processing_state = "stopping" if had_running else "stopped"
@@ -436,6 +468,12 @@ def retry(db, workflow_id, payload, user_id, key, settings):
         return old
     workflow, revision = w.locked_current(db, workflow_id, payload)
     previous = db.get(m.ProcessingWorkflowCommand, payload.retry_of_operation_id)
+    if previous and previous.result.get("candidate_only"):
+        raise w.conflict(
+            "CANDIDATE_RETRY_SCOPE_REQUIRED",
+            "请从编辑页显式选择待重试题目，保留已完成候选",
+            allowed_action="candidate-generations",
+        )
     if (
         not previous
         or previous.revision_id != revision.id

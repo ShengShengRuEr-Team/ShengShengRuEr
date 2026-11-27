@@ -51,6 +51,8 @@ def confirm_visible(
     audio_dir: Path,
 ) -> tuple[PaperVisibility, content_check.ContentCheck]:
     """确认学生可见；检查未通过时拒绝并返回具体问题。"""
+    if paper.archived_at is not None:
+        raise bad_request("归档试卷须先恢复，再重新独立确认开放")
     check = content_check.run_check(db, paper, batch, audio_dir)
     if not check.is_passed:
         db.commit()  # 保留检查记录，便于排查
@@ -58,6 +60,8 @@ def confirm_visible(
         raise bad_request(f"最低内容检查未通过，不能确认可见：{messages}")
 
     visibility = _get_or_create_visibility(db, paper, batch)
+    if not visibility.is_visible:
+        paper.library_row_version += 1
     visibility.is_visible = True
     visibility.confirmed_by = operator_user_id
     visibility.confirmed_at = _utc_now()
@@ -83,6 +87,8 @@ def cancel_visible(
 ) -> PaperVisibility:
     """取消学生可见；不以检查通过为前提。"""
     visibility = _get_or_create_visibility(db, paper, batch)
+    if visibility.is_visible:
+        paper.library_row_version += 1
     visibility.is_visible = False
     visibility.cancelled_by = operator_user_id
     visibility.cancelled_at = _utc_now()

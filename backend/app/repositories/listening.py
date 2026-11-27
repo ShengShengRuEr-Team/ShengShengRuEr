@@ -90,6 +90,8 @@ def student_access(
     paper = get_paper(db, exam_paper_id)
     if paper is None:
         return False, None, None
+    if paper.archived_at is not None:
+        return False, paper, None
     if (
         paper.expected_question_count is None
         or not paper.expected_question_count_source

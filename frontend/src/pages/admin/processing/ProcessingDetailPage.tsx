@@ -91,6 +91,7 @@ export default function ProcessingDetailPage() {
       {workflow.exam_paper_id&&workflow.current_batch_id&&<Link to={`/admin/listening-papers/${workflow.exam_paper_id}`}>查看正式详情</Link>}</Space>
     <Space wrap><Typography.Title level={4} style={{margin:0}}>{paperName(workflow)}</Typography.Title><Tag color={sourceCheck?'warning':undefined}>{stateLabel(workflowState(workflow))}</Tag>
       <Button onClick={refresh}>刷新</Button></Space>
+    {workflow.workflow_contract==='library.v1'&&<Space wrap><Tag>整套标注流程</Tag><Link to={`/admin/listening-papers/processing/${workflowId}/edit`}>编辑、版本与候选采纳</Link></Space>}
     <PendingOperationPanel owner={owner} target={workflowId} onChange={refresh} onRecovered={()=>refresh()} />
     {error&&<Alert type="error" showIcon title={error} closable onClose={()=>setError('')}/>}{notice&&<Alert type="success" title={notice}/>}
     <Card><ProcessingProgress workflow={workflow}/><Descriptions column={3} size="small" items={[
@@ -121,7 +122,7 @@ export default function ProcessingDetailPage() {
     {media&&<Card title={media.label} extra={<Button onClick={()=>{setMedia(null);if(mediaUrl.current){URL.revokeObjectURL(mediaUrl.current);mediaUrl.current=null}}}>关闭预览</Button>}>
       {media.audio?<audio key={media.url} src={media.url} controls preload="metadata" style={{width:'100%'}}/>:<iframe title={media.label} src={media.url} style={{width:'100%',height:500,border:0}}/>}</Card>}
     {waitingStage&&workflow.stages[waitingStage]&&<StageApprovalPanel key={`${workflow.revision_id}:${waitingStage}`} workflow={workflow} stage={waitingStage} busy={busy} command={command}/>}
-    {(workflow.reprocess_result_hash||workflow.result_hash||workflow.sample_result_hash)&&<ReprocessPanel key={workflow.revision_id} workflow={workflow} questions={questions} busy={busy||dirty} command={command}/>}
+    {workflow.workflow_contract!=='library.v1'&&(workflow.reprocess_result_hash||workflow.result_hash||workflow.sample_result_hash)&&<ReprocessPanel key={workflow.revision_id} workflow={workflow} questions={questions} busy={busy||dirty} command={command}/>}
     {workflow.error_generation_summary&&<Typography.Text>本阶段干扰项检查 {workflow.error_generation_summary.assessed} / {workflow.error_generation_summary.expected} · 结论完整 {workflow.error_generation_summary.resolved} / {workflow.error_generation_summary.expected} · 已勾选审核 {workflow.error_generation_summary.reviewed} / {workflow.error_generation_summary.expected}</Typography.Text>}
     {question?<div className="processing-review-grid"><Card title="题目与标注（只读）" extra={<Select aria-label="跳转题目" value={question.question_no} options={questions.map(item=>({value:item.question_no,label:`第 ${item.question_no} 题`}))} onChange={value=>{const next=new URLSearchParams(search);next.set('question',String(value));setSearch(next,{replace:true})}}/>}>
       <QuestionContent question={question} play={play}/></Card>
