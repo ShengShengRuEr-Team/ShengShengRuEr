@@ -132,6 +132,24 @@ class Verification:
         finally:
             engine.dispose()
 
+    def reset_disposable_schema(self, url):
+        name = url.database
+        if name not in self.report.get("databases", []) or not name.startswith(
+            "m3_verify_"
+        ):
+            raise RuntimeError(
+                "Schema reset is restricted to this run's disposable databases"
+            )
+        engine = create_engine(url)
+        try:
+            with engine.begin() as connection:
+                if connection.scalar(text("SELECT current_database()")) != name:
+                    raise RuntimeError("Disposable database identity changed")
+                connection.execute(text("DROP SCHEMA public CASCADE"))
+                connection.execute(text("CREATE SCHEMA public"))
+        finally:
+            engine.dispose()
+
     def migrations(self, python, url, env):
         migration_env = {**env, "DATABASE_URL": url.render_as_string(False)}
         # Exercise each deployed ancestry and the unmerged combination. Never
@@ -173,14 +191,31 @@ class Verification:
                 "preserved": True,
             }
             self.save()
-            self.run(
-                f"{label}-reset",
-                [python, "-m", "alembic", "downgrade", "base"],
-                migration_env,
-            )
+            self.reset_disposable_schema(url)
+        self.run(
+            "clean-upgrade", [python, "-m", "alembic", "upgrade", "head"], migration_env
+        )
+        before_refusal = self.snapshot(url)
+        self.run(
+            "destructive-downgrade-refused",
+            [
+                python,
+                "-c",
+                (
+                    "from alembic import command; from alembic.config import Config\n"
+                    "try:\n command.downgrade(Config('alembic.ini'), 'base')\n"
+                    "except RuntimeError as error:\n"
+                    " assert 'Retain financial audit' in str(error)\n"
+                    " print('Destructive downgrade refused; history retained')\n"
+                    "else:\n raise AssertionError('Unexpected destructive downgrade')\n"
+                ),
+            ],
+            migration_env,
+        )
+        if before_refusal != self.snapshot(url):
+            raise RuntimeError("Rows changed after destructive downgrade refusal")
+        self.reset_disposable_schema(url)
         for name, command in (
-            ("clean-upgrade", ["upgrade", "head"]),
-            ("clean-downgrade", ["downgrade", "base"]),
             ("legacy-upgrade", ["upgrade", LEGACY]),
             ("legacy-fixture", None),
         ):
@@ -207,18 +242,13 @@ class Verification:
         after = self.snapshot(url, before)
         if before != after:
             raise RuntimeError("Module-two rows changed during upgrade")
-        self.run(
-            "head-to-legacy",
-            [python, "-m", "alembic", "downgrade", LEGACY],
-            migration_env,
-        )
-        rollback = self.snapshot(url, before)
-        if before != rollback:
-            raise RuntimeError("Module-two rows changed during downgrade")
         self.report["migration_preservation"] = {
             "before": before,
             "after_upgrade": after,
-            "after_downgrade": rollback,
+            "destructive_downgrade": "REFUSED_HISTORY_RETAINED",
+            "application_rollback": (
+                "NOT_RUN; disable new entry points, retain schema/history"
+            ),
         }
         self.save()
         self.run(
@@ -328,6 +358,7 @@ def main() -> int:
         "M3_MATERIALS_DIR": str(output / "materials"),
         "M3_ARTIFACTS_DIR": str(output / "processing"),
         "DEEPSEEK_API_KEY": "",
+        "DASHSCOPE_API_KEY": "",
     }
     created = []
     admin = None
@@ -458,14 +489,20 @@ def main() -> int:
                 "app/module3",
                 "app/services/processing",
                 "app/api/admin_processing.py",
+                "app/api/admin_library.py",
                 "app/api/admin_processing_workflows.py",
                 "app/db/models_processing_workflows.py",
+                "app/db/models_library.py",
+                "app/schemas_library.py",
                 "app/schemas_processing.py",
                 "app/schemas_processing_workflows.py",
                 "tests/module3",
                 "scripts/verify_module3.py",
                 "scripts/run_module3_unittests.py",
                 "scripts/module3_legacy_fixture.py",
+                "scripts/library_inventory.py",
+                "scripts/library_retention.py",
+                "scripts/compare_library_models.py",
             ],
             env,
         )

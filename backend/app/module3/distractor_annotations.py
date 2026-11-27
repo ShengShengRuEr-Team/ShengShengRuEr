@@ -375,7 +375,12 @@ def validate_option_relations(payload, *, allow_incomplete=False):
             raise ProcessingError(
                 "CANDIDATE_UNRESOLVED", f"{qid}/{letter}: 依据不足待核"
             )
-        if a["source_candidate_hash"] != receipts.get(qid, {}).get("candidate_hash"):
+        source_hash = (
+            payload["library_provenance"].get("annotation_hashes", {}).get(qid)
+            if payload.get("library_provenance", {}).get("contract") == "library.v1"
+            else receipts.get(qid, {}).get("candidate_hash")
+        )
+        if a["source_candidate_hash"] != source_hash:
             raise ProcessingError("ANNOTATION_VERSION_MISMATCH", "评估未绑定候选哈希")
         for ref in a["comparison_evidence_refs"]:
             evidence = evidences.get(ref["evidence_src_id"])

@@ -13,7 +13,7 @@ BASE = "/api/v1/admin/processing-workflows"
 
 
 @pytest.fixture
-def pipeline(client, context, monkeypatch):
+def pipeline(client, context, monkeypatch, request):
     from app.db import models_processing as p
     from app.db import models_processing_workflows as m
     from app.db.base import SessionLocal
@@ -36,6 +36,24 @@ def pipeline(client, context, monkeypatch):
         "document_mode": "text",
         "listening_pages": {"paper": [1], "answer": [1]},
     }
+    library_mode = getattr(request, "param", None) == "library"
+    if library_mode:
+        metadata.update(workflow_contract="library.v1", exam_month=6, paper_set=1)
+    # Fixtures share one isolated database. A random year from 99 possibilities
+    # can collide after library mode fixes the month and paper set.
+    with SessionLocal() as db:
+        occupied = set(
+            db.scalars(
+                select(m.ProcessingWorkflow.exam_year).where(
+                    m.ProcessingWorkflow.exam_level == metadata["exam_level"],
+                    m.ProcessingWorkflow.exam_month == metadata["exam_month"],
+                    m.ProcessingWorkflow.paper_set == metadata["paper_set"],
+                )
+            )
+        )
+    metadata["exam_year"] = next(
+        year for year in range(2100, 2201) if year not in occupied
+    )
     created = client.post(
         BASE, json=metadata, headers={**headers, "Idempotency-Key": str(uuid4())}
     )
@@ -104,6 +122,25 @@ def pipeline(client, context, monkeypatch):
         {"material_id": material_ids["answer"], "locator": {"page": 1}}
     ]
     source["audio"]["audio_code"] = "SYN_" + uuid4().hex
+    if library_mode:
+        template, presentation = source["questions"][0], source["presentations"][0]
+        source["questions"], source["presentations"] = [], []
+        for number in range(1, 26):
+            q = {
+                **copy.deepcopy(template),
+                "_src_id": f"q:{number}",
+                "question_code": f"Q{number}",
+                "question_index": number,
+            }
+            source["questions"].append(q)
+            source["presentations"].append(
+                {
+                    **copy.deepcopy(presentation),
+                    "_src_id": f"pr:{number}",
+                    "question_src_id": q["_src_id"],
+                    "question_no": number,
+                }
+            )
     eligible = [
         r
         for table in load_dictionary()["tables"]
@@ -224,7 +261,13 @@ def pipeline(client, context, monkeypatch):
             ]
         }
         with SessionLocal() as db:
-            tasks.fenced_task(db, task_id, kwargs["execution_token"])
+            generation_task = tasks.fenced_task(db, task_id, kwargs["execution_token"])
+            request = {
+                **generation_task.method.get("provider_manifest", {}).get(
+                    "parameters", {}
+                ),
+                **request,
+            }
             attempt = p.LlmAttempt(
                 task_id=task_id,
                 run_key=run_key,
@@ -279,11 +322,12 @@ def pipeline(client, context, monkeypatch):
         assert code == expected_code, detail()
         return operation
 
-    def approve(stage):
+    def approve(stage, continue_after=True):
         value = detail()
         response = client.get(
             f"{BASE}/{workflow_id}/revisions/{value['revision_id']}/stages/{stage}",
             headers=headers,
+            params={"limit": 100},
         )
         assert response.status_code == 200, response.text
         stage_data = response.json()["data"]
@@ -291,6 +335,9 @@ def pipeline(client, context, monkeypatch):
             row["_src_id"]
             for row in stage_data["items"]
             if stage != "align" or row["segment_type"] == "body"
+            if not (
+                library_mode and stage == "source" and row.get("segment_type") == "body"
+            )
         ]
         response = post(
             "stage-approvals",
@@ -307,9 +354,22 @@ def pipeline(client, context, monkeypatch):
                     }
                     for ref in refs
                 ],
+                "listening_items": [
+                    {
+                        "reference": row["_src_id"],
+                        "decision": "approved",
+                        "reason": "Synthetic listening record; not human acceptance",
+                    }
+                    for row in stage_data["items"]
+                    if library_mode
+                    and stage == "source"
+                    and row.get("segment_type") == "body"
+                ],
             },
         )
         assert response.status_code == 200, response.text
+        if not continue_after:
+            return response
         execute(
             post(
                 "continue",

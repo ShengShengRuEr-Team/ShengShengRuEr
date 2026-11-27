@@ -264,6 +264,24 @@ class LlmAttempt(Base):
         UUID(as_uuid=True), ForeignKey("processing_tasks.id"), nullable=False
     )
     run_key = Column(String(64), nullable=False)
+    provider = Column(
+        String(32), nullable=False, server_default="deepseek", default="deepseek"
+    )
+    official_endpoint_id = Column(String(64))
+    price_version = Column(String(64))
+    currency = Column(String(8), nullable=False, server_default="USD", default="USD")
+    original_reserved = Column(Numeric(18, 10))
+    original_charged = Column(Numeric(18, 10))
+    exchange_rate = Column(JSONB)
+    provider_manifest = Column(JSONB)
+    usage_detail = Column(JSONB)
+    budget_scope_id = Column(
+        String(64),
+        nullable=False,
+        default="module3-stage-v1",
+        server_default="module3-stage-v1",
+    )
+    paper_budget_key = Column(String(64))
     phase = Column(String(16), nullable=False)
     request_hash = Column(String(64), nullable=False)
     request_payload = Column(JSONB, nullable=False)

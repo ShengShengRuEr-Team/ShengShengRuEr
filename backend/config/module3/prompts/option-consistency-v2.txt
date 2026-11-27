@@ -1,0 +1,93 @@
+OPTION POLICY v2: the following task-specific decisions resolve any overlapping
+interpretations of the preceding instructions. Preserve the output JSON contract,
+enabled dictionary, source evidence rules and independent skill annotation.
+Do not guess another model's output. Annotate the supplied material independently.
+
+TASK: POTENTIAL QUESTION MECHANISMS, NOT DIAGNOSES OF REAL STUDENTS.
+A conditional, text-anchored explanation is sufficient: if a listener replaces
+source relation X with option relation Y, that could lead to this wrong option.
+Never demand student responses, error prevalence, or proof of an individual's
+misunderstanding to propose a candidate. Put individual confirmation only in
+personal_verification_needed. Do not infer that an actual student made the error.
+
+STEP 1: WRITE THE SOURCE-TO-OPTION CONTRAST IN reason.
+Identify what the question asks: actor, action/method, cause, purpose, outcome,
+attribute, attitude, condition or time. Find its source proposition. Contrast the
+wrong option with that proposition in the requested semantic slot.
+
+SAME-SLOT REPLACEMENT IS A SUPPORTED MECHANISM.
+When an option substitutes a different material, method, participant attribute,
+cause or predicate for the source answer in the SAME requested relation, this is
+a concrete meaning-matching shift. The substitute need not occur elsewhere in the
+passage. Cite the source side of the contrast and describe the replacement from
+the option. Do not require the passage to mention or contrast the wrong alternative.
+For example, a source stating that a worker polished a surface and an option
+claiming he painted it replace the action in an anchored relation; lack of the
+word "painted" in the passage is NOT grounds for an empty assessment.
+An unrelated claim with no identifiable relation to the requested proposition,
+or a mechanism that requires inventing missing SOURCE facts, is different.
+
+Use SUPPORTED when this contrast fits an enabled mechanism. In particular, a
+direct same-slot proposition replacement normally supports E4.3. Do not require
+additional learner data or reject it merely because several personal pathways
+could explain that replacement. NO_SUPPORTED_CANDIDATE is reserved for no
+identifiable source-to-option transformation fitting the enabled definitions,
+not for an unmentioned substitute or an unobserved student. Explain its boundary.
+INSUFFICIENT_EVIDENCE is for genuinely missing/ambiguous SOURCE required for the
+comparison, not missing personal-response data. Preserve unresolved source facts.
+
+STEP 2: SELECT ONE CODE FOR THE CORE CHANGED RELATION.
+Classify what the option actually changes, not every process a listener might
+have used. Default to ONE most specific candidate per wrong option.
+
+- E4.3, source/option meaning mismatch: the option replaces the stated method,
+  cause, attribute, outcome or proposition, or promotes a supporting/background
+  statement to the answer to a different asked relation. Describe source X versus
+  option Y explicitly. This is the default for an anchored whole-meaning change
+  after the specific tests below have been excluded.
+- E4.2, attribution/integration: use when the CORE false claim specifically
+  attaches the SAME information to a different speaker, referent or research
+  source, or changes a necessary cross-sentence connection. Merely finding the
+  option's wording in another speaker's background remark does not automatically
+  establish E4.2: if the actual mistake is answering the wrong requested relation,
+  use E4.3. Never append E4.2 just because the explanation quotes several sentences.
+- E3.3, condition/time/comparison correspondence: use when the option exchanges
+  explicit condition->outcome pairings, time order or comparison correspondence.
+  Do not relabel the SAME pairing swap as E3.2 or E4.3 as well. A number or "first"
+  alone is not enough.
+- E3.2, negation scope: require a concrete scope transformation, such as NOT ALL
+  becoming NONE, or a changed operand of an identified negation. The mere presence
+  of "not" in the source, an opposite/wrong option, or a false classification does
+  not establish a separate scope mechanism. If an option replaces an overall
+  evaluation or attribute without an independently expressed scope change, E4.3
+  alone is appropriate. Do not append E3.2 as an imagined route to that same mismatch.
+- E3.1, syntax: require an actual subject/object, grammatical role or modifier
+  attachment change. Replacing "absent" with "ignored", or one factual predicate
+  with another, is ordinarily E4.3, not a grammatical-role reversal.
+- E5.1, over-inference: require a distinct added conclusion inferred beyond a
+  retained source premise. Identify that additional inferential step. A direct
+  replacement of what the source says is E4.3, not automatically E5.1 merely
+  because the wrong statement is unsupported.
+- E5.2: use when the changed relation is specifically attitude or communicative
+  intention and this is supported after excluding a lexical, attribution or
+  negation-scope transformation. A generic factual attribute mismatch is E4.3.
+- Other enabled codes: require their specific dictionary distinction. Different
+  words alone do not establish unfamiliar vocabulary or a hearing error.
+
+MULTIPLE LABELS ARE EXCEPTIONAL, NOT A LIST OF ALTERNATIVE STORIES.
+Do not return both a specific label and E4.3 for the SAME mismatch. Do not turn
+"the listener might have missed negation OR inferred too much OR mismatched the
+sentence" into three candidates. Several hypothetical personal routes to the same
+option do not establish independent question mechanisms. Add a second label only
+when the wrong option expresses a SECOND independently identifiable changed
+relationship, supported by its own source contrast, evidence and verification.
+If independence is not established, keep the single code describing the core
+changed proposition, rather than a general label plus speculative extras.
+
+FINAL CHECK BEFORE RETURNING JSON.
+For each empty result, recheck same-slot substitution and background-as-answer
+confusion; do not cite missing student data, missing exact option words, or lack
+of proof that an individual made an error. For each nonempty result, show the
+specific source-to-option change and use the most specific single core code.
+Keep all three wrong-option assessments, exact source evidence and the existing
+status/candidates/unresolved_points contract. Return only the required JSON.

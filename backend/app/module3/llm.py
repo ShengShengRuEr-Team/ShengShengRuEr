@@ -12,8 +12,9 @@ from sqlalchemy import create_engine, select, text
 
 from app.db.base import SessionLocal, engine
 from app.db.models_processing import LlmAttempt
+from app.module3 import providers
 from app.module3.contracts import ProcessingError, canonical_bytes, fingerprint
-from app.module3.generation_config import MAX_OUTPUT, generation_parameters
+from app.module3.generation_config import MAX_OUTPUT
 
 INPUT_PER_TOKEN = Decimal("0.00000030")
 OUTPUT_PER_TOKEN = Decimal("0.00000120")
@@ -67,19 +68,22 @@ def external_commitments(run_key):
                 ).scalar()
                 if not exists:
                     continue
-                row = connection.execute(
-                    text("""
-                    SELECT coalesce(sum(coalesce(charged_usd,reserved_usd)),0),
-                    coalesce(sum(coalesce(charged_usd,reserved_usd))
-                        FILTER (WHERE run_key=:run),0),
-                    coalesce(sum(coalesce(charged_usd,reserved_usd))
-                        FILTER (WHERE run_key=:run AND phase='sample'),0),
-                    count(*) FILTER (WHERE run_key=:run AND billing_status='unknown')
-                    FROM processing_llm_attempts
-                """),
-                    {"run": run_key},
-                ).one()
-                totals = [a + b for a, b in zip(totals, row, strict=True)]
+                entries = connection.execute(
+                    text("""SELECT a.run_key,a.phase,a.billing_status,
+                    coalesce(a.charged_usd,a.reserved_usd) AS cost,t.request
+                    FROM processing_llm_attempts a
+                    LEFT JOIN processing_tasks t ON t.id=a.task_id""")
+                ).mappings()
+                for entry in entries:
+                    key = providers.paper_budget_key(entry["request"] or {})
+                    matches = (
+                        key == run_key or entry["run_key"] == run_key or key is None
+                    )
+                    totals[0] += entry["cost"]
+                    if matches:
+                        totals[1] += entry["cost"]
+                        totals[2] += entry["cost"] if entry["phase"] == "sample" else 0
+                        totals[3] += int(entry["billing_status"] == "unknown")
         except Exception:
             raise ProcessingError(
                 "BUDGET_AUDIT_BLOCKED", "无法核查历史费用账本，停止新调用"
@@ -89,12 +93,34 @@ def external_commitments(run_key):
     return totals
 
 
-def reserve(task_id, run_key, phase, request, settings, *, execution_token=None):
+def reserve(
+    task_id,
+    run_key,
+    phase,
+    request,
+    settings,
+    *,
+    execution_token=None,
+    provider_manifest=None,
+):
     # UTF-8 byte count is a conservative upper bound for byte-level tokenization.
-    maximum = (
-        Decimal(len(canonical_bytes(request))) * INPUT_PER_TOKEN
-        + MAX_OUTPUT * OUTPUT_PER_TOKEN
+    manifest = provider_manifest or providers.freeze("deepseek", settings)
+    policy = manifest.get("budget_policy", {"enforced": True})
+    enforced = policy.get("enforced", True)
+    if not enforced and (
+        getattr(settings, "m3_budget_enforced", True)
+        or not policy.get("override_reference")
+        or policy["override_reference"]
+        != getattr(settings, "m3_budget_override_reference", "").strip()
+    ):
+        raise ProcessingError(
+            "BUDGET_OVERRIDE_REQUIRED", "执行环境与冻结的预算授权不一致"
+        )
+    input_price, output_price = providers.prices(manifest)
+    original_maximum = (
+        Decimal(len(canonical_bytes(request))) * input_price + MAX_OUTPUT * output_price
     ) * Decimal("1.20")
+    maximum = original_maximum * Decimal(manifest["usd_per_currency"])
     with cluster_budget_lock(), SessionLocal() as db:
         db.execute(text("SELECT pg_advisory_xact_lock(3913343171)"))
         if execution_token is not None:
@@ -125,22 +151,34 @@ def reserve(task_id, run_key, phase, request, settings, *, execution_token=None)
                         "ANNOTATION_VERSION_MISMATCH", "方法身份变化，停止收费预留"
                     )
         rows = db.scalars(select(LlmAttempt)).all()
+        from app.db.models_processing import ProcessingTask
+
+        active = db.get(ProcessingTask, task_id)
+        paper_key = providers.paper_budget_key(active.request) if active else None
 
         def cost(row):
             return row.charged_usd if row.charged_usd is not None else row.reserved_usd
 
         external_total, external_run, external_sample, _external_unknown = (
-            external_commitments(run_key)
+            external_commitments(paper_key or run_key)
         )
         # Unknown charges are informational, conservatively included above at
         # the reserved amount. They never become a zero-cost successful call.
         total = sum((cost(r) for r in rows), external_total)
-        run = sum((cost(r) for r in rows if r.run_key == run_key), external_run)
+
+        def same_paper(row):
+            return (
+                row.paper_budget_key == paper_key
+                if paper_key and row.paper_budget_key
+                else row.run_key == run_key
+            )
+
+        run = sum((cost(r) for r in rows if same_paper(r)), external_run)
         sample = sum(
-            (cost(r) for r in rows if r.run_key == run_key and r.phase == "sample"),
+            (cost(r) for r in rows if same_paper(r) and r.phase == "sample"),
             external_sample,
         )
-        if (
+        if enforced and (
             total + maximum > Decimal(str(settings.m3_total_budget_usd))
             or run + maximum > Decimal(str(settings.m3_run_budget_usd))
             or (
@@ -158,6 +196,19 @@ def reserve(task_id, run_key, phase, request, settings, *, execution_token=None)
             reserved_usd=maximum,
             status="reserved",
             billing_status="unknown",
+            provider=manifest["provider"],
+            official_endpoint_id=manifest["official_endpoint_id"],
+            price_version=manifest["price_version"],
+            currency=manifest["currency"],
+            provider_manifest=manifest,
+            original_reserved=original_maximum,
+            exchange_rate={
+                "usd_per_currency": manifest["usd_per_currency"],
+                "source": manifest["exchange_rate_source"],
+                "effective_at": manifest["exchange_rate_effective_at"],
+            },
+            budget_scope_id="module3-stage-v1",
+            paper_budget_key=paper_key,
         )
         db.add(row)
         db.commit()
@@ -183,9 +234,13 @@ def settle(attempt_id, *, response=None, error_code=None, status="succeeded"):
             ):
                 row.input_tokens, row.output_tokens = prompt, completion
                 # Supplier does not report account debit; retain conservative estimate.
-                row.charged_usd = (
-                    prompt * INPUT_PER_TOKEN + completion * OUTPUT_PER_TOKEN
+                manifest = row.provider_manifest or providers.freeze("deepseek", None)
+                input_price, output_price = providers.prices(manifest)
+                row.original_charged = prompt * input_price + completion * output_price
+                row.charged_usd = row.original_charged * Decimal(
+                    manifest["usd_per_currency"]
                 )
+                row.usage_detail = usage
                 row.billing_status = "estimated"
         db.commit()
 
@@ -201,14 +256,14 @@ def request_json(
     transport=None,
     execution_token=None,
     validation_feedback=None,
+    provider_manifest=None,
 ):
-    if (
-        not settings.deepseek_api_key
-        or not settings.deepseek_api_key.get_secret_value()
-    ):
-        raise ProcessingError("CREDENTIALS_MISSING", "未配置DeepSeek受控密钥")
+    manifest = providers.check_manifest(
+        provider_manifest or providers.freeze("deepseek", settings)
+    )
+    api_key = providers.secret(manifest, settings)
     request = {
-        **generation_parameters(),
+        **manifest["parameters"],
         "messages": [
             {
                 "role": "system",
@@ -274,7 +329,7 @@ def request_json(
                 },
             ]
         )
-    attempts = 1 if execution_token is not None else 3
+    attempts = 1
     for index in range(attempts):
         if execution_token is not None:
             from app.services.processing.tasks import fenced_task
@@ -282,7 +337,13 @@ def request_json(
             with SessionLocal() as db:
                 fenced_task(db, task_id, execution_token)
         attempt = reserve(
-            task_id, run_key, phase, request, settings, execution_token=execution_token
+            task_id,
+            run_key,
+            phase,
+            request,
+            settings,
+            execution_token=execution_token,
+            provider_manifest=manifest,
         )
         if execution_token is not None:
             with SessionLocal() as db:
@@ -290,12 +351,9 @@ def request_json(
         try:
             with httpx.Client(timeout=120, transport=transport) as client:
                 response = client.post(
-                    "https://api.deepseek.com/chat/completions",
+                    providers.ENDPOINTS[manifest["official_endpoint_id"]],
                     json=request,
-                    headers={
-                        "Authorization": "Bearer "
-                        + settings.deepseek_api_key.get_secret_value()
-                    },
+                    headers={"Authorization": "Bearer " + api_key},
                 )
         except httpx.TransportError:
             settle(attempt, error_code="LLM_TRANSPORT", status="failed")

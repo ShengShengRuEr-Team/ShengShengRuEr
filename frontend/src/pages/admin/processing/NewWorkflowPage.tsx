@@ -18,7 +18,7 @@ export default function NewWorkflowPage() {
     try {
       const {paper_pages, answer_pages, ...metadata} = values
       const operation = await sendOperation(owner, 'new', {action:'create',url:WORKFLOWS,method:'POST',key:crypto.randomUUID(),
-        body:{...metadata,listening_pages:{paper:pages(paper_pages),answer:pages(answer_pages)}}})
+        body:{...metadata,workflow_contract:'library.v1',listening_pages:{paper:pages(paper_pages),answer:pages(answer_pages)}}})
       navigate(`/admin/listening-papers/processing/${operation.workflow_id}`, {replace:true})
     } catch (cause) { setError(cause instanceof Error ? cause.message : '创建失败'); if (cause instanceof ApiError && typeof cause.context?.workflow_id === 'string') setExisting(cause.context.workflow_id) }
     finally { setBusy(false) }
@@ -32,8 +32,9 @@ export default function NewWorkflowPage() {
     <Card><Form<Values> layout="vertical" onFinish={values => void create(values)} initialValues={{exam_level:'CET4',exam_year:2025,exam_month:6,paper_set:1,document_mode:'text'}}>
       <Space align="start" wrap><Form.Item name="exam_level" label="级别" rules={[{required:true}]}><Select style={{width:130}} options={[{value:'CET4',label:'CET4'},{value:'CET6',label:'CET6'}]} /></Form.Item>
         <Form.Item name="exam_year" label="年份" rules={[{required:true}]}><InputNumber min={1980} max={2200} precision={0} /></Form.Item>
-        <Form.Item name="exam_month" label="月份" rules={[{required:true}]}><InputNumber min={1} max={12} precision={0} /></Form.Item>
-        <Form.Item name="paper_set" label="套别" rules={[{required:true}]}><InputNumber min={1} max={100} precision={0} /></Form.Item></Space>
+        <Form.Item name="exam_month" label="月份" rules={[{required:true}]}><Select style={{width:130}} options={[{value:6,label:'6月'},{value:12,label:'12月'}]} /></Form.Item>
+        <Form.Item name="paper_set" label="套别" rules={[{required:true}]}><InputNumber min={1} max={3} precision={0} /></Form.Item></Space>
+      <Form.Item name="provider" label="官方标注模型" initialValue="deepseek"><Select options={[{value:'deepseek',label:'DeepSeek · deepseek-flash（默认）'},{value:'bailian',label:'阿里云百炼 · qwen3.8-flash'}]} /></Form.Item>
       <Form.Item name="document_mode" label="原卷文字来源" rules={[{required:true}]}><Select options={[{value:'text',label:'文本原卷PDF'},{value:'scan',label:'扫描原卷PDF（OCR）'}]} /></Form.Item>
       <Form.Item name="paper_pages" label="原卷听力页码（可选）" extra="填写实际PDF页码，以逗号分隔；留空由来源提取检查确定。"><Input placeholder="例如：2,3,4" /></Form.Item>
       <Form.Item name="answer_pages" label="答案解析听力页码（可选）"><Input placeholder="例如：1,2,3" /></Form.Item>

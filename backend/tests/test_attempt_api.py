@@ -978,15 +978,15 @@ def test_a14_limit_race_single_attempt(student_token, api_data, monkeypatch):
     content = api_data.build_paper()
     payload = _payload(content.question_ids)
     barrier = threading.Barrier(2)
-    real_lock = service.lock_student_paper
+    real_access = service.check_submit_access
     results = []
     errors = []
 
-    def synced_lock(db, student_id, paper_id):
+    def synced_access(db, paper_id):
         barrier.wait(timeout=10)
-        return real_lock(db, student_id, paper_id)
+        return real_access(db, paper_id)
 
-    monkeypatch.setattr(service, "lock_student_paper", synced_lock)
+    monkeypatch.setattr(service, "check_submit_access", synced_access)
 
     def worker(key):
         try:
@@ -1033,6 +1033,10 @@ def test_a14_without_limit_lock_race_can_duplicate(student_token, api_data, monk
         return result
 
     monkeypatch.setattr(service, "lock_student_paper", _noop_lock)
+    # Negative control disables BOTH admission locks. The new paper lock also
+    # serializes attempts with archive/activation and independently protects count.
+    from app.repositories.listening import student_access
+    monkeypatch.setattr(service, "check_submit_access", student_access)
     monkeypatch.setattr(service, "insert_attempt_with_answers", synced_insert)
 
     def worker(key):

@@ -154,8 +154,12 @@ def create_task(db: Session, data: TaskRequest, user_id: int, settings: Settings
             and data.expected_question_count
             and (
                 paper.expected_question_count != data.expected_question_count
-                or paper.expected_question_count_source
-                != request["expected_question_count_source"]
+                or (
+                    paper.expected_question_count_source
+                    != request["expected_question_count_source"]
+                    and (paper.expected_question_count_source or {}).get("source")
+                    not in {"pending_original_paper", "admin_original_paper"}
+                )
             )
         ):
             raise conflict("可信题量或来源与已冻结值冲突")
@@ -776,6 +780,8 @@ def activate(db, paper_id, data: ActivationRequest, user_id):
     )
     if paper is None:
         raise not_found()
+    if paper.archived_at is not None:
+        raise conflict("归档试卷不能激活新批次")
     task = get_task(db, data.task_id, lock=True)
     if task.workflow_id and not db.info.get("workflow_publication"):
         raise conflict("新结果须通过工作流发布操作激活")
@@ -821,6 +827,7 @@ def activate(db, paper_id, data: ActivationRequest, user_id):
         current.is_current = False
         db.flush()
     batch.is_current, batch.status = True, "active"
+    paper.library_row_version += 1
     paper.playback_audio_id = batch.audio_id
     paper.review_status = "已通过"
     visibility = db.scalar(

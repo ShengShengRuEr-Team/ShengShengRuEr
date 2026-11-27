@@ -28,6 +28,8 @@ class ListeningPages(StrictModel):
 
 
 class WorkflowCreate(StrictModel):
+    provider: Literal["deepseek", "bailian"] = "deepseek"
+    workflow_contract: Literal["legacy", "library.v1"] = "legacy"
     exam_level: Literal["CET4", "CET6"]
     exam_year: int = Field(ge=1980, le=2200, strict=True)
     exam_month: int = Field(ge=1, le=12, strict=True)
@@ -42,6 +44,8 @@ class WorkflowPreconditions(StrictModel):
 
 
 class RevisionCreate(WorkflowPreconditions):
+    provider: Literal["deepseek", "bailian"] | None = None
+    workflow_contract: Literal["library.v1"] | None = None
     reason: NonEmpty = Field(max_length=2000)
     document_mode: Literal["text", "scan"]
     listening_pages: ListeningPages
@@ -79,6 +83,9 @@ class StageApprovalRequest(WorkflowPreconditions):
     review_basis: Literal["itemized", "user_confirmation"] = "itemized"
     approval_reference: NonEmpty | None = None
     reviewer_kind: Literal["human", "codex"] = "human"
+    listening_items: list[StageApprovalItem] = Field(
+        default_factory=list, max_length=1000
+    )
 
 
 class ContinueRequest(WorkflowPreconditions):
@@ -268,6 +275,7 @@ class WorkflowUsageDto(StrictModel):
 
 
 class WorkflowDetailDto(WorkflowSummaryDto):
+    workflow_contract: str = "legacy"
     task_id: UUID | None
     result_hash: Sha256 | None
     sample_result_hash: Sha256 | None = None
