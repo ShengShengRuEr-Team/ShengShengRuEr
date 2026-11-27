@@ -254,13 +254,22 @@ def approve_stage(db, workflow_id, payload, user_id, key, settings):
     if workflow.processing_state != WAITING[payload.stage]:
         raise w.conflict("VERSION_CONFLICT", "当前不在该阶段确认点")
     content, projection = stage_payload(db, revision, payload.stage, settings)
+    waiver = payload.listening_waiver_reference
+    if waiver and (
+        revision.workflow_contract != "library.v1"
+        or payload.stage != "source"
+        or payload.decision != "approved"
+        or settings.app_env not in {"development", "test"}
+        or payload.listening_items
+    ):
+        raise AppError(422, "核听豁免仅用于明确授权的本地来源审核，不得冒充实际核听")
     if revision.workflow_contract == "library.v1" and payload.decision == "approved":
         required_listening = {
             s["_src_id"]
             for s in content["transcript_segments"]
             if s["segment_type"] == "body"
         }
-        if (
+        if not waiver and (
             not required_listening
             or len(payload.listening_items) != len(required_listening)
             or {i.reference for i in payload.listening_items} != required_listening
@@ -342,6 +351,12 @@ def approve_stage(db, workflow_id, payload, user_id, key, settings):
             "approval_reference": payload.approval_reference,
             "reviewer_kind": payload.reviewer_kind,
             "listening_items": [item.model_dump() for item in payload.listening_items],
+            "listening_review": {
+                "state": "waived_by_user" if waiver else "performed",
+                "actual_listening_performed": not bool(waiver),
+                "reference": waiver or payload.approval_reference,
+                "source_artifact_hash": projection["artifact_hash"],
+            },
         },
         operator_user_id=user_id,
     )

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../../../api/api-error'
@@ -333,6 +333,28 @@ describe('skill/error query page', () => {
       expectedScopeVersion: 'scope-1',
       examPaperId: 5,
     })
+  })
+
+  it('waits for the new dictionary before exposing selectable entries on tab change', async () => {
+    let resolveDictionary!: (value: DictionaryData) => void
+    api.getDictionary.mockResolvedValueOnce(dictionary).mockImplementationOnce(
+      () => new Promise<DictionaryData>((resolve) => { resolveDictionary = resolve }),
+    )
+    const user = userEvent.setup()
+    render(<SkillErrorQueryPage />)
+    await screen.findByText(item.question_text)
+    await user.click(screen.getByRole('tab', { name: /错因表/ }))
+    await waitFor(() => expect(api.getDictionary).toHaveBeenCalledTimes(2))
+    expect(screen.queryByText('无关信息误选', {
+      selector: '.skill-query-tree-label strong',
+    })).not.toBeInTheDocument()
+    await act(async () => { resolveDictionary(dictionary) })
+    await user.click(await screen.findByText('无关信息误选', {
+      selector: '.skill-query-tree-label strong',
+    }))
+    await waitFor(() => expect(api.listQuestions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ subject_type: 'error_cause', subject_code: 'E4.3' }),
+    ))
   })
 
   it('shows a reorder warning when the selected paper mapping is non-identity', async () => {

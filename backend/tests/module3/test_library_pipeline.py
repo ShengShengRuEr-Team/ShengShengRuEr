@@ -57,7 +57,10 @@ def source_ready(client, c):
 
 
 @pytest.mark.parametrize("pipeline", ["library"], indirect=True)
-def test_library_candidates_adoption_local_review_and_publication(client, request):
+@pytest.mark.parametrize("waiver", [False, True])
+def test_library_candidates_adoption_local_review_and_publication(
+    client, request, waiver
+):
     c = request.getfixturevalue("pipeline")
     source_ready(client, c)
     c["approve"]("source")
@@ -83,10 +86,85 @@ def test_library_candidates_adoption_local_review_and_publication(client, reques
     assert not draft["issues"]
     source = library_post(client, c, "prepare-source-review", edit_pre(draft))
     assert source.status_code == 200, source.text
-    c["approve"]("source", continue_after=False)
+    if waiver:
+        stage = c["detail"]()["stages"]["source"]
+        response = c["post"](
+            "stage-approvals",
+            {
+                "stage": "source",
+                "artifact_hash": stage["artifact_hash"],
+                "expected_stage_dependency_hash": stage["dependency_hash"],
+                "decision": "approved",
+                "reviewer_kind": "codex",
+                "listening_waiver_reference": "Synthetic waiver; not listened",
+                "items": [
+                    {
+                        "reference": q["_src_id"],
+                        "decision": "approved",
+                        "reason": "Synthetic content check",
+                    }
+                    for q in c["source"]["questions"]
+                ],
+            },
+        )
+        assert response.status_code == 200, response.text
+    else:
+        c["approve"]("source", continue_after=False)
     frozen = library_post(client, c, "prepare-final-review", edit_pre(draft))
     assert frozen.status_code == 200, frozen.text
+    if waiver:
+        original_post = c["post"]
+
+        def explicit_waiver(action, body):
+            if action.endswith("/submit"):
+                assert (
+                    original_post(
+                        action,
+                        {
+                            **body,
+                            "audio_confirmed": False,
+                            "audio_waiver_reference": "Different source authorization",
+                        },
+                    ).status_code
+                    == 409
+                )
+                body = {
+                    **body,
+                    "audio_confirmed": False,
+                    "audio_waiver_reference": "Synthetic waiver; not listened",
+                }
+            return original_post(action, body)
+
+        c["post"] = explicit_waiver
     synthetic_review_publish(client, c)
+    if waiver:
+        from app.db.base import SessionLocal
+        from app.db.models_processing import ProcessingReview
+        from app.db.models_processing_workflows import ProcessingStageApproval
+
+        with SessionLocal() as db:
+            approval = db.scalar(
+                select(ProcessingStageApproval)
+                .where(
+                    ProcessingStageApproval.revision_id
+                    == UUID(c["detail"]()["revision_id"])
+                )
+                .order_by(ProcessingStageApproval.created_at.desc())
+            )
+            assert approval.items["listening_items"] == []
+            assert (
+                approval.items["listening_review"]["actual_listening_performed"]
+                is False
+            )
+            audio = db.scalar(
+                select(ProcessingReview).where(
+                    ProcessingReview.task_id == UUID(c["detail"]()["task_id"]),
+                    ProcessingReview.scope == "audio",
+                )
+            )
+            assert audio.items[0]["verdict"] == "WAIVED"
+            assert audio.items[0]["actual_listening_performed"] is False
+            assert audio.items[0]["review_basis"] == "user_waiver"
     detail = c["detail"]()
     assert detail["publication_state"] == "published"
     assert detail["is_student_visible"] is False

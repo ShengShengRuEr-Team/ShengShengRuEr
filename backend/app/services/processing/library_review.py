@@ -12,6 +12,7 @@ from app.services.processing import library_editing as e
 from app.services.processing import orchestration as o
 from app.services.processing import tasks
 from app.services.processing import workflows as w
+from app.services.processing.source_review import listening_review_satisfied
 
 
 def local_task(db, workflow, revision, source, user_id, snapshot):
@@ -115,11 +116,7 @@ def prepare(db, workflow_id, payload, user_id, key, settings, *, final=False):
             .order_by(m.ProcessingStageApproval.created_at.desc())
             .limit(1)
         )
-        if (
-            not approval
-            or approval.decision != "approved"
-            or not approval.items.get("listening_items")
-        ):
+        if not listening_review_satisfied(approval, settings):
             raise w.conflict("SOURCE_REVIEW_REQUIRED", "须先完成来源及实际核听审核")
     task = local_task(db, workflow, revision, source_projection, user_id, snapshot)
     from app.module3.workflow_worker import record_artifact

@@ -293,7 +293,34 @@ def submit(db, workflow_id, session_id, payload, user, key, settings):
     workflow, revision, session, task, content = session_context(
         db, workflow_id, session_id, payload, lock=True
     )
-    if session.state == "approved" or not payload.audio_confirmed:
+    waived = False
+    if payload.audio_waiver_reference:
+        from app.services.processing.source_review import listening_review_satisfied
+
+        projection = revision.stage_fingerprints.get("source", {})
+        approval = db.scalar(
+            select(m.ProcessingStageApproval)
+            .where(
+                m.ProcessingStageApproval.revision_id == revision.id,
+                m.ProcessingStageApproval.stage == "source",
+                m.ProcessingStageApproval.dependency_hash
+                == projection.get("dependency_hash"),
+            )
+            .order_by(m.ProcessingStageApproval.created_at.desc())
+            .limit(1)
+        )
+        review = approval.items.get("listening_review", {}) if approval else {}
+        waived = (
+            not payload.audio_confirmed
+            and listening_review_satisfied(approval, settings)
+            and review.get("state") == "waived_by_user"
+            and review.get("reference") == payload.audio_waiver_reference
+        )
+        if not waived:
+            raise w.conflict(
+                "REVIEW_INCOMPLETE", "核听豁免须匹配本地当前来源的明确授权"
+            )
+    if session.state == "approved" or (not payload.audio_confirmed and not waived):
         raise w.conflict("REVIEW_INCOMPLETE", "须明确确认本最终版本的原音核听")
     validate_final(db, content, task.request, revision, settings)
     rows = db.scalars(
@@ -368,15 +395,18 @@ def submit(db, workflow_id, session_id, payload, user, key, settings):
             result_hash=session.result_hash,
             scope="audio",
             decision="approved",
-            review_basis="user_confirmation",
-            approval_reference=payload.approval_reference,
+            review_basis="user_waiver" if waived else "user_confirmation",
+            approval_reference=payload.audio_waiver_reference
+            or payload.approval_reference,
             items=[
                 {
                     "entity_type": "audio",
                     "src_id": "original",
-                    "verdict": "PASS",
+                    "verdict": "WAIVED" if waived else "PASS",
                     "file_hash": content["audio"]["file_hash"],
-                    "reference": payload.approval_reference,
+                    "reference": payload.audio_waiver_reference
+                    or payload.approval_reference,
+                    "actual_listening_performed": not waived,
                 }
             ],
             evidence_refs=[str(session.id)],
