@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     # 模块二：音频受控目录（storage_key 的相对根；音频本体不入库，不进 Git）。
     audio_storage_dir: str = "var/audio"
 
+    # 错题本状态写入与受保护详情需分别经过发布授权。
+    wrong_answers_state_writes_enabled: bool = False
+    wrong_answers_protected_details_enabled: bool = False
+    wrong_answers_explanation_approvals_file: Path | None = None
+
     m3_materials_dir: str = "var/materials"
     m3_artifacts_dir: str = "var/processing"
     m3_model_root: str = "var/models"

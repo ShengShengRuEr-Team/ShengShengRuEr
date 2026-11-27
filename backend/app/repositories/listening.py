@@ -6,7 +6,7 @@
 paper_visibility，不合并。
 """
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models_listening import (
@@ -50,14 +50,17 @@ def get_current_batch(db: Session, exam_paper_id: int) -> ImportBatch | None:
     return db.scalar(
         select(ImportBatch).where(
             ImportBatch.exam_paper_id == exam_paper_id,
-            ImportBatch.is_current.is_(True),
-            ImportBatch.status == "active",
+            *_current_batch_conditions(),
         )
     )
 
 
-def get_latest_check(db: Session, batch_id: int) -> ContentCheck | None:
-    return db.scalar(
+def _current_batch_conditions():
+    return ImportBatch.is_current.is_(True), ImportBatch.status == "active"
+
+
+def _latest_check(batch_id):
+    return (
         select(ContentCheck)
         .where(ContentCheck.batch_id == batch_id)
         .order_by(ContentCheck.checked_at.desc(), ContentCheck.id.desc())
@@ -65,13 +68,21 @@ def get_latest_check(db: Session, batch_id: int) -> ContentCheck | None:
     )
 
 
-def get_visibility(db: Session, batch_id: int) -> PaperVisibility | None:
-    return db.scalar(
+def get_latest_check(db: Session, batch_id: int) -> ContentCheck | None:
+    return db.scalar(_latest_check(batch_id))
+
+
+def _latest_visibility(batch_id):
+    return (
         select(PaperVisibility)
         .where(PaperVisibility.batch_id == batch_id)
         .order_by(PaperVisibility.id.desc())
         .limit(1)
     )
+
+
+def get_visibility(db: Session, batch_id: int) -> PaperVisibility | None:
+    return db.scalar(_latest_visibility(batch_id))
 
 
 def get_audio(db: Session, audio_id: int | None) -> AudioFile | None:
@@ -83,10 +94,44 @@ def get_audio(db: Session, audio_id: int | None) -> AudioFile | None:
 # --------------------------------------------------------------------------- #
 # 学生可见性判定
 # --------------------------------------------------------------------------- #
+def student_accessible_papers():
+    """Set-based student access shared by practice and notebook queries."""
+    latest_check = (
+        _latest_check(ImportBatch.id)
+        .with_only_columns(ContentCheck.is_passed)
+        .scalar_subquery()
+    )
+    latest_visibility = (
+        _latest_visibility(ImportBatch.id)
+        .with_only_columns(PaperVisibility.is_visible)
+        .scalar_subquery()
+    )
+    source = ExamPaper.expected_question_count_source
+    return (
+        select(ExamPaper, ImportBatch)
+        .join(ImportBatch, ImportBatch.exam_paper_id == ExamPaper.id)
+        .where(
+            *_current_batch_conditions(),
+            ExamPaper.archived_at.is_(None),
+            ExamPaper.expected_question_count.is_not(None),
+            func.jsonb_typeof(source) == "object",
+            source != {},
+            latest_check.is_(True),
+            latest_visibility.is_(True),
+        )
+    )
+
+
 def student_access(
     db: Session, exam_paper_id: int
 ) -> tuple[bool, ExamPaper | None, ImportBatch | None]:
     """返回 (是否可见, 试卷, 当前批次)。三态缺一即不可见。"""
+    accessible = db.execute(
+        student_accessible_papers().where(ExamPaper.id == exam_paper_id)
+    ).one_or_none()
+    if accessible is not None:
+        paper, batch = accessible
+        return True, paper, batch
     paper = get_paper(db, exam_paper_id)
     if paper is None:
         return False, None, None
@@ -97,16 +142,7 @@ def student_access(
         or not paper.expected_question_count_source
     ):
         return False, paper, None
-    batch = get_current_batch(db, exam_paper_id)
-    if batch is None:
-        return False, paper, None
-    check = get_latest_check(db, batch.id)
-    if check is None or not check.is_passed:
-        return False, paper, batch
-    visibility = get_visibility(db, batch.id)
-    if visibility is None or not visibility.is_visible:
-        return False, paper, batch
-    return True, paper, batch
+    return False, paper, get_current_batch(db, exam_paper_id)
 
 
 def list_papers(
@@ -136,7 +172,6 @@ def _load_batch_content(db: Session, batch_id: int):
         .where(Passage.batch_id == batch_id)
         .order_by(Passage.passage_index)
     ).all()
-    passage_ids = [p.id for p in passages]
     segments = db.scalars(
         select(TranscriptSegment)
         .where(TranscriptSegment.batch_id == batch_id)
@@ -247,7 +282,7 @@ def paper_options_for(
 
 
 def assemble_student_detail(db: Session, paper: ExamPaper, batch: ImportBatch) -> dict:
-    passages, seg_by_passage, questions_by_passage, presentation_by_question, _ = (
+    passages, _seg_by_passage, questions_by_passage, presentation_by_question, _ = (
         _load_batch_content(db, batch.id)
     )
     audio = get_audio(

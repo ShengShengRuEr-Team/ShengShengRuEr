@@ -156,6 +156,6 @@ Ruff 配置在 [pyproject.toml](pyproject.toml)；`B008` 因 FastAPI `Depends` �
 - 模块二：真实数据库题库、整卷查询、配套内容、可见性、音频与导入；[接口契约](../docs/development/module-2/api.md)、[验收指南](../docs/acceptance/module-2/guide.md)。
 - 模块三自动处理：统一管理端上传、独立 Worker、只读审核、版本化入库；[操作说明](../docs/development/module-3/continuation-runbook.md)。
 - 作答系统：已融合 develop 的 PR #16，提供 API-1 提交、API-3 本人作答状态、本机草稿及只读汇总；[接口契约](../docs/development/attempt-system/api.md)、[验收交接](../docs/acceptance/attempt-system/验收交接文档.md)。
-- 错题本、画像与推荐后续实施；不做服务端草稿/跨设备、限时、离线提交。
+- 学生错题本：提供本人错题列表、受控详情及复习状态；[接口与发布开关](../docs/development/wrong-answers/api.md)。画像与推荐后续实施；不做服务端草稿/跨设备、限时、离线提交。
 - 不引入 Redis；退出失效写入 `token_revocations` 表。
 - 数据库结构只通过 Alembic 迁移变更；模块三使用增量迁移，作答系统 PR #16 未另增迁移。

@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-24",
+  "backend": {
+    "status": "PASS_TECHNICAL",
+    "passed": 514,
+    "tests": 528,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 14
+  },
+  "new_regression_cases": 12,
+  "frontend_tests_passed": 139,
+  "frontend_typecheck": "PASS",
+  "frontend_build": "PASS",
+  "real_browser_checks": 42,
+  "real_visibility_checks": 8,
+  "real_database_checks": 11,
+  "restored_access_and_immutability_checks": 7,
+  "source_data_preserved": true,
+  "new_human_review_or_approval_created": false,
+  "source_hashes": {
+    "backend/app/services/content_check.py": "95eac9b12a899bb9950a7c3630f8957b819c8b090a3f346efe2159b5de4834d8",
+    "backend/app/services/processing/validation.py": "138ae13aa1d221e37d11decd8a6f0fd257d1e26a2df877881baecf5ffee97163",
+    "backend/tests/module3/test_legacy_visibility.py": "75c06de28c7758e4bb5da466dfb4128c4e0e794047ce765d0286b66fc968fe86"
+  }
+}

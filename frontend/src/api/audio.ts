@@ -35,10 +35,22 @@ export async function loadAudioSource(
   signal?: AbortSignal,
   expectedBatchId?: number,
 ): Promise<AudioSource> {
+  return loadAuthenticatedAudio(
+    `/api/v1/listening-papers/${examPaperId}/audio`,
+    signal,
+    expectedBatchId,
+  )
+}
+
+export async function loadAuthenticatedAudio(
+  path: string,
+  signal?: AbortSignal,
+  expectedBatchId?: number,
+): Promise<AudioSource> {
   try {
     const token = getAccessToken()
     const response = await audioHttp.get<Blob>(
-      `/api/v1/listening-papers/${examPaperId}/audio`,
+      path,
       {
         responseType: 'blob',
         signal,

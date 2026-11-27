@@ -22,6 +22,7 @@ from app.api import (
     auth,
     listening_papers,
     skill_error_query,
+    wrong_answers,
 )
 from app.core.errors import AppError
 from app.module3.contracts import ProcessingError
@@ -70,6 +71,14 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def notebook_cache_control(request: Request, call_next):
+    response = await call_next(request)
+    if wrong_answers.is_notebook_path(request.url.path):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(
@@ -110,9 +119,15 @@ async def http_error_handler(
 @app.exception_handler(Exception)
 async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.exception("未处理异常: %s", exc)
+    headers = (
+        {"Cache-Control": "no-store"}
+        if wrong_answers.is_notebook_path(request.url.path)
+        else None
+    )
     return JSONResponse(
         status_code=500,
         content={"code": 500, "msg": "服务器内部错误", "data": None},
+        headers=headers,
     )
 
 
@@ -123,6 +138,7 @@ app.include_router(admin_listening_papers.router, prefix="/api/v1")
 app.include_router(admin_library.router, prefix="/api/v1")
 app.include_router(attempts.router, prefix="/api/v1")
 app.include_router(attempt_status.router, prefix="/api/v1")
+app.include_router(wrong_answers.router, prefix="/api/v1")
 app.include_router(admin_processing.router, prefix="/api/v1")
 app.include_router(admin_processing_workflows.router, prefix="/api/v1")
 app.include_router(skill_error_query.router, prefix="/api/v1")

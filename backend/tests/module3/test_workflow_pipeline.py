@@ -2,7 +2,7 @@
 
 import copy
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -544,11 +544,17 @@ def test_pending_publication_failure_keeps_old_batch_and_retry_reuses_pending(
         assert response.status_code == 409, response.text
 
 
-def test_option_errors_database_guards_and_formal_read(client, pipeline):
+def test_option_errors_database_guards_and_formal_read(client, pipeline, monkeypatch):
     from sqlalchemy.exc import DBAPIError
 
+    from app.core.config import get_settings
     from app.db.base import SessionLocal
+    from app.db.models_processing_workflows import ProcessingReviewSession
     from app.services.processing.validation import load_dictionary
+    from tests.attempt_support import create_student
+    from tests.conftest import login
+
+    monkeypatch.setattr(get_settings(), "wrong_answers_protected_details_enabled", True)
 
     c = pipeline
     code = next(
@@ -579,7 +585,11 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline):
             },
         ]
     )
+    c["source"]["presentations"][0]["option_letter_mapping"] = dict(
+        zip("ABCD", "BCDA", strict=True)
+    )
     complete_to_review(c)
+    review_session_id = UUID(c["detail"]()["review_session_id"])
     synthetic_review_publish(client, c)
     detail = c["detail"]()
     batch = detail["current_batch_id"]
@@ -590,6 +600,65 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline):
         headers=c["headers"],
     )
     assert response.status_code == 200, response.text
+    username = f"notebook_annotations_{uuid4().hex[:12]}"
+    create_student(username)
+    student = {"Authorization": "Bearer " + login(client, username, "attempt123")}
+    visibility = client.post(
+        f"/api/v1/admin/listening-papers/{pid}/visibility",
+        headers=c["headers"],
+        json={"action": "confirm", "expected_batch_id": batch},
+    )
+    assert visibility.status_code == 200, visibility.text
+    paper_url = f"/api/v1/listening-papers/{pid}"
+    paper = client.get(paper_url, headers=student).json()["data"]
+    question = paper["passages"][0]["questions"][0]
+    submitted = client.post(
+        paper_url + "/attempts",
+        headers={**student, "Idempotency-Key": str(uuid4())},
+        json={
+            "loaded_question_ids": [question["question_id"]],
+            "answers": [
+                {"question_id": question["question_id"], "selected_option": "A"}
+            ],
+        },
+    )
+    assert submitted.status_code == 200, submitted.text
+    attempt_code = submitted.json()["data"]["attempt_code"]
+    notebook = client.get(f"/api/v1/wrong-answers/{attempt_code}/1", headers=student)
+    assert notebook.status_code == 200, notebook.text
+    review = notebook.json()["data"]
+    assert review["selected_option"] == "A" and review["correct_option"] == "D"
+    with SessionLocal() as db:
+        submitted_at = db.get(ProcessingReviewSession, review_session_id).submitted_at
+    assert submitted_at is not None
+    assert datetime.fromisoformat(review["annotation_reviewed_at"]) == submitted_at
+    assert {"review_session_id", "submitted_by", "reviewer"}.isdisjoint(review)
+    (review_skill,) = review["skills"]
+    assert review_skill["role"] == "PRIMARY"
+    assert set(review_skill) == {
+        "code",
+        "name",
+        "role",
+        "definition",
+        "evidence_status",
+    }
+    assert review_skill["evidence_status"] == "restricted"
+    assert review["personal_cause_status"] == "unconfirmed"
+    (candidate,) = review["candidate_causes"]
+    assert candidate["option_letter"] == "A"
+    assert candidate["evidence_status"] == "restricted"
+    assert set(candidate) == {
+        "code",
+        "name",
+        "option_letter",
+        "basis_summary",
+        "evidence_status",
+    }
+    assert review["evidence_access"] == "restricted"
+    assert "transcript" not in review
+    assert "Synthetic distractor mechanism for Beta" not in notebook.text
+    assert "The answer is Alpha." not in notebook.text
+
     q = response.json()["data"]["items"][0]
     skill = q["skills"][0]
     assert skill["skill_name"] == next(
@@ -600,12 +669,12 @@ def test_option_errors_database_guards_and_formal_read(client, pipeline):
         if row["skill_code"] == skill["skill_code"]
     )
     assert (
-        len(q["options"][1]["error_causes"])
-        == len(q["options"][2]["error_causes"])
+        len(q["options"][0]["error_causes"])
+        == len(q["options"][1]["error_causes"])
         == 1
     )
-    assert len(q["options"][1]["error_causes"][0]["evidence"]) == 1
-    assert q["options"][0]["error_causes"] == []
+    assert len(q["options"][0]["error_causes"][0]["evidence"]) == 1
+    assert q["options"][3]["error_causes"] == []
     companion = client.get(
         f"/api/v1/admin/listening-papers/{pid}/companion",
         params={"expected_batch_id": batch},
