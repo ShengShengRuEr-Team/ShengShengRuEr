@@ -255,6 +255,7 @@ export interface ErrorOptionDetail {
 export interface PersonalError {
   state: string
   message: string
+  explanation: string
 }
 
 export interface QuestionDetailData {

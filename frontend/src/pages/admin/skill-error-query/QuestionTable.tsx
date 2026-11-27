@@ -50,6 +50,11 @@ export default function QuestionTable({
       width: 210,
       render: (_, item) => (
         <Space size={[4, 4]} wrap>
+          {item.skills.filter((skill) => skill.role === 'PRIMARY').length > 1 ? (
+            <Tag color="gold" title="该题有多个主要技能，需结合技能证据判断共同主要">
+              共同主要
+            </Tag>
+          ) : null}
           {item.skills.length === 0 ? (
             <Tag color="red">标注缺失</Tag>
           ) : (

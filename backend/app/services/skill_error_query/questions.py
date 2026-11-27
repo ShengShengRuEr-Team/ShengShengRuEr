@@ -278,6 +278,13 @@ def _skill_items(
                     MatchedSkill(code=node.code, name=node.name, role=relation.role)
                 )
         warnings: list[WarningItem] = []
+        if sum(1 for skill in roles if skill.role == "PRIMARY") > 1:
+            warnings.append(
+                _warning(
+                    "CO_PRIMARY_SKILLS",
+                    "该题有多个主要技能（共同主要），需结合各技能证据判断",
+                )
+            )
         answer_state = _answer_state(question)
         if answer_state == "unavailable":
             warnings.append(
@@ -801,6 +808,14 @@ def get_question_detail(
             )
         )
 
+    if sum(1 for skill in skills if skill.role == "PRIMARY") > 1:
+        warnings.append(
+            _warning(
+                "CO_PRIMARY_SKILLS",
+                "该题有多个主要技能（共同主要），需结合各技能证据判断",
+            )
+        )
+
     error_options: list[ErrorOptionDetail] = []
     if answer_state == "available":
         error_relations = repo.load_question_errors(
@@ -907,6 +922,10 @@ def get_question_detail(
         personal_error=PersonalError(
             state="not_in_scope",
             message="未确认个人错因（本查询不涉及个人）",
+            explanation=(
+                "题目候选错因只描述错误选项的可能机制；学生答错某题不等于确认其个人错因；"
+                "不得根据作答结果自动生成个人错因；个人错因需在错题本（需求二）按本人作答确认后查看。"
+            ),
         ),
         warnings=warnings,
     )

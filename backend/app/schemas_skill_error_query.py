@@ -254,6 +254,7 @@ class ErrorOptionDetail(BaseModel):
 class PersonalError(BaseModel):
     state: str
     message: str
+    explanation: str
 
 
 class QuestionDetailData(BaseModel):
