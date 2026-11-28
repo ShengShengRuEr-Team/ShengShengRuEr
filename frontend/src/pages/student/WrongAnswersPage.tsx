@@ -84,6 +84,7 @@ function ReviewContent({ detail, onStale }: {
       <Space wrap>
         <Text type="secondary">{detail.paper_title}</Text>
         <Tag>{detail.snapshot_note}</Tag>
+        {detail.review_materials_source === 'matched_current_batch' && <Tag color="blue">补充资料：当前已审核版本</Tag>}
       </Space>
       <Title level={4}>{detail.question_text || `第 ${detail.question_no} 题`}</Title>
       {Object.entries(detail.options).map(([letter, text]) => (
@@ -101,7 +102,7 @@ function ReviewContent({ detail, onStale }: {
       <Title level={5}>听力音频</Title>
       {detail.audio.status === 'available' ? (
         <>
-          <Paragraph type="secondary">当前卷音频（同交卷来源批次）</Paragraph>
+          <Paragraph type="secondary">{detail.audio_source_note ?? '当前卷音频（同交卷来源批次）'}</Paragraph>
           <ReviewAudio key={detail.audio.url} path={detail.audio.url} onStale={onStale} />
         </>
       ) : (

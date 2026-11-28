@@ -84,8 +84,9 @@ def get_entry(
         raise AppError(503, "错题详情暂未开放")
 
     answer, attempt = entry.answer, entry.attempt
+    compatible = repo.compatible_review_source(db, entry)
     skills, candidates, annotation_reviewed_at = repo.review_annotations(
-        db, answer, attempt
+        db, answer, attempt, source=compatible
     )
     explanation, explanation_status = _explanation(entry, settings)
     return WrongAnswerDetail(
@@ -102,7 +103,20 @@ def get_entry(
         explanation_text=explanation,
         explanation_status=explanation_status,
         has_explanation=explanation is not None,
-        audio=_audio(db, entry, settings),
+        audio=_audio(db, entry, settings, compatible=compatible),
+        review_materials_source="matched_current_batch"
+        if compatible
+        else "submission_batch",
+        audio_source_note=(
+            "与交卷时相同的原音（文件哈希已核对，使用当前已开放批次）"
+            if compatible
+            else "当前卷音频（同交卷来源批次）"
+        ),
+        annotation_source_note=(
+            "题干、选项、正确答案与原音已核对一致；补显当前正式批次已审核的标注，交卷快照和成绩保持原样。"
+            if compatible
+            else "关联标注来自交卷来源批次的当前有效审核结果，可能与交卷时不同。"
+        ),
         skills=skills,
         candidate_causes=candidates,
         annotation_reviewed_at=annotation_reviewed_at,
@@ -127,9 +141,11 @@ def _explanation(
     return None, "restricted"
 
 
-def _audio(db: Session, entry: repo.NotebookEntry, settings: Settings) -> ReviewAudio:
+def _audio(
+    db: Session, entry: repo.NotebookEntry, settings: Settings, *, compatible=None
+) -> ReviewAudio:
     _, attempt, paper, batch, _ = entry
-    if batch.id != attempt.import_batch_id or (
+    if (batch.id != attempt.import_batch_id and compatible is None) or (
         batch.audio_id is None and paper.playback_audio_id is not None
     ):
         return ReviewAudio(status="batch_mismatch")

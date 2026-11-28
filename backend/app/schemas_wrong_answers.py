@@ -85,6 +85,10 @@ class WrongAnswerDetail(WrongAnswerItem):
     explanation_status: ExplanationStatus
     has_explanation: bool
     snapshot_note: Literal["交卷时内容快照"] = "交卷时内容快照"
+    review_materials_source: Literal["submission_batch", "matched_current_batch"] = (
+        "submission_batch"
+    )
+    audio_source_note: str = "当前卷音频（同交卷来源批次）"
     audio: ReviewAudio
     skills: list[ReviewSkill]
     candidate_causes: list[ReviewCandidate]

@@ -37,6 +37,8 @@ type AudioStatus =
 export interface WrongAnswerDetail extends WrongAnswerItem {
   question_text: string
   snapshot_note: string
+  review_materials_source?: 'submission_batch' | 'matched_current_batch'
+  audio_source_note?: string
   options: Record<string, string>
   selected_option: string | null
   correct_option: string

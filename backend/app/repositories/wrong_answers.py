@@ -9,6 +9,7 @@ from sqlalchemy import and_, case, false, func, or_, select, true
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, aliased
 
+from app.core.errors import AppError
 from app.db.models_annotations import (
     ErrorCause,
     ErrorQuestionRelation,
@@ -19,7 +20,13 @@ from app.db.models_annotations import (
     SkillQuestionRelation,
 )
 from app.db.models_attempt import Attempt, AttemptAnswer
-from app.db.models_listening import ExamPaper, ImportBatch, Presentation, Question
+from app.db.models_listening import (
+    AudioFile,
+    ExamPaper,
+    ImportBatch,
+    Presentation,
+    Question,
+)
 from app.db.models_processing import DictionarySnapshot
 from app.db.models_processing_workflows import (
     ProcessingReviewSession,
@@ -181,7 +188,7 @@ def update_state(
     ).one()
 
 
-def _source(db, answer, attempt):
+def _source(db, answer, attempt, *, active_only=True):
     return db.execute(
         select(Question, ImportBatch, Presentation)
         .join(ImportBatch, ImportBatch.id == Question.batch_id)
@@ -198,7 +205,9 @@ def _source(db, answer, attempt):
             Question.id == answer.question_id,
             Question.batch_id == attempt.import_batch_id,
             ImportBatch.exam_paper_id == attempt.exam_paper_id,
-            ImportBatch.status == "active",
+            ImportBatch.status.in_(
+                ("active",) if active_only else ("active", "superseded")
+            ),
         )
     ).one_or_none()
 
@@ -207,8 +216,13 @@ def _approved_annotation(db, question, batch):
     state = QuestionAnnotationState
     revision = ProcessingWorkflowRevision
     review = ProcessingReviewSession
-    return db.execute(
-        select(DictionarySnapshot.id, state.generation_state, review.submitted_at)
+    row = db.execute(
+        select(
+            DictionarySnapshot.id,
+            state.generation_state,
+            review.submitted_at,
+            state.source_type,
+        )
         .select_from(state)
         .join(revision, revision.id == state.revision_id)
         .join(review, review.id == state.review_session_id)
@@ -221,7 +235,22 @@ def _approved_annotation(db, question, batch):
             state.batch_id == batch.id,
             state.question_id == question.id,
             state.rule_version == ERROR_RULE_VERSION,
-            state.generation_state.in_(("generated_empty", "generated_nonempty")),
+            or_(
+                and_(
+                    state.source_type == "AI",
+                    state.generation_state.in_(
+                        ("generated_empty", "generated_nonempty")
+                    ),
+                ),
+                and_(
+                    state.source_type == "MANUAL",
+                    state.generation_state.in_(("manual_empty", "manual_nonempty")),
+                ),
+                and_(
+                    state.source_type == "MIXED",
+                    state.generation_state.in_(("mixed_empty", "mixed_nonempty")),
+                ),
+            ),
             state.result_hash == batch.result_hash,
             revision.batch_id == batch.id,
             revision.final_result_hash == state.result_hash,
@@ -234,6 +263,86 @@ def _approved_annotation(db, question, batch):
             review.state == "approved",
         )
     ).one_or_none()
+    if row is None:
+        return None
+    if row.source_type in {"MANUAL", "MIXED"}:
+        from app.repositories.annotations import current_annotations
+
+        try:
+            gate = current_annotations(db, batch.exam_paper_id, batch.id, 0, 1)
+        except AppError:
+            return None
+        if gate.get("annotation_state") != "approved":
+            return None
+    return row[:3]
+
+
+def _same_text(left, right):
+    punctuation = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"'})
+    return " ".join(left.translate(punctuation).split()) == " ".join(
+        right.translate(punctuation).split()
+    )
+
+
+def compatible_review_source(db, entry):
+    """Resolve reviewed supplements; never rewrite a submitted answer or score."""
+    answer, attempt, paper, current, _ = entry
+    if current.id == attempt.import_batch_id:
+        return None
+    original = _source(db, answer, attempt, active_only=False)
+    if original is None:
+        return None
+    original_batch = original[1]
+    old_audio = (
+        db.get(AudioFile, original_batch.audio_id) if original_batch.audio_id else None
+    )
+    new_audio = db.get(AudioFile, current.audio_id) if current.audio_id else None
+    if (
+        not old_audio
+        or not new_audio
+        or len(old_audio.file_hash or "") != 64
+        or old_audio.file_hash != new_audio.file_hash
+        or old_audio.duration_ms != new_audio.duration_ms
+    ):
+        return None
+    matches = db.execute(
+        select(Question, ImportBatch, Presentation)
+        .join(ImportBatch, ImportBatch.id == Question.batch_id)
+        .join(
+            Presentation,
+            and_(
+                Presentation.question_id == Question.id,
+                Presentation.batch_id == Question.batch_id,
+                Presentation.exam_paper_id == paper.id,
+                Presentation.question_no == answer.question_no,
+            ),
+        )
+        .where(
+            Question.batch_id == current.id,
+            Question.review_status == "已通过",
+            Presentation.review_status == "已通过",
+            ImportBatch.is_current.is_(True),
+            ImportBatch.status == "active",
+        )
+    ).all()
+    if len(matches) != 1:
+        return None
+    question, batch, presentation = matches[0]
+    if not _same_text(answer.question_text, question.question_text):
+        return None
+    try:
+        options = listening.paper_options_for(question, presentation)
+        correct = listening.paper_letter_for(question, presentation)
+    except listening.PaperUnavailable:
+        return None
+    snapshot = (answer.option_a, answer.option_b, answer.option_c, answer.option_d)
+    if (
+        correct != answer.correct_option
+        or not all(_same_text(a, b) for a, b in zip(options, snapshot, strict=True))
+        or _approved_annotation(db, question, batch) is None
+    ):
+        return None
+    return matches[0]
 
 
 def _has_valid_evidence(relation, kind: str, *, candidate: bool = False):
@@ -365,7 +474,10 @@ def _mapped_option(answer, question, batch, presentation):
                 answer.option_c,
                 answer.option_d,
             )
-            if options == snapshot and correct == answer.correct_option:
+            if (
+                all(_same_text(a, b) for a, b in zip(options, snapshot, strict=True))
+                and correct == answer.correct_option
+            ):
                 return presentation.option_letter_mapping[answer.selected_option]
     logger.warning(
         "错题本跳过不匹配的选项标注 answer_id=%s question_id=%s batch_id=%s",
@@ -377,9 +489,9 @@ def _mapped_option(answer, question, batch, presentation):
 
 
 def review_annotations(
-    db: Session, answer: AttemptAnswer, attempt: Attempt
+    db: Session, answer: AttemptAnswer, attempt: Attempt, *, source=None
 ) -> tuple[list[ReviewSkill], list[ReviewCandidate], datetime | None]:
-    source = _source(db, answer, attempt)
+    source = source if source is not None else _source(db, answer, attempt)
     if source is None:
         return [], [], None
     question, batch, presentation = source
@@ -390,7 +502,7 @@ def review_annotations(
     skills = _skills(db, question, batch, dictionary_id)
     candidates = (
         _candidate_causes(db, answer, question, batch, presentation, dictionary_id)
-        if generation == "generated_nonempty"
+        if generation.endswith("_nonempty")
         else []
     )
     return skills, candidates, reviewed_at if skills or candidates else None

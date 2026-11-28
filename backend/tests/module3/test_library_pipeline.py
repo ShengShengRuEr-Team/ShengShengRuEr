@@ -59,10 +59,27 @@ def source_ready(client, c):
 @pytest.mark.parametrize("pipeline", ["library"], indirect=True)
 @pytest.mark.parametrize("waiver", [False, True])
 def test_library_candidates_adoption_local_review_and_publication(
-    client, request, waiver
+    client, request, waiver, monkeypatch
 ):
     c = request.getfixturevalue("pipeline")
+    c["source"]["presentations"][0]["option_letter_mapping"] = dict(
+        zip("ABCD", "BCDA", strict=True)
+    )
     source_ready(client, c)
+    c["errors"].append(
+        {
+            "error_cause_code": "E4.3",
+            "option_letter": "B",
+            "rationale": "Synthetic Beta differs from stated Alpha",
+            "evidence": [
+                {
+                    "evidence_segment_src_ids": ["s:1"],
+                    "quote": "The answer is Alpha.",
+                    "support_note": "Synthetic source states Alpha, not Beta.",
+                }
+            ],
+        }
+    )
     c["approve"]("source")
     assert c["detail"]()["processing_state"] == "candidate_ready"
     assert c["detail"]()["result_hash"] is None
@@ -84,6 +101,24 @@ def test_library_candidates_adoption_local_review_and_publication(
     draft = library_draft(client, c)
     assert draft["version_no"] == 1
     assert not draft["issues"]
+    if waiver:
+        from copy import deepcopy
+
+        candidate = deepcopy(
+            next(r["payload"] for r in generated if r["question_src_id"] == "q:1")
+        )
+        candidate["skills"][0]["rationale"] += " Synthetic manual review."
+        response = library_post(
+            client,
+            c,
+            "manual-annotations",
+            {
+                **edit_pre(draft),
+                "candidate": candidate,
+            },
+        )
+        assert response.status_code == 200, response.text
+        draft = library_draft(client, c)
     source = library_post(client, c, "prepare-source-review", edit_pre(draft))
     assert source.status_code == 200, source.text
     if waiver:
@@ -174,6 +209,9 @@ def test_library_candidates_adoption_local_review_and_publication(
     )
     assert response.status_code == 200, response.text
     assert len(response.json()["data"]["items"]) == 25
+    from tests.module3.notebook_compatibility import assert_notebook_supplements
+
+    assert_notebook_supplements(client, c, monkeypatch)
 
 
 @pytest.mark.parametrize("pipeline", ["library"], indirect=True)

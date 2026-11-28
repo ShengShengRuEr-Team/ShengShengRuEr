@@ -215,6 +215,25 @@ describe('学生错题本', () => {
     expect(within(detail).getByText('存在受限证据，暂不可查看')).toBeVisible()
   })
 
+  it('说明旧快照补用当前审核资料及同一原音的来源', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getWrongAnswer).mockResolvedValue({
+      ...notebookDetail,
+      review_materials_source: 'matched_current_batch',
+      annotation_source_note: '题目核对一致，补显当前已审核标注，原作答保持原样。',
+      audio_source_note: '与交卷时相同的原音（文件哈希已核对）',
+      audio: { status: 'available', url: '/api/v1/listening-papers/42/audio?expected_batch_id=12' },
+    })
+    renderNotebook()
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    const detail = await screen.findByRole('dialog')
+    expect(await within(detail).findByText('补充资料：当前已审核版本')).toBeVisible()
+    expect(within(detail).getByText('交卷时内容快照')).toBeVisible()
+    expect(within(detail).getByText('与交卷时相同的原音（文件哈希已核对）')).toBeVisible()
+    expect(within(detail).getByText('题目核对一致，补显当前已审核标注，原作答保持原样。')).toBeVisible()
+    expect(within(detail).getByRole('button', { name: '加载音频' })).toBeEnabled()
+  })
+
   it.each([409, 404])('音频返回 %d 时清除详情并重新校验权限', async (status) => {
     const user = userEvent.setup()
     const audioUrl = '/api/v1/listening-papers/42/audio?expected_batch_id=12'
