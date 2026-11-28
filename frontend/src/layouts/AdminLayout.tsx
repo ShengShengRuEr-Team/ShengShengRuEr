@@ -1,4 +1,4 @@
-import { BookOutlined, HomeOutlined } from '@ant-design/icons'
+import { BookOutlined, HomeOutlined, SearchOutlined } from '@ant-design/icons'
 import { Layout, Menu, Typography } from 'antd'
 import type { MenuProps } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -10,10 +10,18 @@ const { Header, Sider, Content } = Layout
 const ADMIN_ITEMS: MenuProps['items'] = [
   { key: ROUTES.ADMIN_HOME, icon: <HomeOutlined />, label: '首页' },
   { key: ROUTES.ADMIN_LISTENING_PAPERS, icon: <BookOutlined />, label: '题库管理' },
+  {
+    key: ROUTES.ADMIN_SKILL_ERROR_QUERY,
+    icon: <SearchOutlined />,
+    label: '技能与错因查询',
+  },
 ]
 
 /** 当前路由属于哪个菜单项：详情页也高亮「题库管理」。 */
 function resolveSelectedKey(pathname: string): string {
+  if (pathname.startsWith(ROUTES.ADMIN_SKILL_ERROR_QUERY)) {
+    return ROUTES.ADMIN_SKILL_ERROR_QUERY
+  }
   if (pathname.startsWith(ROUTES.ADMIN_LISTENING_PAPERS)) {
     return ROUTES.ADMIN_LISTENING_PAPERS
   }

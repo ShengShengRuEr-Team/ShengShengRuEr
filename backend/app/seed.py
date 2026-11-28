@@ -1,4 +1,4 @@
-"""开发/测试环境种子数据。
+"""开发/测试环境启动初始化：账号及缺失的词典快照。
 
 用法（在 backend 目录）：
     python -m app.seed
@@ -80,6 +80,9 @@ def main() -> None:
         "种子数据完成："
         f"roles={summary['roles']}, users={summary['users']}"
     )
+    from app.initialize_dictionary import main as initialize_dictionary
+
+    initialize_dictionary()
 
 
 if __name__ == "__main__":

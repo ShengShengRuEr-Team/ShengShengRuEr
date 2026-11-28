@@ -215,12 +215,12 @@ class ReviewRequest(StrictModel):
     items: list[dict[str, Any]] = Field(min_length=1)
     evidence_refs: list[NonEmpty] = Field(min_length=1)
     note: NonEmpty
-    review_basis: Literal["itemized", "user_confirmation"] = "itemized"
+    review_basis: Literal["itemized", "user_confirmation", "user_waiver"] = "itemized"
     approval_reference: NonEmpty | None = None
 
     @model_validator(mode="after")
     def explicit_confirmation(self):
-        if self.review_basis == "user_confirmation" and (
+        if self.review_basis in {"user_confirmation", "user_waiver"} and (
             self.scope != "audio"
             or self.decision != "approved"
             or not self.approval_reference

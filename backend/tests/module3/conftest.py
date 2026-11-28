@@ -15,6 +15,14 @@ def context(client, admin_token, tmp_path, monkeypatch):
     from app.services.processing.validation import CONFIG_DIR, load_dictionary
 
     settings = get_settings()
+    from decimal import Decimal
+
+    from app.module3 import llm
+
+    # Synthetic transport fixtures have their own ledger. They never consume or
+    # query the user's real historical stage commitments. Budget tests supply
+    # their explicit historical commitments separately.
+    monkeypatch.setattr(llm, "external_commitments", lambda _: [Decimal(0)] * 4)
     for key, value in (
         ("m3_materials_dir", str(tmp_path)),
         ("m3_artifacts_dir", str(tmp_path / "artifacts")),
@@ -55,7 +63,7 @@ def context(client, admin_token, tmp_path, monkeypatch):
             "exam_level": "CET4",
             "exam_year": 2025,
             "exam_month": 6,
-            "paper_set": 1,
+            "paper_set": 1000 + uuid.uuid4().int % 1_000_000,
         },
         "material_ids": [r["id"] for r in materials],
         "document_mode": "text",

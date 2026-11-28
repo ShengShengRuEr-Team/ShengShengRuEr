@@ -5,7 +5,10 @@ export const ROUTES = {
   ADMIN_HOME: '/admin',
   ADMIN_LISTENING_PAPERS: '/admin/listening-papers',
   ADMIN_LISTENING_PAPER_DETAIL: '/admin/listening-papers/:examPaperId',
+  ADMIN_SKILL_ERROR_QUERY: '/admin/skill-error-query',
   STUDENT_HOME: '/student',
+  STUDENT_WRONG_ANSWERS: '/student/listening-papers/wrong-answers',
+  STUDENT_WRONG_ANSWERS_LEGACY: '/student/wrong-answers',
   STUDENT_LISTENING_PAPERS: '/student/listening-papers',
   STUDENT_LISTENING_PAPER_DETAIL: '/student/listening-papers/:examPaperId',
 } as const

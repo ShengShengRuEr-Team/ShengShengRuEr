@@ -11,3 +11,5 @@
 交付声明与历史测试结果不代替 [验收记录](../acceptance/README.md)。
 
 模块三续开发：[需求](../requirements/module-3/continuation-20261115.md) · [设计](module-3/continuation-20261115.md) · [实施进度](module-3/implementation-20261116.md)。
+
+题库管理与 AI 标注扩展（2026-11-24）：[需求 V1.1](../requirements/module-3/library-management-and-ai-20261124.md) · [开发文档与阶段任务](module-3/library-management-and-ai-20261124.md)。双模型标签相同率安排在最后阶段 P6，当前为待实施设计。

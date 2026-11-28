@@ -138,12 +138,16 @@ def generate_candidate(
             raw, call = saved
         else:
             kwargs = {"execution_token": token}
+            if task.method.get("provider_manifest"):
+                kwargs["provider_manifest"] = task.method["provider_manifest"]
             if feedback:
                 kwargs["validation_feedback"] = feedback
             raw, call = request_json(
                 task.id,
                 fingerprint({"audio": result["audio"]["file_hash"]}),
-                "sample" if done < 5 else "run",
+                "sample"
+                if revision.workflow_contract == "legacy" and done < 5
+                else "run",
                 SYSTEM_PROMPT_V7,
                 generation_input(result, question, task.request),
                 settings,
@@ -264,7 +268,14 @@ def fence(db, command_id, token):
         or command.execution_token != token
         or not command.lease_expires_at
         or command.lease_expires_at <= now
-        or workflow.current_revision_id != revision.id
+        or (
+            workflow.current_revision_id != revision.id
+            and not (
+                revision.origin_manifest.get("candidate_only") is True
+                and str(workflow.current_revision_id)
+                == revision.origin_manifest.get("source_revision_id")
+            )
+        )
     ):
         raise ProcessingError("LEASE_REVOKED", "执行权已撤销或修订已切换")
     return workflow, revision, command
@@ -315,7 +326,10 @@ def annotate(command_id, token, task, revision, settings):
         result["schema_version"] = RESULT_VERSION
         result["rules_manifest"] = revision.rules_manifest
         samples = {}
-        if task.request.get("workflow_stage") == "annotate":
+        if (
+            task.request.get("workflow_stage") == "annotate"
+            and revision.workflow_contract == "legacy"
+        ):
             sample, _ = o.stage_payload(db, revision, "sample", settings)
             for receipt in sample["generation_receipts"]:
                 raw, _ = o.artifact_payload(db, receipt["artifact_id"], settings)
@@ -337,6 +351,12 @@ def annotate(command_id, token, task, revision, settings):
         if task.request["workflow_stage"] == "annotate_sample"
         else result["questions"]
     )
+    if task.request.get("annotation_question_src_ids"):
+        selected = [
+            q
+            for q in selected
+            if q["_src_id"] in task.request["annotation_question_src_ids"]
+        ]
     for question in selected:
         with SessionLocal() as db:
             fence(db, command_id, token)
@@ -364,6 +384,12 @@ def annotate(command_id, token, task, revision, settings):
             result.setdefault("candidate_changes", []).extend(
                 receipt_changes(db, receipt, settings)
             )
+            if revision.workflow_contract == "library.v1":
+                from app.services.processing.library_candidates import checkpoint
+
+                fence(db, command_id, token)
+                checkpoint(db, task, revision, question, result, raw, receipt)
+                db.commit()
         annotation_checkpoint(
             command_id,
             token,
@@ -444,6 +470,8 @@ def execute(command_id, token, settings):
                 "annotate_sample": "sample",
                 "annotate": "final",
             }[stage]
+            if stage == "annotate" and revision.workflow_contract == "library.v1":
+                output_stage = "candidates"
             row = record_artifact(db, command, current, output_stage, content, settings)
             dependency = (
                 sample_dependency_hash(content, revision.rules_manifest)
@@ -466,7 +494,18 @@ def execute(command_id, token, settings):
                 **revision.stage_fingerprints,
                 output_stage: projection,
             }
-            if stage == "annotate":
+            if stage == "assemble" and revision.workflow_contract == "library.v1":
+                from app.services.processing.library_editing import attach_source
+
+                attach_source(
+                    db, workflow, revision, content, projection, current.request
+                )
+            if stage == "annotate" and revision.workflow_contract == "library.v1":
+                current.state, current.stage = "completed", "candidates"
+                workflow.processing_state = revision.origin_manifest.get(
+                    "return_processing_state", "candidate_ready"
+                )
+            elif stage == "annotate":
                 from app.services.processing.reviewing import validate_final
 
                 validate_final(
@@ -515,13 +554,31 @@ def execute(command_id, token, settings):
             )
             workflow.row_version += 1
             workflow.updated_at = func.now()
+            if stage == "align" and revision.workflow_contract == "library.v1":
+                # Queue in the same transaction after revoking the old execution.
+                next_task = o.queue_task(
+                    db, workflow, revision, "assemble", command.created_by, settings
+                )
+                automatic = m.ProcessingWorkflowCommand(
+                    id=uuid4(),
+                    workflow_id=workflow.id,
+                    revision_id=revision.id,
+                    action="auto_assemble",
+                    idempotency_key=uuid4(),
+                    request_hash=fingerprint(["auto_assemble", str(command.id)]),
+                    request={"parent_operation_id": str(command.id)},
+                    state="accepted",
+                    result={"task_id": str(next_task.id), "stage": "assemble"},
+                    created_by=command.created_by,
+                )
+                db.add(automatic)
             db.commit()
         return 0
     except Exception as error:
         logging.getLogger(__name__).exception("Workflow stage failed")
         with SessionLocal() as db:
             try:
-                workflow, _, command = fence(db, command_id, token)
+                workflow, failed_revision, command = fence(db, command_id, token)
             except ProcessingError:
                 return 2
             command.state, command.failure_code = (
@@ -530,7 +587,11 @@ def execute(command_id, token, settings):
                 or getattr(error, "code", "PROCESSING_FAILED"),
             )
             command.execution_token, command.lease_expires_at = None, None
-            workflow.processing_state = "failed"
+            workflow.processing_state = (
+                failed_revision.origin_manifest["return_processing_state"]
+                if failed_revision.origin_manifest.get("candidate_only")
+                else "failed"
+            )
             if command.result.get("stage") == "publish":
                 workflow.publication_state = "failed"
             workflow.row_version += 1
@@ -621,7 +682,14 @@ def run_one(settings):
         if not command:
             return None
         workflow, revision, command = lock_command_context(db, command.id)
-        if command.state != "accepted" or workflow.current_revision_id != revision.id:
+        if command.state != "accepted" or (
+            workflow.current_revision_id != revision.id
+            and not (
+                revision.origin_manifest.get("candidate_only") is True
+                and str(workflow.current_revision_id)
+                == revision.origin_manifest.get("source_revision_id")
+            )
+        ):
             db.rollback()
             return None
         token = uuid4()

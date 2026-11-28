@@ -61,6 +61,8 @@ describe('C-09 列表入口四态', () => {
       </MemoryRouter>,
     )
     await screen.findByText('听力练习')
+    expect(screen.getByRole('link', { name: '错题本' }))
+      .toHaveAttribute('href', '/student/listening-papers/wrong-answers')
     expect(screen.queryByText(/后续开放/)).not.toBeInTheDocument()
     expect(screen.queryByText(/查看听力/)).not.toBeInTheDocument()
     expect(

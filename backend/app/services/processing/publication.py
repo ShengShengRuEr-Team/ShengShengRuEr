@@ -24,6 +24,11 @@ def begin(db, workflow_id, payload, user_id, key):
     if old:
         return old
     workflow, revision = w.locked_current(db, workflow_id, payload)
+    if (
+        workflow.exam_paper_id
+        and db.get(l.ExamPaper, workflow.exam_paper_id).archived_at
+    ):
+        raise w.conflict("PAPER_ARCHIVED", "归档试卷不能开始发布")
     session = db.get(m.ProcessingReviewSession, payload.review_session_id)
     if (
         not session
@@ -94,6 +99,10 @@ def insert_annotation_states(db, task, paper, batch, payload, maps):
                 (batch_id,entity_type,src_id,entity_id) VALUES (:b,:s,:src,:id)"""),
                 {"b": batch.id, "s": section, "src": src_id, "id": identity},
             )
+    if payload.get("library_provenance"):
+        from app.services.processing.library_publication import insert_local_states
+
+        insert_local_states(db, task, batch, payload, maps, revision, session)
     for receipt in payload["generation_receipts"]:
         db.execute(
             text("""INSERT INTO question_annotation_states
@@ -252,6 +261,10 @@ def verify_actual_batch(db, batch, payload):
         )
     )
     receipts = payload.get("generation_receipts", [])
+    if payload.get("library_provenance"):
+        from app.services.processing.library_publication import local_state_receipts
+
+        receipts = local_state_receipts(db, batch, payload)
     expected_states = {
         maps.get("questions", {}).get(r["question_src_id"]): r for r in receipts
     }
@@ -264,7 +277,11 @@ def verify_actual_batch(db, batch, payload):
             or row["revision_id"] != revision.id
             or row["generation_state"] != expected_states[row["question_id"]]["state"]
             or row["generation_task_id"]
-            != UUID(expected_states[row["question_id"]]["task_id"])
+            != (
+                UUID(expected_states[row["question_id"]]["task_id"])
+                if expected_states[row["question_id"]].get("task_id")
+                else None
+            )
             or row["candidate_artifact_id"]
             != expected_states[row["question_id"]]["artifact_id"]
             or row["question_input_hash"]

@@ -154,8 +154,12 @@ def create_task(db: Session, data: TaskRequest, user_id: int, settings: Settings
             and data.expected_question_count
             and (
                 paper.expected_question_count != data.expected_question_count
-                or paper.expected_question_count_source
-                != request["expected_question_count_source"]
+                or (
+                    paper.expected_question_count_source
+                    != request["expected_question_count_source"]
+                    and (paper.expected_question_count_source or {}).get("source")
+                    not in {"pending_original_paper", "admin_original_paper"}
+                )
             )
         ):
             raise conflict("可信题量或来源与已冻结值冲突")
@@ -494,6 +498,12 @@ def latest_reviews(db, task):
 
 
 def record_review(db, task_id, data: ReviewRequest, user):
+    waiver = data.review_basis == "user_waiver"
+    if waiver:
+        from app.core.config import get_settings
+
+        if get_settings().app_env not in {"development", "test"}:
+            raise AppError(422, "核听豁免只允许明确授权的本地验收")
     task = get_task(db, task_id, lock=True)
     if task.workflow_id and not db.info.get("workflow_review_session"):
         raise conflict("新结果须通过完整逐题审核会话提交")
@@ -509,7 +519,7 @@ def record_review(db, task_id, data: ReviewRequest, user):
                 for s in payload["transcript_segments"]
                 if s["segment_type"] == "body"
             }
-            if data.review_basis == "user_confirmation":
+            if data.review_basis in {"user_confirmation", "user_waiver"}:
                 expected = set()
             expected.add(("audio", "original"))
         else:
@@ -530,7 +540,7 @@ def record_review(db, task_id, data: ReviewRequest, user):
             set(found) != expected
             or len(found) != len(data.items)
             or any(
-                item.get("verdict") != "PASS"
+                item.get("verdict") != ("WAIVED" if waiver else "PASS")
                 or not str(item.get("reference", "")).strip()
                 for item in found.values()
             )
@@ -540,7 +550,9 @@ def record_review(db, task_id, data: ReviewRequest, user):
             original = found[("audio", "original")]
             if original.get("file_hash") != payload["audio"]["file_hash"]:
                 raise AppError(422, "核听审批必须绑定当前原音哈希")
-            if data.review_basis == "user_confirmation":
+            if waiver and original.get("actual_listening_performed") is not False:
+                raise AppError(422, "核听豁免必须明确记录实际未核听")
+            if data.review_basis in {"user_confirmation", "user_waiver"}:
                 if any(k.startswith("reference_") for k in original):
                     raise AppError(422, "用户确认不得冒充逐端毫秒参考测量")
             elif original.get("listened_to_end") is not True:
@@ -548,7 +560,7 @@ def record_review(db, task_id, data: ReviewRequest, user):
             for segment in payload["transcript_segments"]:
                 if (
                     segment["segment_type"] != "body"
-                    or data.review_basis == "user_confirmation"
+                    or data.review_basis in {"user_confirmation", "user_waiver"}
                 ):
                     continue
                 item = found[("transcript_segments", str(segment["_src_id"]))]
@@ -561,11 +573,11 @@ def record_review(db, task_id, data: ReviewRequest, user):
                     ):
                         raise AppError(422, "句级边界未达到已冻结的300ms精度口径")
     values = data.model_dump(exclude={"review_basis", "approval_reference"})
-    if data.review_basis == "user_confirmation":
+    if data.review_basis in {"user_confirmation", "user_waiver"}:
         values["items"] = [
             {
                 **item,
-                "review_basis": "user_confirmation",
+                "review_basis": data.review_basis,
                 "approval_reference": data.approval_reference,
                 "millisecond_measurement": "not_claimed",
             }
@@ -776,6 +788,8 @@ def activate(db, paper_id, data: ActivationRequest, user_id):
     )
     if paper is None:
         raise not_found()
+    if paper.archived_at is not None:
+        raise conflict("归档试卷不能激活新批次")
     task = get_task(db, data.task_id, lock=True)
     if task.workflow_id and not db.info.get("workflow_publication"):
         raise conflict("新结果须通过工作流发布操作激活")
@@ -821,6 +835,7 @@ def activate(db, paper_id, data: ActivationRequest, user_id):
         current.is_current = False
         db.flush()
     batch.is_current, batch.status = True, "active"
+    paper.library_row_version += 1
     paper.playback_audio_id = batch.audio_id
     paper.review_status = "已通过"
     visibility = db.scalar(

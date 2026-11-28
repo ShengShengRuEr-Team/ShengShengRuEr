@@ -40,12 +40,13 @@ class QuestionAnnotationState(Base):
     rules_manifest_hash = Column(String(64), nullable=False)
     question_input_hash = Column(String(64), nullable=False)
     generation_state = Column(String(32), nullable=False)
-    generation_task_id = Column(
-        UUID(as_uuid=True), ForeignKey("processing_tasks.id"), nullable=False
+    source_type = Column(String(16), nullable=False, server_default="AI")
+    library_save_version_id = Column(
+        UUID(as_uuid=True), ForeignKey("library_save_versions.id")
     )
-    candidate_artifact_id = Column(
-        BigInteger, ForeignKey("processing_artifacts.id"), nullable=False
-    )
+    origin_task_id = Column(UUID(as_uuid=True), ForeignKey("processing_tasks.id"))
+    generation_task_id = Column(UUID(as_uuid=True), ForeignKey("processing_tasks.id"))
+    candidate_artifact_id = Column(BigInteger, ForeignKey("processing_artifacts.id"))
     review_session_id = Column(
         UUID(as_uuid=True), ForeignKey("processing_review_sessions.id"), nullable=False
     )

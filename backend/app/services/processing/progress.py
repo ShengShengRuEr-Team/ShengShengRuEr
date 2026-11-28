@@ -1,12 +1,17 @@
 """Read-only progress from committed checkpoints and current OCR page outputs."""
 
 import json
+import re
 from datetime import UTC, datetime
+from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 
-from app.db.models_processing import ProcessingArtifact
-from app.db.models_processing_workflows import ProcessingWorkflowCommand
+from app.db.models_processing import ProcessingArtifact, ProcessingTask
+from app.db.models_processing_workflows import (
+    ProcessingWorkflowCommand,
+    ProcessingWorkflowRevision,
+)
 from app.module3.contracts import ProcessingError, controlled_path
 
 DESCRIPTIONS = {
@@ -59,6 +64,7 @@ def ocr_progress(task, settings, artifact_stages):
             if (directory / "extracted.json").is_file():
                 continue
             pairs = []
+            unselected_materials = set()
             known_total = True
             for material in manifest.get("files", []):
                 identity = material["material_id"]
@@ -70,12 +76,34 @@ def ocr_progress(task, settings, artifact_stages):
                 pages = material.get("page_numbers")
                 if not pages:
                     known_total = False
+                    unselected_materials.add(identity)
                     continue
                 if len(pages) > 500 or any(
                     type(n) is not int or not 1 <= n <= 500 for n in pages
                 ):
                     raise ValueError("invalid progress page selection")
                 pairs.extend((identity, n) for n in pages)
+            # Automatic page selection has no trustworthy total yet. Discover
+            # observed pages without treating a rendered image as completed OCR.
+            if unselected_materials:
+                observed = set()
+                for subfolder, extension in (
+                    ("page-results", "json"),
+                    ("reference-pages", "json"),
+                    ("pages", "png"),
+                ):
+                    observed_dir = controlled_path(
+                        root, f"{prefix}/{subfolder}", must_exist=False
+                    )
+                    for path in observed_dir.glob(f"*.{extension}"):
+                        match = re.fullmatch(
+                            rf"([0-9]{{1,19}})-([0-9]{{1,3}})\.{extension}", path.name
+                        )
+                        if match:
+                            identity, number = map(int, match.groups())
+                            if identity in unselected_materials and 1 <= number <= 500:
+                                observed.add((identity, number))
+                pairs.extend(sorted(observed))
             pairs = list(dict.fromkeys(pairs))
             completed, current = 0, None
             updated = None
@@ -125,16 +153,45 @@ def ocr_progress(task, settings, artifact_stages):
 def workflow_progress(db, workflow, task, materials, now, settings, revision):
     command = db.scalar(
         select(ProcessingWorkflowCommand)
+        .join(
+            ProcessingWorkflowRevision,
+            ProcessingWorkflowRevision.id == ProcessingWorkflowCommand.revision_id,
+        )
         .where(
             ProcessingWorkflowCommand.workflow_id == workflow.id,
-            ProcessingWorkflowCommand.revision_id == workflow.current_revision_id,
+            or_(
+                ProcessingWorkflowCommand.revision_id == workflow.current_revision_id,
+                and_(
+                    ProcessingWorkflowCommand.action == "library_generate",
+                    ProcessingWorkflowCommand.state.in_(("accepted", "running")),
+                    ProcessingWorkflowRevision.origin_manifest["candidate_only"]
+                    .as_boolean()
+                    .is_(True),
+                    ProcessingWorkflowRevision.origin_manifest[
+                        "source_revision_id"
+                    ].as_string()
+                    == str(workflow.current_revision_id),
+                ),
+            ),
             ProcessingWorkflowCommand.action.in_(
-                ("start", "continue", "retry", "publish")
+                (
+                    "start",
+                    "continue",
+                    "retry",
+                    "publish",
+                    "auto_assemble",
+                    "library_generate",
+                )
             ),
         )
         .order_by(ProcessingWorkflowCommand.created_at.desc())
         .limit(1)
     )
+    # Candidate-only jobs have their own task/revision while the editable head
+    # remains on its source. Observe that execution without changing ownership.
+    if command and command.action == "library_generate":
+        task = db.get(ProcessingTask, UUID(command.result["task_id"]))
+        revision = db.get(ProcessingWorkflowRevision, command.revision_id)
     publishing = bool(command and command.result.get("stage") == "publish")
     active = bool(
         command
@@ -235,6 +292,8 @@ def workflow_progress(db, workflow, task, materials, now, settings, revision):
                 completed_count=len(reused),
                 total_count=5
                 if stage == "annotate_sample"
+                else len(task.request["annotation_question_src_ids"])
+                if "annotation_question_src_ids" in task.request
                 else task.request.get("expected_question_count"),
                 unit="题",
             )

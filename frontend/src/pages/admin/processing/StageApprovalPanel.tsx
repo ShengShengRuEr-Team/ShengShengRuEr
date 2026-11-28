@@ -73,9 +73,10 @@ export default function StageApprovalPanel({workflow, stage, busy, command}: {
     if (items.some(item => !checked[item._src_id] || !notes[item._src_id]?.trim())) {setError('请逐项确认并填写实际核对依据'); return}
     await command('stage_approval', 'stage-approvals', {stage, artifact_hash:projection.artifact_hash,
       expected_stage_dependency_hash:projection.dependency_hash,decision:'approved',
-      items:items.map(item => ({reference:item._src_id,decision:'approved',reason:notes[item._src_id]}))})
+      items:items.filter(item=>!(workflow.workflow_contract==='library.v1'&&item.segment_type==='body')).map(item => ({reference:item._src_id,decision:'approved',reason:notes[item._src_id]})),
+      listening_items:workflow.workflow_contract==='library.v1'?items.filter(item=>item.segment_type==='body').map(item=>({reference:item._src_id,decision:'approved',reason:notes[item._src_id]})):[]})
   }
-  return <Card title={stage === 'align' ? '核听对齐确认' : stage === 'source' ? '来源内容确认' : '前5题试标复核'}>
+  return <Card title={stage === 'align' ? '核听对齐确认（旧流程）' : stage === 'source' ? '来源内容与实际核听确认' : '前5题试标复核（旧流程）'}>
     <Space orientation="vertical" size={12} style={{width:'100%'}}>
       <Alert type="info" showIcon title="确认只保存审核依据；继续处理需另行点击" description={stage === 'align' ? '请结合原音逐句核听。此处记录人工确认，不冒充独立毫秒精度测量。' : '请结合原件、题目与证据逐项核对。任何新内容结果仍须整套重新审核。'} />
       {error && <Alert type="error" title={error} />}
@@ -91,7 +92,7 @@ export default function StageApprovalPanel({workflow, stage, busy, command}: {
       {!approved && items.map((item,index) => <div className="processing-stage-item" key={item._src_id}>
         <Checkbox checked={Boolean(checked[item._src_id])} onChange={event => setChecked(value => ({...value,[item._src_id]:event.target.checked}))}>
           第 {index+1} 项：{item.text ?? item.question_text}</Checkbox>
-        {stage==='align'&&<Space wrap style={{marginTop:8}}><Typography.Text type="secondary">原音 {(Number(item.start_ms)/1000).toFixed(2)}—{(Number(item.end_ms)/1000).toFixed(2)} 秒</Typography.Text>
+        {(stage==='align'||item.segment_type==='body')&&<Space wrap style={{marginTop:8}}><Typography.Text type="secondary">原音 {(Number(item.start_ms)/1000).toFixed(2)}—{(Number(item.end_ms)/1000).toFixed(2)} 秒</Typography.Text>
           <Button size="small" onClick={()=>void play(item)}>试听本句</Button></Space>}
         <Input aria-label={`第${index+1}项核对依据`} placeholder="填写本项的原件定位、核听或证据核对依据" value={notes[item._src_id] ?? ''}
           onChange={event => setNotes(value => ({...value,[item._src_id]:event.target.value}))} />

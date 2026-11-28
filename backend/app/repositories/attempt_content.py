@@ -77,6 +77,14 @@ def check_submit_access(
     “加载后下线再同键重试”被错误升级为 400/404 语义。
     """
 
+    # Serialize new admission with archive and activation. Accepted idempotent
+    # replays return earlier in attempts.submit and never reach this lock.
+    db.scalar(
+        select(ExamPaper)
+        .where(ExamPaper.id == exam_paper_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     return student_access(db, exam_paper_id)
 
 
@@ -86,22 +94,16 @@ def check_submit_access(
 def _load_batch_rows(
     db: Session, batch_id: int
 ) -> tuple[list[Question], list[Presentation], dict[int, str]]:
-    questions = db.scalars(
-        select(Question).where(Question.batch_id == batch_id)
-    ).all()
+    questions = db.scalars(select(Question).where(Question.batch_id == batch_id)).all()
     presentations = db.scalars(
         select(Presentation).where(Presentation.batch_id == batch_id)
     ).all()
-    passages = db.scalars(
-        select(Passage).where(Passage.batch_id == batch_id)
-    ).all()
+    passages = db.scalars(select(Passage).where(Passage.batch_id == batch_id)).all()
     passage_type_by_id = {passage.id: passage.passage_type for passage in passages}
     return list(questions), list(presentations), passage_type_by_id
 
 
-def _ensure_audio_readable(
-    db: Session, paper: ExamPaper, settings: Settings
-) -> None:
+def _ensure_audio_readable(db: Session, paper: ExamPaper, settings: Settings) -> None:
     if paper.playback_audio_id is None:
         raise PaperUnavailable(PAPER_UNAVAILABLE_AUDIO_UNAVAILABLE)
     audio = db.get(AudioFile, paper.playback_audio_id)
@@ -368,16 +370,12 @@ def validate_answers(
         dict.fromkeys(qid for qid in answer_ids if qid not in loaded_set)
     )
     if outside_loaded:
-        return AnswerValidation(
-            False, ANSWER_REASON_NOT_IN_LOADED, outside_loaded
-        )
+        return AnswerValidation(False, ANSWER_REASON_NOT_IN_LOADED, outside_loaded)
 
     outside_current = tuple(
         dict.fromkeys(qid for qid in answer_ids if qid not in current_set)
     )
     if outside_current:
-        return AnswerValidation(
-            False, ANSWER_REASON_NOT_IN_CURRENT, outside_current
-        )
+        return AnswerValidation(False, ANSWER_REASON_NOT_IN_CURRENT, outside_current)
 
     return AnswerValidation(True)

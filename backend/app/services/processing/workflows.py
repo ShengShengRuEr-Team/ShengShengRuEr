@@ -171,6 +171,14 @@ def create_workflow(db, payload, user_id, key):
     old, digest, body = begin_command(db, user_id, "create", key, None, payload)
     if old:
         return old
+    from app.core.config import get_settings
+    from app.module3.providers import freeze
+
+    provider_method = (
+        freeze(payload.provider, get_settings())
+        if payload.workflow_contract == "library.v1"
+        else None
+    )
     identity = {
         name: body[name]
         for name in ("exam_level", "exam_year", "exam_month", "paper_set")
@@ -194,6 +202,18 @@ def create_workflow(db, payload, user_id, key):
             "该考试已有工作流，请继续或创建子修订",
             workflow_id=str(existing.id),
         )
+    if payload.workflow_contract == "library.v1" and not papers:
+        if payload.exam_month not in {6, 12} or payload.paper_set not in {1, 2, 3}:
+            raise AppError(422, "本轮仅支持四级、六级标准完整真题")
+        paper = ExamPaper(
+            **identity,
+            exam_paper_code=f"{payload.exam_level}-{payload.exam_year}{payload.exam_month:02d}-{payload.paper_set}",
+            expected_question_count=25,
+            expected_question_count_source={"source": "pending_original_paper"},
+        )
+        db.add(paper)
+        db.flush()
+        papers = [paper]
     workflow = m.ProcessingWorkflow(
         id=uuid4(),
         **identity,
@@ -207,6 +227,8 @@ def create_workflow(db, payload, user_id, key):
         id=uuid4(),
         workflow_id=workflow.id,
         revision_no=1,
+        workflow_contract=payload.workflow_contract,
+        origin_manifest={"provider_method": provider_method} if provider_method else {},
         reason="创建工作流",
         document_mode=payload.document_mode,
         listening_pages=body["listening_pages"],
@@ -258,6 +280,24 @@ def create_revision(db, workflow_id, payload, user_id, key):
         payload.document_mode,
         body["listening_pages"],
     )
+    if payload.workflow_contract == "library.v1":
+        revision.workflow_contract = "library.v1"
+        revision.origin_manifest = {"upgraded_from_revision_id": str(parent.id)}
+        revision.stage_fingerprints = {
+            k: v
+            for k, v in parent.stage_fingerprints.items()
+            if k in {"align", "source"}
+        }
+        if "source" in revision.stage_fingerprints:
+            workflow.processing_state = "awaiting_source"
+    if payload.provider:
+        from app.core.config import get_settings
+        from app.module3.providers import freeze
+
+        revision.origin_manifest = {
+            **revision.origin_manifest,
+            "provider_method": freeze(payload.provider, get_settings()),
+        }
     return finish_command(
         db,
         workflow,
@@ -281,8 +321,17 @@ def copy_revision(
     revision = m.ProcessingWorkflowRevision(
         id=uuid4(),
         workflow_id=workflow.id,
-        revision_no=parent.revision_no + 1,
+        revision_no=db.scalar(
+            select(func.max(m.ProcessingWorkflowRevision.revision_no)).where(
+                m.ProcessingWorkflowRevision.workflow_id == workflow.id
+            )
+        )
+        + 1,
         parent_revision_id=parent.id,
+        workflow_contract=parent.workflow_contract,
+        origin_manifest={"provider_method": parent.origin_manifest["provider_method"]}
+        if parent.origin_manifest.get("provider_method")
+        else {},
         reason=reason,
         document_mode=document_mode,
         listening_pages=listening_pages,
@@ -471,6 +520,7 @@ def workflow_data(db, workflow):
     return {
         "workflow_id": workflow.id,
         "revision_id": revision.id,
+        "workflow_contract": revision.workflow_contract,
         "row_version": workflow.row_version,
         "task_id": workflow.current_task_id,
         "result_hash": revision.final_result_hash,

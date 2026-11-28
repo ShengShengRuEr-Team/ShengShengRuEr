@@ -8,9 +8,11 @@ from tests.batch_preconditions import current_batch_id
 
 
 @pytest.mark.parametrize(
-    "status,count", [(401, 1), (403, 1), (429, 3), (500, 3), (503, 3)]
+    "status,count", [(401, 1), (403, 1), (429, 1), (500, 1), (503, 1)]
 )
-def test_a17_http_retry_limit_and_unknown_billing(context, monkeypatch, status, count):
+def test_a17_no_implicit_http_retry_and_unknown_billing(
+    context, monkeypatch, status, count
+):
     import httpx
     from pydantic import SecretStr
     from sqlalchemy import select
@@ -113,7 +115,7 @@ def test_a17_timeout_reservation_not_zeroed(context, monkeypatch):
         rows = db.scalars(
             select(LlmAttempt).where(LlmAttempt.task_id == UUID(context["task_id"]))
         ).all()
-        assert len(rows) == 3 and all(
+        assert len(rows) == 1 and all(
             r.charged_usd is None and r.reserved_usd > 0 for r in rows
         )
 
