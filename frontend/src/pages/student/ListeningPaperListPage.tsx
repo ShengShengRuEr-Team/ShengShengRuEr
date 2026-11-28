@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ReloadOutlined } from '@ant-design/icons'
 import { Alert, Button, Card, Empty, Skeleton, Space, Table, Tag, Typography } from 'antd'
 import type { TableProps } from 'antd'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { PaperSummary } from '../../api/adapters'
 import { getListeningPapers } from '../../api/listening'
 import {
@@ -12,7 +12,7 @@ import {
   readEnvelope,
 } from '../../attempt/storage'
 import { useAuth } from '../../auth/useAuth'
-import { studentListeningPaperPath } from '../../constants/routes'
+import { ROUTES, studentListeningPaperPath } from '../../constants/routes'
 import { isAbortError } from '../../utils/concurrency'
 import { formatContentScope, formatDuration, formatPaperLabel } from '../../utils/format'
 
@@ -169,6 +169,7 @@ export default function StudentListeningPaperListPage() {
           </Typography.Text>
         </Space>
         <div className="page-actions">
+          <Link to={ROUTES.STUDENT_WRONG_ANSWERS}>错题本</Link>
           <Button icon={<ReloadOutlined />} onClick={() => setReloadKey((key) => key + 1)}>
             刷新
           </Button>

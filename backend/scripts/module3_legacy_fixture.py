@@ -30,7 +30,10 @@ def main() -> None:
             )
         allowed = {"0004_expected_count_source"}
         if args.source:
-            allowed |= {"0005_attempt_system", "0006_module3_invariants"}
+            allowed |= {
+                "0005_attempt_system", "0006_module3_invariants",
+                "0013_wrong_answer_state_times", "0014_library_provider_ledger",
+            }
         if not revisions or not revisions <= allowed:
             raise RuntimeError("Fixture requires the module-two migration revision")
         from app.seed import seed
@@ -51,7 +54,9 @@ def main() -> None:
             def add(table, **values):
                 target = metadata.tables[table]
                 return connection.scalar(
-                    insert(target).values(**values).returning(target.c.id)
+                    insert(target)
+                    .values(**values)
+                    .returning(next(iter(target.primary_key.columns)))
                 )
 
             audio_id = add(
@@ -159,7 +164,7 @@ def main() -> None:
                     correct_rate=100,
                     score_breakdown={"synthetic": True},
                 )
-                add(
+                answer_id = add(
                     "attempt_answers",
                     attempt_id=attempt,
                     question_no=1,
@@ -174,6 +179,13 @@ def main() -> None:
                     is_correct=True,
                     explanation_text="Synthetic preservation fixture",
                 )
+                if "wrong_answer_states" in metadata.tables:
+                    add(
+                        "wrong_answer_states",
+                        answer_id=answer_id,
+                        learning_status="mastered",
+                        is_hidden=True,
+                    )
             if args.source and "error_question_relations" in metadata.tables:
                 snapshot = add(
                     "dictionary_snapshots",

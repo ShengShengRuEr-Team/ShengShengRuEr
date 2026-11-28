@@ -142,6 +142,7 @@ export default function SkillErrorQueryPage() {
   )
 
   useEffect(() => {
+    setDictionary(null)
     setCategoryFilter(null)
     setSearch('')
     setRoleFilter('all')
@@ -404,10 +405,10 @@ export default function SkillErrorQueryPage() {
             }
             extra={
               <Space size={0}>
-                <Button type="link" size="small" onClick={expandAll}>
+                <Button type="link" size="small" onClick={expandAll} disabled={!dictionary}>
                   展开全部
                 </Button>
-                <Button type="link" size="small" onClick={collapseAll}>
+                <Button type="link" size="small" onClick={collapseAll} disabled={!dictionary}>
                   收起
                 </Button>
               </Space>

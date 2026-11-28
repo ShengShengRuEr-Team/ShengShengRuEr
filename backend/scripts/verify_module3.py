@@ -158,6 +158,12 @@ class Verification:
             ("attempt-source", ["0005_attempt_system"]),
             ("processing-source", ["0006_module3_invariants"]),
             ("combined-source", ["0005_attempt_system", "0006_module3_invariants"]),
+            ("notebook-source", ["0013_wrong_answer_state_times"]),
+            ("library-source", ["0014_library_provider_ledger"]),
+            (
+                "library-notebook-source",
+                ["0014_library_provider_ledger", "0013_wrong_answer_state_times"],
+            ),
         ):
             for index, source in enumerate(sources):
                 self.run(

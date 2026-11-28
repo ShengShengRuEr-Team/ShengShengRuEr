@@ -121,9 +121,10 @@ export default function ErrorQuestionList({
     {
       title: '题目',
       key: 'question',
+      width: 280,
       render: (_, item) => (
         <Space direction="vertical" size={0}>
-          <Typography.Text strong ellipsis style={{ maxWidth: 430 }}>
+          <Typography.Text strong ellipsis style={{ maxWidth: 260 }}>
             {item.question_text}
           </Typography.Text>
           <Typography.Text type="secondary" className="skill-query-code">
@@ -146,6 +147,7 @@ export default function ErrorQuestionList({
     {
       title: '错误选项 / 候选错因',
       key: 'options',
+      width: 400,
       render: (_, item) => (
         <Space direction="vertical" size={6} style={{ width: '100%' }}>
           {item.error_options.map((option) => (
@@ -209,6 +211,8 @@ export default function ErrorQuestionList({
       columns={columns}
       dataSource={items}
       pagination={false}
+      tableLayout="fixed"
+      scroll={{ x: 1200 }}
       expandable={{
         expandedRowKeys: [...expandedKeys],
         onExpand: (expanded, record) => {

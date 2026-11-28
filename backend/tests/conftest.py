@@ -61,6 +61,10 @@ def prepared_database() -> Generator[None]:
     os.environ["JWT_SECRET_KEY"] = "pytest-only-secret-key-0123456789abcdef"
     os.environ["JWT_ALGORITHM"] = "HS256"
     os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "120"
+    # Local acceptance may enable these switches in .env. Tests start from the
+    # default closed gates and enable each capability explicitly in its fixture.
+    os.environ["WRONG_ANSWERS_STATE_WRITES_ENABLED"] = "false"
+    os.environ["WRONG_ANSWERS_PROTECTED_DETAILS_ENABLED"] = "false"
 
     from alembic import command
     from alembic.config import Config

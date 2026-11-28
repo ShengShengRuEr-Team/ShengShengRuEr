@@ -86,6 +86,7 @@ class StageApprovalRequest(WorkflowPreconditions):
     listening_items: list[StageApprovalItem] = Field(
         default_factory=list, max_length=1000
     )
+    listening_waiver_reference: NonEmpty | None = Field(default=None, max_length=2000)
 
 
 class ContinueRequest(WorkflowPreconditions):
@@ -126,6 +127,7 @@ class ReviewSubmitRequest(WorkflowPreconditions):
     expected_result_hash: Sha256
     expected_session_version: int = Field(gt=0, strict=True)
     audio_confirmed: bool
+    audio_waiver_reference: NonEmpty | None = Field(default=None, max_length=2000)
     approval_reference: NonEmpty = Field(max_length=2000)
 
 
