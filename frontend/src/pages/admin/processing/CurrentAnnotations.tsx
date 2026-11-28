@@ -12,7 +12,7 @@ export default function CurrentAnnotations({paperId,batchId}:{paperId:number;bat
   const controller=useRef<AbortController|null>(null)
   useEffect(()=>{const abort=new AbortController();setItems([]);setState('');setError('')
     if(batchId)void request<{items:QuestionView[];annotation_state:string}>({url:`/api/v1/admin/listening-papers/${paperId}/annotations`,params:{expected_batch_id:batchId,limit:100},signal:abort.signal})
-      .then(value=>{setItems(value.items);setState(value.annotation_state)})
+      .then(value=>{setItems([...value.items].sort((a,b)=>a.question_no-b.question_no));setState(value.annotation_state)})
       .catch(cause=>{if(!abort.signal.aborted)setError(cause instanceof Error?cause.message:'正式标注读取失败')})
     return()=>abort.abort()
   },[paperId,batchId])
